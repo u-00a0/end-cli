@@ -51,8 +51,9 @@ jobs:
           bin="end-cli"
           src="target/${{ matrix.target }}/release/${bin}"
           pkg="${bin}-${version}-${{ matrix.target }}"
-          cp "${src}" "${pkg}"
-          tar -czf "${out_dir}/${pkg}.${{ matrix.archive_ext }}" "${pkg}"
+          stage_dir="$(mktemp -d)"
+          cp "${src}" "${stage_dir}/${bin}"
+          tar -czf "${out_dir}/${pkg}.${{ matrix.archive_ext }}" -C "${stage_dir}" "${bin}"
 
       - name: Package artifacts (Windows)
         if: runner.os == 'Windows'
@@ -66,8 +67,11 @@ jobs:
           $bin = "end-cli"
           $src = "target/${{ matrix.target }}/release/$bin.exe"
           $pkg = "$bin-$version-${{ matrix.target }}"
-          Copy-Item $src "$pkg.exe"
-          Compress-Archive -Path "$pkg.exe" -DestinationPath "$outDir/$pkg.${{ matrix.archive_ext }}"
+          $stageDir = Join-Path $env:RUNNER_TEMP "release-stage"
+          New-Item -Path $stageDir -ItemType Directory -Force | Out-Null
+          $stagedExe = Join-Path $stageDir "$bin.exe"
+          Copy-Item $src $stagedExe
+          Compress-Archive -Path $stagedExe -DestinationPath "$outDir/$pkg.${{ matrix.archive_ext }}"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

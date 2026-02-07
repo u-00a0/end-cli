@@ -95,9 +95,11 @@ fn solve(lang: Lang, data_dir: Option<PathBuf>, aic_path: PathBuf) -> Result<()>
     let aic = if aic_path.exists() {
         load_aic(&aic_path, &catalog).with_context(|| format!("loading {}", aic_path.display()))?
     } else {
+        let init_hint = format!("end-cli init --aic {}", aic_path.display());
         eprintln!(
-            "warning: {} not found; using defaults (run `cargo run -q -- init` to create one)",
-            aic_path.display()
+            "warning: {} not found; using defaults (run `{}` to create it)",
+            aic_path.display(),
+            init_hint
         );
         default_aic(&catalog).context("building default solve inputs")?
     };

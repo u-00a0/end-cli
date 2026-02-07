@@ -48,6 +48,10 @@ fn solve_without_aic_uses_defaults() {
         stderr.contains("not found; using defaults"),
         "stderr did not contain fallback warning: {stderr}"
     );
+    assert!(
+        stderr.contains("end-cli init --aic aic.toml"),
+        "stderr did not include init hint with aic file name: {stderr}"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
