@@ -1,41 +1,44 @@
-# end (v2 workspace)
+# end-cli
 
-## Quick Start
+`end-cli` 是一个针对《明日方舟：终末地》中的自动化生产问题的求解工具，支持多语言配置和数据输入。它使用两阶段 MILP 求解方法，能够处理复杂的生产链优化问题。
 
-```bash
-cargo run -q
-```
+## 安装
 
-默认行为：
-- 运行 `end-cli solve`
-- 读取当前目录 `aic.toml`；若不存在则使用默认配置并给出 warning
+### 方式一：下载 GitHub Releases 二进制文件
 
-## Commands
+在 [GitHub Releases](https://github.com/sssxks/end-cli/releases) 页面下载对应平台的程序，解压后将 `end-cli` 可执行文件放到系统 PATH 中即可。
 
-初始化 `aic.toml`：
+### 方式二：cargo install
 
 ```bash
-cargo run -q -- init
+cargo install --git https://github.com/sssxks/end-cli --bin end-cli
 ```
 
-指定语言与数据目录求解：
+## 快速开始
 
 ```bash
-cargo run -q -- solve --lang en --data-dir ./data
+end-cli init
 ```
 
-将 v1 Lua 输入转换为 v2 TOML：
+默认会在当前目录生成 `aic.toml`。修改上述文件填入数值后，运行：
 
 ```bash
-cargo run -q -p end-lua2toml -- convert -i data/input -o data
+end-cli solve
 ```
 
-## Workspace Crates
+## 常用命令速查
 
-- `crates/end_model`: 纯数据模型与公共类型
-- `crates/end_io`: TOML 加载与引用/Schema 校验
-- `crates/end_opt`: 两阶段 MILP 求解
-- `crates/end_report`: 报告渲染与 i18n 显示
-- `crates/end_lua_convert`: v1 Lua -> v2 TOML 转换器库
-- `crates/end_cli`: v2 主程序
-- `crates/end_lua2toml`: 转换器 CLI
+```bash
+# 覆盖已有 aic.toml
+end-cli init --force
+
+# 指定 aic 文件
+end-cli solve --aic ./configs/aic.toml
+# 指定输出语言，可选语言：`zh`、`en`
+end-cli solve --lang en 
+
+# 查看帮助
+end-cli --help
+end-cli solve --help
+end-lua2toml --help
+```
