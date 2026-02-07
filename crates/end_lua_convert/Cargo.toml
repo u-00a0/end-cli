@@ -1,0 +1,11 @@
+[package]
+name = "end-lua-convert"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+end-model = { path = "../end_model" }
+mlua = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }

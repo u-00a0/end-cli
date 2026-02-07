@@ -1,0 +1,13 @@
+[package]
+name = "end-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+end-io = { path = "../end_io" }
+end-model = { path = "../end_model" }
+end-opt = { path = "../end_opt" }
+end-report = { path = "../end_report" }
+toml = { workspace = true }

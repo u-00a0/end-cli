@@ -1,0 +1,10 @@
+[package]
+name = "end-report"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+end-model = { path = "../end_model" }
+end-opt = { path = "../end_opt" }
+thiserror = { workspace = true }
+clap = { workspace = true }

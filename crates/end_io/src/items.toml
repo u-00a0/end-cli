@@ -1,0 +1,489 @@
+[[items]]
+key = "Aketine"
+en = "Aketine"
+zh = "阿刻汀"
+
+[[items]]
+key = "Aketine Powder"
+en = "Aketine Powder"
+zh = "阿刻汀粉"
+
+[[items]]
+key = "Aketine Seed"
+en = "Aketine Seed"
+zh = "阿刻汀种子"
+
+[[items]]
+key = "Amber Rice"
+en = "Amber Rice"
+zh = "琥珀米"
+
+[[items]]
+key = "Amber Rice Seed"
+en = "Amber Rice Seed"
+zh = "琥珀米种子"
+
+[[items]]
+key = "Amethyst Bottle"
+en = "Amethyst Bottle"
+zh = "紫晶质瓶"
+
+[[items]]
+key = "Amethyst Bottle (Clean Water)"
+en = "Amethyst Bottle (Clean Water)"
+zh = "紫晶质瓶（清水）"
+
+[[items]]
+key = "Amethyst Bottle (Jincao Solution)"
+en = "Amethyst Bottle (Jincao Solution)"
+zh = "紫晶质瓶（金草溶液）"
+
+[[items]]
+key = "Amethyst Bottle (Liquid Xiranite)"
+en = "Amethyst Bottle (Liquid Xiranite)"
+zh = "紫晶质瓶（液态希然石）"
+
+[[items]]
+key = "Amethyst Bottle (Yazhen Solution)"
+en = "Amethyst Bottle (Yazhen Solution)"
+zh = "紫晶质瓶（雅针溶液）"
+
+[[items]]
+key = "Amethyst Component"
+en = "Amethyst Component"
+zh = "紫晶部件"
+
+[[items]]
+key = "Amethyst Fiber"
+en = "Amethyst Fiber"
+zh = "紫晶纤维"
+
+[[items]]
+key = "Amethyst Ore"
+en = "Amethyst Ore"
+zh = "紫晶矿"
+
+[[items]]
+key = "Amethyst Part"
+en = "Amethyst Part"
+zh = "紫晶零件"
+
+[[items]]
+key = "Amethyst Powder"
+en = "Amethyst Powder"
+zh = "紫晶粉"
+
+[[items]]
+key = "Buck Capsule (A)"
+en = "Buck Capsule (A)"
+zh = "精选荞愈胶囊"
+
+[[items]]
+key = "Buck Capsule (B)"
+en = "Buck Capsule (B)"
+zh = "优质荞愈胶囊"
+
+[[items]]
+key = "Buck Capsule (C)"
+en = "Buck Capsule (C)"
+zh = "荞愈胶囊"
+
+[[items]]
+key = "Buckflower"
+en = "Buckflower"
+zh = "荞愈花"
+
+[[items]]
+key = "Buckflower Powder"
+en = "Buckflower Powder"
+zh = "荞愈花粉"
+
+[[items]]
+key = "Buckflower Seed"
+en = "Buckflower Seed"
+zh = "荞愈花种子"
+
+[[items]]
+key = "Bumper-Rich"
+en = "Bumper-Rich"
+zh = "富缓冲剂"
+
+[[items]]
+key = "Burdo-Muck"
+en = "Burdo-Muck"
+zh = "伯尔多泥"
+
+[[items]]
+key = "Canned Citrome (A)"
+en = "Canned Citrome (A)"
+zh = "精选柑实罐头"
+
+[[items]]
+key = "Canned Citrome (B)"
+en = "Canned Citrome (B)"
+zh = "优质柑实罐头"
+
+[[items]]
+key = "Canned Citrome (C)"
+en = "Canned Citrome (C)"
+zh = "柑实罐头"
+
+[[items]]
+key = "Carbon"
+en = "Carbon"
+zh = "碳"
+
+[[items]]
+key = "Carbon Powder"
+en = "Carbon Powder"
+zh = "碳粉"
+
+[[items]]
+key = "Citrome"
+en = "Citrome"
+zh = "柑实"
+
+[[items]]
+key = "Citrome Powder"
+en = "Citrome Powder"
+zh = "柑实粉"
+
+[[items]]
+key = "Citrome Seed"
+en = "Citrome Seed"
+zh = "柑实种子"
+
+[[items]]
+key = "Clean Water"
+en = "Clean Water"
+zh = "清水"
+
+[[items]]
+key = "Cryston Bottle"
+en = "Cryston Bottle"
+zh = "晶通质瓶"
+
+[[items]]
+key = "Cryston Bottle (Clean Water)"
+en = "Cryston Bottle (Clean Water)"
+zh = "晶通质瓶（清水）"
+
+[[items]]
+key = "Cryston Bottle (Jincao Solution)"
+en = "Cryston Bottle (Jincao Solution)"
+zh = "晶通质瓶（金草溶液）"
+
+[[items]]
+key = "Cryston Bottle (Liquid Xiranite)"
+en = "Cryston Bottle (Liquid Xiranite)"
+zh = "晶通质瓶（液态希然石）"
+
+[[items]]
+key = "Cryston Bottle (Yazhen Solution)"
+en = "Cryston Bottle (Yazhen Solution)"
+zh = "晶通质瓶（雅针溶液）"
+
+[[items]]
+key = "Cryston Component"
+en = "Cryston Component"
+zh = "晶通部件"
+
+[[items]]
+key = "Cryston Fiber"
+en = "Cryston Fiber"
+zh = "晶通纤维"
+
+[[items]]
+key = "Cryston Part"
+en = "Cryston Part"
+zh = "晶通零件"
+
+[[items]]
+key = "Cryston Powder"
+en = "Cryston Powder"
+zh = "晶通粉"
+
+[[items]]
+key = "Dense Carbon Powder"
+en = "Dense Carbon Powder"
+zh = "浓缩碳粉"
+
+[[items]]
+key = "Dense Ferrium Powder"
+en = "Dense Ferrium Powder"
+zh = "浓缩铁粉"
+
+[[items]]
+key = "Dense Originium Powder"
+en = "Dense Originium Powder"
+zh = "浓缩源石粉"
+
+[[items]]
+key = "Dense Origocrust Powder"
+en = "Dense Origocrust Powder"
+zh = "浓缩晶体外壳粉"
+
+[[items]]
+key = "Ferrium"
+en = "Ferrium"
+zh = "铁"
+
+[[items]]
+key = "Ferrium Bottle"
+en = "Ferrium Bottle"
+zh = "铁质瓶"
+
+[[items]]
+key = "Ferrium Bottle (Clean Water)"
+en = "Ferrium Bottle (Clean Water)"
+zh = "铁质瓶（清水）"
+
+[[items]]
+key = "Ferrium Bottle (Jincao Solution)"
+en = "Ferrium Bottle (Jincao Solution)"
+zh = "铁质瓶（金草溶液）"
+
+[[items]]
+key = "Ferrium Bottle (Liquid Xiranite)"
+en = "Ferrium Bottle (Liquid Xiranite)"
+zh = "铁质瓶（液态希然石）"
+
+[[items]]
+key = "Ferrium Bottle (Yazhen Solution)"
+en = "Ferrium Bottle (Yazhen Solution)"
+zh = "铁质瓶（雅针溶液）"
+
+[[items]]
+key = "Ferrium Component"
+en = "Ferrium Component"
+zh = "铁制部件"
+
+[[items]]
+key = "Ferrium Ore"
+en = "Ferrium Ore"
+zh = "铁矿"
+
+[[items]]
+key = "Ferrium Part"
+en = "Ferrium Part"
+zh = "铁制零件"
+
+[[items]]
+key = "Ferrium Powder"
+en = "Ferrium Powder"
+zh = "铁粉"
+
+[[items]]
+key = "Ground Buckflower Powder"
+en = "Ground Buckflower Powder"
+zh = "研磨荞愈花粉"
+
+[[items]]
+key = "Ground Citrome Powder"
+en = "Ground Citrome Powder"
+zh = "研磨柑实粉"
+
+[[items]]
+key = "HC Valley Battery"
+en = "HC Valley Battery"
+zh = "高容谷地电池"
+
+[[items]]
+key = "Industrial Explosive"
+en = "Industrial Explosive"
+zh = "工业炸药"
+
+[[items]]
+key = "Jincao"
+en = "Jincao"
+zh = "金草"
+
+[[items]]
+key = "Jincao Drink"
+en = "Jincao Drink"
+zh = "金草饮料"
+
+[[items]]
+key = "Jincao Powder"
+en = "Jincao Powder"
+zh = "金草粉"
+
+[[items]]
+key = "Jincao Seed"
+en = "Jincao Seed"
+zh = "金草种子"
+
+[[items]]
+key = "Jincao Solution"
+en = "Jincao Solution"
+zh = "金草溶液"
+
+[[items]]
+key = "LC Valley Battery"
+en = "LC Valley Battery"
+zh = "低容谷地电池"
+
+[[items]]
+key = "LC Wuling Battery"
+en = "LC Wuling Battery"
+zh = "低容五陵电池"
+
+[[items]]
+key = "Liquid Xiranite"
+en = "Liquid Xiranite"
+zh = "液态希然石"
+
+[[items]]
+key = "Originium Ore"
+en = "Originium Ore"
+zh = "源石矿"
+
+[[items]]
+key = "Originium Powder"
+en = "Originium Powder"
+zh = "源石粉"
+
+[[items]]
+key = "Origocrust"
+en = "Origocrust"
+zh = "晶体外壳"
+
+[[items]]
+key = "Origocrust Powder"
+en = "Origocrust Powder"
+zh = "晶体外壳粉"
+
+[[items]]
+key = "Packed Origocrust"
+en = "Packed Origocrust"
+zh = "封装晶体外壳"
+
+[[items]]
+key = "Redjade Ginseng"
+en = "Redjade Ginseng"
+zh = "赤玉人参"
+
+[[items]]
+key = "Redjade Ginseng Seed"
+en = "Redjade Ginseng Seed"
+zh = "赤玉人参种子"
+
+[[items]]
+key = "Reed Rye"
+en = "Reed Rye"
+zh = "芦苇黑麦"
+
+[[items]]
+key = "Reed Rye Seed"
+en = "Reed Rye Seed"
+zh = "芦苇黑麦种子"
+
+[[items]]
+key = "SC Valley Battery"
+en = "SC Valley Battery"
+zh = "中容谷地电池"
+
+[[items]]
+key = "Sandleaf"
+en = "Sandleaf"
+zh = "沙叶"
+
+[[items]]
+key = "Sandleaf Powder"
+en = "Sandleaf Powder"
+zh = "沙叶粉"
+
+[[items]]
+key = "Sandleaf Seed"
+en = "Sandleaf Seed"
+zh = "沙叶种子"
+
+[[items]]
+key = "Stabilized Carbon"
+en = "Stabilized Carbon"
+zh = "稳定碳"
+
+[[items]]
+key = "Steel"
+en = "Steel"
+zh = "钢"
+
+[[items]]
+key = "Steel Bottle"
+en = "Steel Bottle"
+zh = "钢质瓶"
+
+[[items]]
+key = "Steel Bottle (Clean Water)"
+en = "Steel Bottle (Clean Water)"
+zh = "钢质瓶（清水）"
+
+[[items]]
+key = "Steel Bottle (Jincao Solution)"
+en = "Steel Bottle (Jincao Solution)"
+zh = "钢质瓶（金草溶液）"
+
+[[items]]
+key = "Steel Bottle (Liquid Xiranite)"
+en = "Steel Bottle (Liquid Xiranite)"
+zh = "钢质瓶（液态希然石）"
+
+[[items]]
+key = "Steel Bottle (Yazhen Solution)"
+en = "Steel Bottle (Yazhen Solution)"
+zh = "钢质瓶（雅针溶液）"
+
+[[items]]
+key = "Steel Part"
+en = "Steel Part"
+zh = "钢制零件"
+
+[[items]]
+key = "Tartpepper"
+en = "Tartpepper"
+zh = "酸椒"
+
+[[items]]
+key = "Tartpepper Seed"
+en = "Tartpepper Seed"
+zh = "酸椒种子"
+
+[[items]]
+key = "Wood"
+en = "Wood"
+zh = "木材"
+
+[[items]]
+key = "Xiranite"
+en = "Xiranite"
+zh = "希然石"
+
+[[items]]
+key = "Xiranite Component"
+en = "Xiranite Component"
+zh = "希然石部件"
+
+[[items]]
+key = "Yazhen"
+en = "Yazhen"
+zh = "雅针"
+
+[[items]]
+key = "Yazhen Powder"
+en = "Yazhen Powder"
+zh = "雅针粉"
+
+[[items]]
+key = "Yazhen Seed"
+en = "Yazhen Seed"
+zh = "雅针种子"
+
+[[items]]
+key = "Yazhen Solution"
+en = "Yazhen Solution"
+zh = "雅针溶液"
+
+[[items]]
+key = "Yazhen Syringe (C)"
+en = "Yazhen Syringe (C)"
+zh = "雅针注射器(C)"

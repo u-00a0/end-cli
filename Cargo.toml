@@ -1,0 +1,21 @@
+[workspace]
+members = [
+  "crates/end_model",
+  "crates/end_io",
+  "crates/end_opt",
+  "crates/end_report",
+  "crates/end_lua_convert",
+  "crates/end_cli",
+  "crates/end_lua2toml",
+]
+default-members = ["crates/end_cli"]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+good_lp = { version = "1", default-features = false, features = ["highs"] }
+mlua = { version = "0.10", features = ["lua54", "vendored", "send"] }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+toml = "0.8"
