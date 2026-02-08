@@ -1,66 +1,56 @@
 use end_model::{
-    AicInputs, Catalog, FacilityDef, FacilityId, FacilityKind, ItemDef, ItemId, OutpostInput,
-    Recipe, Stack,
+    AicInputs, Catalog, FacilityDef, FacilityKind, ItemDef, OutpostInput, Recipe, Stack,
 };
 use end_opt::{SolveInputs, run_two_stage};
 use end_report::{Lang, build_report};
 use std::collections::HashMap;
 
 fn sample_catalog_and_inputs() -> (Catalog, AicInputs, end_opt::OptimizationResult) {
-    let ore = ItemId(0);
-    let ingot = ItemId(1);
-    let machine = FacilityId(0);
-    let thermal_bank = FacilityId(1);
+    let mut b = Catalog::builder();
+    let ore = b
+        .add_item(ItemDef {
+            key: "Ore".to_string(),
+            en: "Ore".to_string(),
+            zh: "Ore_zh".to_string(),
+        })
+        .expect("add ore");
+    let ingot = b
+        .add_item(ItemDef {
+            key: "Ingot".to_string(),
+            en: "Ingot".to_string(),
+            zh: "Ingot_zh".to_string(),
+        })
+        .expect("add ingot");
 
-    let catalog = Catalog {
-        items: vec![
-            ItemDef {
-                key: "Ore".to_string(),
-                en: "Ore".to_string(),
-                zh: "Ore_zh".to_string(),
-            },
-            ItemDef {
-                key: "Ingot".to_string(),
-                en: "Ingot".to_string(),
-                zh: "Ingot_zh".to_string(),
-            },
-        ],
-        facilities: vec![
-            FacilityDef {
-                key: "Smelter".to_string(),
-                kind: FacilityKind::Machine,
-                power_w: Some(10),
-                en: "Smelter".to_string(),
-                zh: "Smelter_zh".to_string(),
-            },
-            FacilityDef {
-                key: "Thermal Bank".to_string(),
-                kind: FacilityKind::ThermalBank,
-                power_w: None,
-                en: "Thermal Bank".to_string(),
-                zh: "Thermal_Bank_zh".to_string(),
-            },
-        ],
-        recipes: vec![Recipe {
-            facility: machine,
-            time_s: 60,
-            ingredients: vec![Stack {
-                item: ore,
-                count: 1,
-            }],
-            products: vec![Stack {
-                item: ingot,
-                count: 1,
-            }],
+    let machine = b
+        .add_facility(FacilityDef {
+            key: "Smelter".to_string(),
+            kind: FacilityKind::Machine,
+            power_w: Some(10),
+            en: "Smelter".to_string(),
+            zh: "Smelter_zh".to_string(),
+        })
+        .expect("add machine");
+    b.add_facility(FacilityDef {
+        key: "Thermal Bank".to_string(),
+        kind: FacilityKind::ThermalBank,
+        power_w: None,
+        en: "Thermal Bank".to_string(),
+        zh: "Thermal_Bank_zh".to_string(),
+    })
+    .expect("add thermal bank");
+
+    b.push_recipe(Recipe {
+        facility: machine,
+        time_s: 60,
+        ingredients: vec![Stack { item: ore, count: 1 }],
+        products: vec![Stack {
+            item: ingot,
+            count: 1,
         }],
-        power_recipes: vec![],
-        item_index: HashMap::from([("Ore".to_string(), ore), ("Ingot".to_string(), ingot)]),
-        facility_index: HashMap::from([
-            ("Smelter".to_string(), machine),
-            ("Thermal Bank".to_string(), thermal_bank),
-        ]),
-        thermal_bank,
-    };
+    });
+
+    let catalog = b.build().expect("build catalog");
 
     let aic = AicInputs {
         external_power_consumption_w: 0,

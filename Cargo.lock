@@ -279,7 +279,6 @@ dependencies = [
 name = "end-model"
 version = "0.1.0"
 dependencies = [
- "serde",
  "thiserror",
 ]
 

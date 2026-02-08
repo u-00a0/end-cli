@@ -51,14 +51,14 @@ fn load_catalog_from_parts(items: &str, facilities: &str, recipes: &str) -> Resu
 #[test]
 fn load_builtin_catalog_success() {
     let catalog = load_catalog(None).expect("load builtin catalog");
-    assert!(!catalog.items.is_empty(), "builtin catalog has no items");
+    assert!(!catalog.items().is_empty(), "builtin catalog has no items");
     assert!(
-        !catalog.recipes.is_empty(),
+        !catalog.recipes().is_empty(),
         "builtin catalog has no recipes"
     );
 
     let thermal_bank = catalog
-        .facility(catalog.thermal_bank)
+        .facility(catalog.thermal_bank())
         .expect("thermal bank id must resolve");
     assert_eq!(thermal_bank.kind, FacilityKind::ThermalBank);
 }

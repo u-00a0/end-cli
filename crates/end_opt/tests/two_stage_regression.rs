@@ -1,65 +1,62 @@
 use end_model::{
-    AicInputs, Catalog, FacilityDef, FacilityId, FacilityKind, ItemDef, ItemId, OutpostInput,
-    Recipe, Stack,
+    AicInputs, Catalog, FacilityDef, FacilityKind, ItemDef, OutpostInput, Recipe, Stack,
 };
 use end_opt::{Error, STAGE2_REVENUE_FLOOR_REL_EPS, SolveInputs, run_two_stage};
 use std::collections::HashMap;
 
-fn sample_catalog_and_inputs() -> (Catalog, SolveInputs) {
-    let ore = ItemId(0);
-    let ingot = ItemId(1);
-    let machine = FacilityId(0);
-    let thermal_bank = FacilityId(1);
+fn sample_catalog(with_recipes: bool) -> (Catalog, end_model::ItemId, end_model::ItemId) {
+    let mut b = Catalog::builder();
+    let ore = b
+        .add_item(ItemDef {
+            key: "Ore".to_string(),
+            en: "Ore".to_string(),
+            zh: "Ore_zh".to_string(),
+        })
+        .expect("add ore");
+    let ingot = b
+        .add_item(ItemDef {
+            key: "Ingot".to_string(),
+            en: "Ingot".to_string(),
+            zh: "Ingot_zh".to_string(),
+        })
+        .expect("add ingot");
 
-    let catalog = Catalog {
-        items: vec![
-            ItemDef {
-                key: "Ore".to_string(),
-                en: "Ore".to_string(),
-                zh: "Ore_zh".to_string(),
-            },
-            ItemDef {
-                key: "Ingot".to_string(),
-                en: "Ingot".to_string(),
-                zh: "Ingot_zh".to_string(),
-            },
-        ],
-        facilities: vec![
-            FacilityDef {
-                key: "Smelter".to_string(),
-                kind: FacilityKind::Machine,
-                power_w: Some(10),
-                en: "Smelter".to_string(),
-                zh: "Smelter_zh".to_string(),
-            },
-            FacilityDef {
-                key: "Thermal Bank".to_string(),
-                kind: FacilityKind::ThermalBank,
-                power_w: None,
-                en: "Thermal Bank".to_string(),
-                zh: "Thermal_Bank_zh".to_string(),
-            },
-        ],
-        recipes: vec![Recipe {
+    let machine = b
+        .add_facility(FacilityDef {
+            key: "Smelter".to_string(),
+            kind: FacilityKind::Machine,
+            power_w: Some(10),
+            en: "Smelter".to_string(),
+            zh: "Smelter_zh".to_string(),
+        })
+        .expect("add machine");
+    b.add_facility(FacilityDef {
+        key: "Thermal Bank".to_string(),
+        kind: FacilityKind::ThermalBank,
+        power_w: None,
+        en: "Thermal Bank".to_string(),
+        zh: "Thermal_Bank_zh".to_string(),
+    })
+    .expect("add thermal bank");
+
+    if with_recipes {
+        b.push_recipe(Recipe {
             facility: machine,
             time_s: 60,
-            ingredients: vec![Stack {
-                item: ore,
-                count: 1,
-            }],
+            ingredients: vec![Stack { item: ore, count: 1 }],
             products: vec![Stack {
                 item: ingot,
                 count: 1,
             }],
-        }],
-        power_recipes: vec![],
-        item_index: HashMap::from([("Ore".to_string(), ore), ("Ingot".to_string(), ingot)]),
-        facility_index: HashMap::from([
-            ("Smelter".to_string(), machine),
-            ("Thermal Bank".to_string(), thermal_bank),
-        ]),
-        thermal_bank,
-    };
+        });
+    }
+
+    let catalog = b.build().expect("build catalog");
+    (catalog, ore, ingot)
+}
+
+fn sample_catalog_and_inputs(with_recipes: bool) -> (Catalog, SolveInputs) {
+    let (catalog, ore, ingot) = sample_catalog(with_recipes);
 
     let inputs = SolveInputs {
         p_core_w: 200,
@@ -81,8 +78,7 @@ fn sample_catalog_and_inputs() -> (Catalog, SolveInputs) {
 
 #[test]
 fn run_two_stage_rejects_empty_recipes() {
-    let (mut catalog, inputs) = sample_catalog_and_inputs();
-    catalog.recipes.clear();
+    let (catalog, inputs) = sample_catalog_and_inputs(false);
 
     let err = run_two_stage(&catalog, &inputs).expect_err("empty recipes should fail");
     assert!(
@@ -93,7 +89,7 @@ fn run_two_stage_rejects_empty_recipes() {
 
 #[test]
 fn stage2_respects_revenue_floor_and_basic_invariants() {
-    let (catalog, inputs) = sample_catalog_and_inputs();
+    let (catalog, inputs) = sample_catalog_and_inputs(true);
     let result = run_two_stage(&catalog, &inputs).expect("solve sample model");
 
     let floor = (result.stage1.revenue_per_min

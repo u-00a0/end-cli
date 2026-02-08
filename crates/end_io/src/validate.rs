@@ -1,7 +1,7 @@
 use crate::schema::StackToml;
 use crate::{Error, Result};
 use end_model::{ItemId, Stack};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn resolve_stack_list(
@@ -9,13 +9,13 @@ pub(crate) fn resolve_stack_list(
     field: &str,
     index: Option<usize>,
     raw: Vec<StackToml>,
-    item_index: &HashMap<String, ItemId>,
+    resolve_item: impl Fn(&str) -> Option<ItemId>,
 ) -> Result<Vec<Stack>> {
     let mut resolved = Vec::with_capacity(raw.len());
     let mut seen = HashSet::new();
 
     for stack in raw {
-        let s = resolve_stack(path, field, index, stack, item_index)?;
+        let s = resolve_stack(path, field, index, stack, &resolve_item)?;
         if !seen.insert(s.item) {
             return Err(Error::Schema {
                 path: path.to_path_buf(),
@@ -35,16 +35,14 @@ pub(crate) fn resolve_stack(
     field: &str,
     index: Option<usize>,
     raw: StackToml,
-    item_index: &HashMap<String, ItemId>,
+    resolve_item: impl Fn(&str) -> Option<ItemId>,
 ) -> Result<Stack> {
     let item_key = validate_key(path, &format!("{field}.item"), index, raw.item)?;
     let count = parse_positive_u32(path, &format!("{field}.count"), index, raw.count)?;
-    let item = *item_index
-        .get(&item_key)
-        .ok_or_else(|| Error::UnknownItem {
-            path: path.to_path_buf(),
-            key: item_key,
-        })?;
+    let item = resolve_item(item_key.as_str()).ok_or_else(|| Error::UnknownItem {
+        path: path.to_path_buf(),
+        key: item_key,
+    })?;
     Ok(Stack { item, count })
 }
 

@@ -4,10 +4,7 @@ use crate::validate::{
     validate_non_empty, validate_text,
 };
 use crate::{Error, Result};
-use end_model::{
-    Catalog, FacilityDef, FacilityId, FacilityKind, ItemDef, ItemId, PowerRecipe, Recipe,
-};
-use std::collections::HashMap;
+use end_model::{Catalog, FacilityDef, FacilityKind, ItemDef, PowerRecipe, Recipe};
 use std::path::Path;
 
 const BUILTIN_ITEMS: &str = include_str!("items.toml");
@@ -40,30 +37,28 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
     validate_non_empty(items_doc.items.len(), &items_path, "items", None)?;
     validate_non_empty(recipes_doc.recipes.len(), &recipes_path, "recipes", None)?;
 
-    let mut items = Vec::with_capacity(items_doc.items.len());
-    let mut item_index: HashMap<String, ItemId> = HashMap::new();
+    let mut builder = Catalog::builder();
+
     for (i, raw) in items_doc.items.into_iter().enumerate() {
         let key = validate_key(&items_path, "items.key", Some(i), raw.key)?;
         validate_text(&items_path, "items.en", Some(i), raw.en.as_str())?;
         validate_text(&items_path, "items.zh", Some(i), raw.zh.as_str())?;
-        if item_index.contains_key(&key) {
+        if builder.item_id(key.as_str()).is_some() {
             return Err(Error::DuplicateKey {
                 path: items_path.clone(),
                 kind: "item".to_string(),
                 key,
             });
         }
-        let id = ItemId(items.len() as u32);
-        item_index.insert(key.clone(), id);
-        items.push(ItemDef {
-            key,
-            en: raw.en,
-            zh: raw.zh,
-        });
+        builder
+            .add_item(ItemDef { key, en: raw.en, zh: raw.zh })
+            .map_err(|source| Error::Schema {
+                path: items_path.clone(),
+                field: "items".to_string(),
+                index: Some(i),
+                message: source.to_string(),
+            })?;
     }
-
-    let mut facilities = Vec::with_capacity(facilities_doc.machines.len() + 1);
-    let mut facility_index: HashMap<String, FacilityId> = HashMap::new();
 
     for (i, machine) in facilities_doc.machines.into_iter().enumerate() {
         let key = validate_key(&fac_path, "machines.key", Some(i), machine.key)?;
@@ -71,7 +66,7 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
         validate_text(&fac_path, "machines.en", Some(i), machine.en.as_str())?;
         validate_text(&fac_path, "machines.zh", Some(i), machine.zh.as_str())?;
 
-        if facility_index.contains_key(&key) {
+        if builder.facility_id(key.as_str()).is_some() {
             return Err(Error::DuplicateKey {
                 path: fac_path.clone(),
                 kind: "facility".to_string(),
@@ -79,15 +74,20 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
             });
         }
 
-        let id = FacilityId(facilities.len() as u32);
-        facility_index.insert(key.clone(), id);
-        facilities.push(FacilityDef {
-            key,
-            kind: FacilityKind::Machine,
-            power_w: Some(power_w),
-            en: machine.en,
-            zh: machine.zh,
-        });
+        builder
+            .add_facility(FacilityDef {
+                key,
+                kind: FacilityKind::Machine,
+                power_w: Some(power_w),
+                en: machine.en,
+                zh: machine.zh,
+            })
+            .map_err(|source| Error::Schema {
+                path: fac_path.clone(),
+                field: "machines".to_string(),
+                index: Some(i),
+                message: source.to_string(),
+            })?;
     }
 
     let thermal_key = validate_key(
@@ -109,34 +109,37 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
         facilities_doc.thermal_bank.zh.as_str(),
     )?;
 
-    if facility_index.contains_key(&thermal_key) {
+    if builder.facility_id(thermal_key.as_str()).is_some() {
         return Err(Error::DuplicateKey {
             path: fac_path.clone(),
             kind: "facility".to_string(),
             key: thermal_key,
-        });
-    }
+            });
+        }
 
-    let thermal_bank = FacilityId(facilities.len() as u32);
-    facility_index.insert(thermal_key.clone(), thermal_bank);
-    facilities.push(FacilityDef {
-        key: thermal_key,
-        kind: FacilityKind::ThermalBank,
-        power_w: None,
-        en: facilities_doc.thermal_bank.en,
-        zh: facilities_doc.thermal_bank.zh,
-    });
+    let thermal_bank = builder
+        .add_facility(FacilityDef {
+            key: thermal_key,
+            kind: FacilityKind::ThermalBank,
+            power_w: None,
+            en: facilities_doc.thermal_bank.en,
+            zh: facilities_doc.thermal_bank.zh,
+        })
+        .map_err(|source| Error::Schema {
+            path: fac_path.clone(),
+            field: "thermal_bank".to_string(),
+            index: None,
+            message: source.to_string(),
+        })?;
 
-    let mut recipes = Vec::with_capacity(recipes_doc.recipes.len());
     for (i, raw) in recipes_doc.recipes.into_iter().enumerate() {
         let facility_key = validate_key(&recipes_path, "recipes.facility", Some(i), raw.facility)?;
-        let facility =
-            *facility_index
-                .get(&facility_key)
-                .ok_or_else(|| Error::UnknownFacility {
-                    path: recipes_path.clone(),
-                    key: facility_key.clone(),
-                })?;
+        let facility = builder
+            .facility_id(facility_key.as_str())
+            .ok_or_else(|| Error::UnknownFacility {
+                path: recipes_path.clone(),
+                key: facility_key.clone(),
+            })?;
         if facility == thermal_bank {
             return Err(Error::Schema {
                 path: recipes_path.clone(),
@@ -165,17 +168,17 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
             "recipes.ingredients",
             Some(i),
             raw.ingredients,
-            &item_index,
+            |k| builder.item_id(k),
         )?;
         let products = resolve_stack_list(
             &recipes_path,
             "recipes.products",
             Some(i),
             raw.products,
-            &item_index,
+            |k| builder.item_id(k),
         )?;
 
-        recipes.push(Recipe {
+        builder.push_recipe(Recipe {
             facility,
             time_s,
             ingredients,
@@ -183,33 +186,29 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
         });
     }
 
-    let mut power_recipes = Vec::with_capacity(recipes_doc.power_recipes.len());
     for (i, raw) in recipes_doc.power_recipes.into_iter().enumerate() {
         let ingredient = resolve_stack(
             &recipes_path,
             "power_recipes.ingredient",
             Some(i),
             raw.ingredient,
-            &item_index,
+            |k| builder.item_id(k),
         )?;
         let power_w =
             parse_positive_u32(&recipes_path, "power_recipes.power_w", Some(i), raw.power_w)?;
         let time_s =
             parse_positive_u32(&recipes_path, "power_recipes.time_s", Some(i), raw.time_s)?;
-        power_recipes.push(PowerRecipe {
+        builder.push_power_recipe(PowerRecipe {
             ingredient,
             power_w,
             time_s,
         });
     }
 
-    Ok(Catalog {
-        items,
-        facilities,
-        recipes,
-        power_recipes,
-        item_index,
-        facility_index,
-        thermal_bank,
+    builder.build().map_err(|source| Error::Schema {
+        path: Path::new("<memory>/catalog").to_path_buf(),
+        field: "catalog".to_string(),
+        index: None,
+        message: source.to_string(),
     })
 }

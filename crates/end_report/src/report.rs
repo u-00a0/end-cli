@@ -222,8 +222,7 @@ pub fn build_report(
         ));
         for r in stage2.recipes_used.iter().take(12) {
             let recipe = catalog
-                .recipes
-                .get(r.recipe_index)
+                .recipe(r.recipe_index)
                 .ok_or(Error::MissingRecipe(r.recipe_index))?;
             let label = format_recipe_label(
                 lang,

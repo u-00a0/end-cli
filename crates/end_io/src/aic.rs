@@ -84,7 +84,7 @@ fn aic_inputs_to_toml(inputs: AicInputs, catalog: &Catalog) -> Result<AicToml> {
                 path: PathBuf::from("<memory>/aic.toml"),
                 field: "supply_per_min".to_string(),
                 index: None,
-                message: format!("unknown item id {}", item_id.0),
+                message: format!("unknown item id {}", item_id.as_u32()),
             })?
             .key
             .clone();
@@ -101,7 +101,7 @@ fn aic_inputs_to_toml(inputs: AicInputs, catalog: &Catalog) -> Result<AicToml> {
                     path: PathBuf::from("<memory>/aic.toml"),
                     field: "outposts.prices".to_string(),
                     index: None,
-                    message: format!("unknown item id {}", item_id.0),
+                    message: format!("unknown item id {}", item_id.as_u32()),
                 })?
                 .key
                 .clone();
@@ -135,13 +135,10 @@ fn resolve_aic(path: PathBuf, raw: AicToml, catalog: &Catalog) -> Result<AicInpu
     for (item_key_raw, value_raw) in raw.supply_per_min {
         let item_key = validate_key(&path, "supply_per_min.key", None, item_key_raw)?;
         let value = parse_positive_u32(&path, "supply_per_min.value", None, value_raw)?;
-        let item = *catalog
-            .item_index
-            .get(&item_key)
-            .ok_or_else(|| Error::UnknownItem {
-                path: path.clone(),
-                key: item_key,
-            })?;
+        let item = catalog.item_id(item_key.as_str()).ok_or_else(|| Error::UnknownItem {
+            path: path.clone(),
+            key: item_key,
+        })?;
         supply_per_min.insert(item, value);
     }
 
@@ -175,13 +172,10 @@ fn resolve_aic(path: PathBuf, raw: AicToml, catalog: &Catalog) -> Result<AicInpu
         for (item_key_raw, price_raw) in o.prices {
             let item_key = validate_key(&path, "outposts.prices.key", Some(i), item_key_raw)?;
             let price = parse_non_negative_u32(&path, "outposts.prices.value", Some(i), price_raw)?;
-            let item = *catalog
-                .item_index
-                .get(&item_key)
-                .ok_or_else(|| Error::UnknownItem {
-                    path: path.clone(),
-                    key: item_key,
-                })?;
+            let item = catalog.item_id(item_key.as_str()).ok_or_else(|| Error::UnknownItem {
+                path: path.clone(),
+                key: item_key,
+            })?;
             prices.insert(item, price);
         }
 

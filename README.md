@@ -33,7 +33,9 @@
 需要 Rust 环境，执行:
 
 ```bash
-cargo install --git https://github.com/sssxks/end-cli --bin end-cli
+# 编译 HiGHS 需要 clang 和 cmake，Debian/Ubuntu 可用以下命令安装
+sudo apt-get update && sudo apt-get install -y libclang-dev clang cmake
+cargo install --git https://github.com/sssxks/end-cli end-cli
 ```
 
 ## 快速开始

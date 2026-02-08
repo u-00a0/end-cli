@@ -12,10 +12,10 @@ fn load_aic_from_str(src: &str, catalog: &Catalog) -> Result<AicInputs, Error> {
 
 fn first_two_item_keys(catalog: &Catalog) -> (&str, &str) {
     assert!(
-        catalog.items.len() >= 2,
+        catalog.items().len() >= 2,
         "builtin catalog must contain at least two items"
     );
-    (&catalog.items[0].key, &catalog.items[1].key)
+    (&catalog.items()[0].key, &catalog.items()[1].key)
 }
 
 #[test]

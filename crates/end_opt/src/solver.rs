@@ -49,7 +49,7 @@ struct PowerVars {
 /// Run the two-stage optimizer:
 /// 1) maximize revenue, 2) minimize machines under a near-optimal revenue floor.
 pub fn run_two_stage(catalog: &Catalog, inputs: &SolveInputs) -> Result<OptimizationResult> {
-    if catalog.recipes.is_empty() {
+    if catalog.recipes().is_empty() {
         return Err(Error::InvalidInput {
             message: "catalog.recipes must not be empty".to_string(),
         });
@@ -78,8 +78,8 @@ fn solve_stage(
     let external_supply = &inputs.aic.supply_per_min;
     let mut vars = variables!();
 
-    let mut recipe_vars = Vec::with_capacity(catalog.recipes.len());
-    for (idx, recipe) in catalog.recipes.iter().enumerate() {
+    let mut recipe_vars = Vec::with_capacity(catalog.recipes().len());
+    for (idx, recipe) in catalog.recipes().iter().enumerate() {
         let x = vars.add(variable().min(0.0));
         let y = vars.add(variable().integer().min(0.0));
 
@@ -108,8 +108,8 @@ fn solve_stage(
         });
     }
 
-    let mut power_vars = Vec::with_capacity(catalog.power_recipes.len());
-    for (idx, p) in catalog.power_recipes.iter().enumerate() {
+    let mut power_vars = Vec::with_capacity(catalog.power_recipes().len());
+    for (idx, p) in catalog.power_recipes().iter().enumerate() {
         let z = vars.add(variable().integer().min(0.0));
         power_vars.push(PowerVars {
             power_recipe_index: idx,
@@ -177,7 +177,7 @@ fn solve_stage(
         let facility = catalog
             .facility(rv.facility)
             .ok_or_else(|| Error::Internal {
-                message: format!("unknown facility id {}", rv.facility.0),
+                message: format!("unknown facility id {}", rv.facility.as_u32()),
             })?;
         let machine_power_w = facility.power_w.ok_or_else(|| Error::MissingMachinePower {
             facility: facility.key.clone(),
