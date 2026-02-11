@@ -1,57 +1,70 @@
 use end_model::{
-    AicInputs, Catalog, FacilityDef, FacilityKind, ItemDef, OutpostInput, Recipe, Stack,
+    AicInputs, Catalog, DisplayName, FacilityDef, FacilityKind, ItemDef, Key, OutpostInput, Stack,
 };
-use end_opt::{Error, STAGE2_REVENUE_FLOOR_REL_EPS, SolveInputs, run_two_stage};
+use end_opt::{NEAR_INT_EPS, SolveInputs, run_two_stage};
 use std::num::NonZeroU32;
+
+fn key(value: &str) -> Key {
+    value.try_into().expect("valid key")
+}
+
+fn name(value: &str) -> DisplayName {
+    value.try_into().expect("valid display name")
+}
+
+fn nz(value: u32) -> NonZeroU32 {
+    NonZeroU32::new(value).expect("non-zero")
+}
 
 fn sample_catalog(with_recipes: bool) -> (Catalog, end_model::ItemId, end_model::ItemId) {
     let mut b = Catalog::builder();
     let ore = b
         .add_item(ItemDef {
-            key: "Ore".to_string(),
-            en: "Ore".to_string(),
-            zh: "Ore_zh".to_string(),
+            key: key("Ore"),
+            en: name("Ore"),
+            zh: name("Ore_zh"),
         })
         .expect("add ore");
     let ingot = b
         .add_item(ItemDef {
-            key: "Ingot".to_string(),
-            en: "Ingot".to_string(),
-            zh: "Ingot_zh".to_string(),
+            key: key("Ingot"),
+            en: name("Ingot"),
+            zh: name("Ingot_zh"),
         })
         .expect("add ingot");
 
     let machine = b
         .add_facility(FacilityDef {
-            key: "Smelter".to_string(),
+            key: key("Smelter"),
             kind: FacilityKind::Machine,
-            power_w: Some(NonZeroU32::new(10).expect("non-zero")),
-            en: "Smelter".to_string(),
-            zh: "Smelter_zh".to_string(),
+            power_w: Some(nz(10)),
+            en: name("Smelter"),
+            zh: name("Smelter_zh"),
         })
         .expect("add machine");
     b.add_facility(FacilityDef {
-        key: "Thermal Bank".to_string(),
+        key: key("Thermal Bank"),
         kind: FacilityKind::ThermalBank,
         power_w: None,
-        en: "Thermal Bank".to_string(),
-        zh: "Thermal_Bank_zh".to_string(),
+        en: name("Thermal Bank"),
+        zh: name("Thermal_Bank_zh"),
     })
     .expect("add thermal bank");
 
     if with_recipes {
-        b.push_recipe(Recipe {
-            facility: machine,
-            time_s: 60,
-            ingredients: vec![Stack {
+        b.push_recipe(
+            machine,
+            60,
+            vec![Stack {
                 item: ore,
                 count: 1,
             }],
-            products: vec![Stack {
+            vec![Stack {
                 item: ingot,
                 count: 1,
             }],
-        });
+        )
+        .expect("push recipe");
     }
 
     let catalog = b.build().expect("build catalog");
@@ -63,30 +76,78 @@ fn sample_catalog_and_inputs(with_recipes: bool) -> (Catalog, SolveInputs) {
 
     let inputs = SolveInputs {
         p_core_w: 200,
-        aic: AicInputs {
-            external_power_consumption_w: 0,
-            supply_per_min: vec![(ore, 10)].into(),
-            outposts: vec![OutpostInput {
-                key: "Camp".to_string(),
-                en: Some("Camp".to_string()),
-                zh: Some("Camp_zh".to_string()),
+        aic: AicInputs::new(
+            0,
+            vec![(ore, nz(10))].into(),
+            vec![OutpostInput {
+                key: key("Camp"),
+                en: Some(name("Camp")),
+                zh: Some(name("Camp_zh")),
                 money_cap_per_hour: 600,
                 prices: vec![(ingot, 5)].into(),
             }],
-        },
+        )
+        .expect("valid aic inputs"),
     };
 
     (catalog, inputs)
 }
 
 #[test]
-fn run_two_stage_rejects_empty_recipes() {
-    let (catalog, inputs) = sample_catalog_and_inputs(false);
+fn run_two_stage_allows_empty_recipes_with_direct_external_sales() {
+    let (catalog, ore, _ingot) = sample_catalog(false);
+    let inputs = SolveInputs {
+        p_core_w: 200,
+        aic: AicInputs::new(
+            0,
+            vec![(ore, nz(10))].into(),
+            vec![OutpostInput {
+                key: key("Camp"),
+                en: Some(name("Camp")),
+                zh: Some(name("Camp_zh")),
+                money_cap_per_hour: 600,
+                prices: vec![(ore, 2)].into(),
+            }],
+        )
+        .expect("valid aic inputs"),
+    };
 
-    let err = run_two_stage(&catalog, &inputs).expect_err("empty recipes should fail");
+    let result =
+        run_two_stage(&catalog, &inputs).expect("empty recipes with direct sales should solve");
+
     assert!(
-        matches!(err, Error::InvalidInput { ref message } if message.contains("must not be empty")),
-        "unexpected error: {err:?}"
+        (result.stage1.revenue_per_min - 10.0).abs() <= 1e-9,
+        "stage1 revenue should be capped at 10/min by outpost cap, got {}",
+        result.stage1.revenue_per_min
+    );
+    let floor = (result.stage1.revenue_per_min
+        - NEAR_INT_EPS * result.stage1.revenue_per_min.max(1.0))
+    .max(0.0);
+    assert!(
+        result.stage2.revenue_per_min + 1e-7 >= floor,
+        "stage2 revenue {} is lower than floor {}",
+        result.stage2.revenue_per_min,
+        floor
+    );
+    assert_eq!(
+        result.stage1.total_machines, 0,
+        "stage1 should use no machines"
+    );
+    assert_eq!(
+        result.stage2.total_machines, 0,
+        "stage2 should use no machines"
+    );
+    assert!(
+        result.stage1.recipes_used.is_empty(),
+        "stage1 should report no recipe usage"
+    );
+    assert!(
+        result.stage2.recipes_used.is_empty(),
+        "stage2 should report no recipe usage"
+    );
+    assert!(
+        !result.stage1.top_sales.is_empty(),
+        "stage1 should report non-empty direct sales"
     );
 }
 
@@ -96,7 +157,7 @@ fn stage2_respects_revenue_floor_and_basic_invariants() {
     let result = run_two_stage(&catalog, &inputs).expect("solve sample model");
 
     let floor = (result.stage1.revenue_per_min
-        - STAGE2_REVENUE_FLOOR_REL_EPS * result.stage1.revenue_per_min.max(1.0))
+        - NEAR_INT_EPS * result.stage1.revenue_per_min.max(1.0))
     .max(0.0);
     assert!(
         result.stage2.revenue_per_min + 1e-7 >= floor,

@@ -18,6 +18,31 @@ fn first_two_item_keys(catalog: &Catalog) -> (&str, &str) {
     (&catalog.items()[0].key, &catalog.items()[1].key)
 }
 
+fn assert_schema_location(
+    err: &Error,
+    expected_path_suffix: &str,
+    expected_field: &str,
+    expected_index: Option<usize>,
+) {
+    match err {
+        Error::Schema {
+            path,
+            field,
+            index,
+            message,
+        } => {
+            assert!(
+                path.ends_with(expected_path_suffix),
+                "unexpected path: {path:?}"
+            );
+            assert_eq!(field, expected_field, "unexpected field");
+            assert_eq!(*index, expected_index, "unexpected index");
+            assert!(!message.is_empty(), "schema message should not be empty");
+        }
+        _ => panic!("unexpected error: {err:?}"),
+    }
+}
+
 #[test]
 fn load_aic_rejects_unknown_supply_item() {
     let catalog = load_catalog(None).expect("load builtin catalog");
@@ -164,17 +189,7 @@ prices = {{ "{price_item}" = 1 }}
     );
 
     let err = load_aic_from_str(&src, &catalog).expect_err("spaced outpost key should fail");
-    assert!(
-        matches!(
-            err,
-            Error::Schema {
-                ref field,
-                ref message,
-                ..
-            } if field == "outposts.key" && message.contains("leading/trailing")
-        ),
-        "unexpected error: {err:?}"
-    );
+    assert_schema_location(&err, "aic.toml", "outposts.key", Some(0));
 }
 
 #[test]
@@ -196,8 +211,8 @@ prices = {{ "{price_item}" = 1 }}
     );
 
     let aic = load_aic_from_str(&src, &catalog).expect("valid aic should load");
-    assert_eq!(aic.external_power_consumption_w, 0);
-    assert_eq!(aic.outposts.len(), 1);
+    assert_eq!(aic.external_power_consumption_w(), 0);
+    assert_eq!(aic.outposts().len(), 1);
 }
 
 #[test]
@@ -207,7 +222,7 @@ fn default_aic_toml_roundtrip_is_loadable() {
     let loaded = load_aic_from_str(&src, &catalog).expect("default aic toml should load");
 
     assert!(
-        !loaded.outposts.is_empty(),
+        !loaded.outposts().is_empty(),
         "default aic should have outposts"
     );
 }

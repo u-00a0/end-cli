@@ -1,0 +1,50 @@
+# Default solve input for `end-cli`.
+#
+# Units:
+# - power: watts (W)
+# - item flows: units per minute
+# - money cap: per hour
+
+# External power consumed by non-production systems.
+external_power_consumption_w = 300
+
+# External item supply per minute.
+[supply_per_min]
+"Originium Ore" = 520
+"Ferrium Ore" = 160
+"Amethyst Ore" = 160
+
+[[outposts]]
+# Unique outpost identifier.
+key = "Refugee Camp"
+# Max revenue accepted by this outpost per hour.
+money_cap_per_hour = 17316
+en = "Refugee Camp"
+zh = "难民暂居处"
+
+# Item -> price
+[outposts.prices]
+"HC Valley Battery" = 70
+"SC Valley Battery" = 30
+"Buck Capsule (A)" = 70
+"Buck Capsule (B)" = 27
+"Buck Capsule (C)" = 10
+"Canned Citrome (B)" = 27
+"Canned Citrome (C)" = 10
+"Origocrust" = 1
+"Amethyst Part" = 1
+"Amethyst Bottle" = 2
+
+[[outposts]]
+key = "Infra Station"
+money_cap_per_hour = 27072
+en = "Infra Station"
+zh = "基建前站"
+
+[outposts.prices]
+"SC Valley Battery" = 30
+"LC Valley Battery" = 16
+"Buck Capsule (A)" = 70
+"Buck Capsule (B)" = 27
+"Buck Capsule (C)" = 10
+"Ferrium Part" = 1

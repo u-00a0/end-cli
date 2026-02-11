@@ -1,10 +1,10 @@
 use crate::schema::{FacilitiesToml, ItemsToml, RecipesToml};
 use crate::validate::{
-    load_data_file, parse_positive_u32, resolve_stack, resolve_stack_list, validate_key,
-    validate_non_empty, validate_text,
+    load_data_file, parse_display_name, parse_key, parse_positive_u32, resolve_stack,
+    resolve_stack_list, validate_non_empty,
 };
 use crate::{Error, Result};
-use end_model::{Catalog, FacilityDef, FacilityKind, ItemDef, PowerRecipe, Recipe};
+use end_model::{Catalog, CatalogBuildError, FacilityDef, FacilityKind, ItemDef, PowerRecipe};
 use std::path::Path;
 
 const BUILTIN_ITEMS: &str = include_str!("items.toml");
@@ -40,133 +40,71 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
     let mut builder = Catalog::builder();
 
     for (i, raw) in items_doc.items.into_iter().enumerate() {
-        let key = validate_key(&items_path, "items.key", Some(i), raw.key)?;
-        validate_text(&items_path, "items.en", Some(i), raw.en.as_str())?;
-        validate_text(&items_path, "items.zh", Some(i), raw.zh.as_str())?;
-        if builder.item_id(key.as_str()).is_some() {
-            return Err(Error::DuplicateKey {
-                path: items_path.clone(),
-                kind: "item".to_string(),
-                key,
-            });
-        }
+        let key = parse_key(&items_path, "items.key", Some(i), raw.key)?;
+        let en = parse_display_name(&items_path, "items.en", Some(i), raw.en)?;
+        let zh = parse_display_name(&items_path, "items.zh", Some(i), raw.zh)?;
         builder
-            .add_item(ItemDef {
-                key,
-                en: raw.en,
-                zh: raw.zh,
-            })
-            .map_err(|source| Error::Schema {
-                path: items_path.clone(),
-                field: "items".to_string(),
-                index: Some(i),
-                message: source.to_string(),
-            })?;
+            .add_item(ItemDef { key, en, zh })
+            .map_err(|source| map_item_build_error(&items_path, i, source))?;
     }
 
     for (i, machine) in facilities_doc.machines.into_iter().enumerate() {
-        let key = validate_key(&fac_path, "machines.key", Some(i), machine.key)?;
+        let key = parse_key(&fac_path, "machines.key", Some(i), machine.key)?;
         let power_w = parse_positive_u32(&fac_path, "machines.power_w", Some(i), machine.power_w)?;
-        validate_text(&fac_path, "machines.en", Some(i), machine.en.as_str())?;
-        validate_text(&fac_path, "machines.zh", Some(i), machine.zh.as_str())?;
-
-        if builder.facility_id(key.as_str()).is_some() {
-            return Err(Error::DuplicateKey {
-                path: fac_path.clone(),
-                kind: "facility".to_string(),
-                key,
-            });
-        }
+        let en = parse_display_name(&fac_path, "machines.en", Some(i), machine.en)?;
+        let zh = parse_display_name(&fac_path, "machines.zh", Some(i), machine.zh)?;
 
         builder
             .add_facility(FacilityDef {
                 key,
                 kind: FacilityKind::Machine,
                 power_w: Some(power_w),
-                en: machine.en,
-                zh: machine.zh,
+                en,
+                zh,
             })
-            .map_err(|source| Error::Schema {
-                path: fac_path.clone(),
-                field: "machines".to_string(),
-                index: Some(i),
-                message: source.to_string(),
-            })?;
+            .map_err(|source| map_machine_build_error(&fac_path, i, source))?;
     }
 
-    let thermal_key = validate_key(
+    let thermal_key = parse_key(
         &fac_path,
         "thermal_bank.key",
         None,
         facilities_doc.thermal_bank.key,
     )?;
-    validate_text(
+    let thermal_en = parse_display_name(
         &fac_path,
         "thermal_bank.en",
         None,
-        facilities_doc.thermal_bank.en.as_str(),
+        facilities_doc.thermal_bank.en,
     )?;
-    validate_text(
+    let thermal_zh = parse_display_name(
         &fac_path,
         "thermal_bank.zh",
         None,
-        facilities_doc.thermal_bank.zh.as_str(),
+        facilities_doc.thermal_bank.zh,
     )?;
 
-    if builder.facility_id(thermal_key.as_str()).is_some() {
-        return Err(Error::DuplicateKey {
-            path: fac_path.clone(),
-            kind: "facility".to_string(),
-            key: thermal_key,
-        });
-    }
-
-    let thermal_bank = builder
+    builder
         .add_facility(FacilityDef {
             key: thermal_key,
             kind: FacilityKind::ThermalBank,
             power_w: None,
-            en: facilities_doc.thermal_bank.en,
-            zh: facilities_doc.thermal_bank.zh,
+            en: thermal_en,
+            zh: thermal_zh,
         })
-        .map_err(|source| Error::Schema {
-            path: fac_path.clone(),
-            field: "thermal_bank".to_string(),
-            index: None,
-            message: source.to_string(),
-        })?;
+        .map_err(|source| map_thermal_facility_build_error(&fac_path, source))?;
 
     for (i, raw) in recipes_doc.recipes.into_iter().enumerate() {
-        let facility_key = validate_key(&recipes_path, "recipes.facility", Some(i), raw.facility)?;
+        let facility_key = parse_key(&recipes_path, "recipes.facility", Some(i), raw.facility)?;
         let facility =
             builder
                 .facility_id(facility_key.as_str())
                 .ok_or_else(|| Error::UnknownFacility {
                     path: recipes_path.clone(),
-                    key: facility_key.clone(),
+                    key: facility_key.to_string(),
                 })?;
-        if facility == thermal_bank {
-            return Err(Error::Schema {
-                path: recipes_path.clone(),
-                field: "recipes.facility".to_string(),
-                index: Some(i),
-                message: "thermal_bank cannot appear in recipes; use power_recipes".to_string(),
-            });
-        }
 
         let time_s = parse_positive_u32(&recipes_path, "recipes.time_s", Some(i), raw.time_s)?;
-        validate_non_empty(
-            raw.ingredients.len(),
-            &recipes_path,
-            "recipes.ingredients",
-            Some(i),
-        )?;
-        validate_non_empty(
-            raw.products.len(),
-            &recipes_path,
-            "recipes.products",
-            Some(i),
-        )?;
 
         let ingredients = resolve_stack_list(
             &recipes_path,
@@ -183,12 +121,9 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
             |k| builder.item_id(k),
         )?;
 
-        builder.push_recipe(Recipe {
-            facility,
-            time_s: time_s.get(),
-            ingredients,
-            products,
-        });
+        builder
+            .push_recipe(facility, time_s.get(), ingredients, products)
+            .map_err(|source| map_recipe_build_error(&recipes_path, i, source))?;
     }
 
     for (i, raw) in recipes_doc.power_recipes.into_iter().enumerate() {
@@ -203,11 +138,13 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
             parse_positive_u32(&recipes_path, "power_recipes.power_w", Some(i), raw.power_w)?;
         let time_s =
             parse_positive_u32(&recipes_path, "power_recipes.time_s", Some(i), raw.time_s)?;
-        builder.push_power_recipe(PowerRecipe {
-            ingredient,
-            power_w: power_w.get(),
-            time_s: time_s.get(),
-        });
+        builder
+            .push_power_recipe(PowerRecipe {
+                ingredient,
+                power_w: power_w.get(),
+                time_s: time_s.get(),
+            })
+            .map_err(|source| map_power_recipe_build_error(&recipes_path, i, source))?;
     }
 
     builder.build().map_err(|source| Error::Schema {
@@ -216,4 +153,127 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
         index: None,
         message: source.to_string(),
     })
+}
+
+fn map_item_build_error(path: &Path, index: usize, source: CatalogBuildError) -> Error {
+    match source {
+        CatalogBuildError::DuplicateItemKey(key) => Error::DuplicateKey {
+            path: path.to_path_buf(),
+            kind: "item".to_string(),
+            key: key.to_string(),
+        },
+        _ => Error::Schema {
+            path: path.to_path_buf(),
+            field: "items".to_string(),
+            index: Some(index),
+            message: source.to_string(),
+        },
+    }
+}
+
+fn map_machine_build_error(path: &Path, index: usize, source: CatalogBuildError) -> Error {
+    match source {
+        CatalogBuildError::DuplicateFacilityKey(key) => Error::DuplicateKey {
+            path: path.to_path_buf(),
+            kind: "facility".to_string(),
+            key: key.to_string(),
+        },
+        CatalogBuildError::MachineFacilityMissingPower { .. } => Error::Schema {
+            path: path.to_path_buf(),
+            field: "machines.power_w".to_string(),
+            index: Some(index),
+            message: source.to_string(),
+        },
+        CatalogBuildError::ThermalBankFacilityHasPower { .. } => Error::Schema {
+            path: path.to_path_buf(),
+            field: "machines".to_string(),
+            index: Some(index),
+            message: source.to_string(),
+        },
+        _ => Error::Schema {
+            path: path.to_path_buf(),
+            field: "machines".to_string(),
+            index: Some(index),
+            message: source.to_string(),
+        },
+    }
+}
+
+fn map_thermal_facility_build_error(path: &Path, source: CatalogBuildError) -> Error {
+    match source {
+        CatalogBuildError::DuplicateFacilityKey(key) => Error::DuplicateKey {
+            path: path.to_path_buf(),
+            kind: "facility".to_string(),
+            key: key.to_string(),
+        },
+        CatalogBuildError::MachineFacilityMissingPower { .. }
+        | CatalogBuildError::ThermalBankFacilityHasPower { .. } => Error::Schema {
+            path: path.to_path_buf(),
+            field: "thermal_bank".to_string(),
+            index: None,
+            message: source.to_string(),
+        },
+        _ => Error::Schema {
+            path: path.to_path_buf(),
+            field: "thermal_bank".to_string(),
+            index: None,
+            message: source.to_string(),
+        },
+    }
+}
+
+fn map_recipe_build_error(path: &Path, index: usize, source: CatalogBuildError) -> Error {
+    let field = match source {
+        CatalogBuildError::UnknownRecipeFacilityId(_)
+        | CatalogBuildError::RecipeFacilityMustBeMachine { .. } => "recipes.facility",
+        CatalogBuildError::RecipeTimeMustBePositive => "recipes.time_s",
+        CatalogBuildError::RecipeIngredientsMustNotBeEmpty
+        | CatalogBuildError::UnknownRecipeItemId {
+            list: "ingredients",
+            ..
+        }
+        | CatalogBuildError::DuplicateRecipeItem {
+            list: "ingredients",
+            ..
+        }
+        | CatalogBuildError::RecipeStackCountMustBePositive {
+            list: "ingredients",
+            ..
+        } => "recipes.ingredients",
+        CatalogBuildError::RecipeProductsMustNotBeEmpty
+        | CatalogBuildError::UnknownRecipeItemId {
+            list: "products", ..
+        }
+        | CatalogBuildError::DuplicateRecipeItem {
+            list: "products", ..
+        }
+        | CatalogBuildError::RecipeStackCountMustBePositive {
+            list: "products", ..
+        } => "recipes.products",
+        _ => "recipes",
+    };
+    Error::Schema {
+        path: path.to_path_buf(),
+        field: field.to_string(),
+        index: Some(index),
+        message: source.to_string(),
+    }
+}
+
+fn map_power_recipe_build_error(path: &Path, index: usize, source: CatalogBuildError) -> Error {
+    let field = match source {
+        CatalogBuildError::UnknownPowerRecipeIngredientItemId(_)
+        | CatalogBuildError::PowerRecipeIngredientCountMustBePositive { .. } => {
+            "power_recipes.ingredient"
+        }
+        CatalogBuildError::PowerRecipePowerMustBePositive => "power_recipes.power_w",
+        CatalogBuildError::PowerRecipeTimeMustBePositive => "power_recipes.time_s",
+        _ => "power_recipes",
+    };
+    Error::Schema {
+        path: path.to_path_buf(),
+        field: field.to_string(),
+        index: Some(index),
+        message: source.to_string(),
+    }
 }

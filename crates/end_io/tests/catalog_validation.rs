@@ -48,6 +48,31 @@ fn load_catalog_from_parts(items: &str, facilities: &str, recipes: &str) -> Resu
     load_catalog(Some(dir.path())).map(|_| ())
 }
 
+fn assert_schema_location(
+    err: &Error,
+    expected_path_suffix: &str,
+    expected_field: &str,
+    expected_index: Option<usize>,
+) {
+    match err {
+        Error::Schema {
+            path,
+            field,
+            index,
+            message,
+        } => {
+            assert!(
+                path.ends_with(expected_path_suffix),
+                "unexpected path: {path:?}"
+            );
+            assert_eq!(field, expected_field, "unexpected field");
+            assert_eq!(*index, expected_index, "unexpected index");
+            assert!(!message.is_empty(), "schema message should not be empty");
+        }
+        _ => panic!("unexpected error: {err:?}"),
+    }
+}
+
 #[test]
 fn load_builtin_catalog_success() {
     let catalog = load_catalog(None).expect("load builtin catalog");
@@ -126,18 +151,7 @@ products = [{ item = "B", count = 1 }]
     )
     .expect_err("thermal bank in recipes should fail");
 
-    assert!(
-        matches!(
-            err,
-            Error::Schema {
-                ref field,
-                index: Some(0),
-                ref message,
-                ..
-            } if field == "recipes.facility" && message.contains("thermal_bank cannot appear")
-        ),
-        "unexpected error: {err:?}"
-    );
+    assert_schema_location(&err, "recipes.toml", "recipes.facility", Some(0));
 }
 
 #[test]
@@ -155,18 +169,7 @@ products = [{ item = "B", count = 1 }]
     )
     .expect_err("duplicate stack items should fail");
 
-    assert!(
-        matches!(
-            err,
-            Error::Schema {
-                ref field,
-                index: Some(0),
-                ref message,
-                ..
-            } if field == "recipes.ingredients" && message.contains("duplicate item")
-        ),
-        "unexpected error: {err:?}"
-    );
+    assert_schema_location(&err, "recipes.toml", "recipes.ingredients", Some(0));
 }
 
 #[test]
@@ -234,17 +237,7 @@ zh = "Thermal_Bank_zh"
     )
     .expect_err("spaced key should fail");
 
-    assert!(
-        matches!(
-            err,
-            Error::Schema {
-                ref field,
-                ref message,
-                ..
-            } if field == "machines.key" && message.contains("leading/trailing")
-        ),
-        "unexpected error: {err:?}"
-    );
+    assert_schema_location(&err, "facilities.toml", "machines.key", Some(0));
 }
 
 #[test]
@@ -266,17 +259,7 @@ zh = "B_zh"
     )
     .expect_err("blank zh text should fail");
 
-    assert!(
-        matches!(
-            err,
-            Error::Schema {
-                ref field,
-                ref message,
-                ..
-            } if field == "items.zh" && message.contains("must not be blank")
-        ),
-        "unexpected error: {err:?}"
-    );
+    assert_schema_location(&err, "items.toml", "items.zh", Some(0));
 }
 
 #[test]
@@ -299,15 +282,5 @@ zh = "Thermal_Bank_zh"
     )
     .expect_err("machine power must be >= 1");
 
-    assert!(
-        matches!(
-            err,
-            Error::Schema {
-                ref field,
-                ref message,
-                ..
-            } if field == "machines.power_w" && message.contains("must be >= 1")
-        ),
-        "unexpected error: {err:?}"
-    );
+    assert_schema_location(&err, "facilities.toml", "machines.power_w", Some(0));
 }

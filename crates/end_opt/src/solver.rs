@@ -1,10 +1,9 @@
 use crate::error::{Error, Result};
 use crate::types::{
-    ExternalSupplySlack, FacilityMachineCount, OptimizationResult, OutpostIndex, OutpostValue,
-    PowerRecipeIndex, RecipeIndex, RecipeUsage, SaleValue, SolveInputs, StageSolution,
-    ThermalBankUsage,
+    ExternalSupplySlack, FacilityMachineCount, OptimizationResult, OutpostValue, RecipeUsage,
+    SaleValue, SolveInputs, StageSolution, ThermalBankUsage,
 };
-use end_model::{Catalog, FacilityId, FacilityKind, ItemId};
+use end_model::{Catalog, FacilityId, FacilityKind, ItemId, OutpostId, PowerRecipeId, RecipeId};
 use good_lp::{
     Expression, Solution, SolverModel, Variable, constraint, default_solver, variable, variables,
 };
@@ -13,8 +12,6 @@ use std::collections::HashMap;
 
 /// Maximum tolerated distance from an integer value for decoded integer variables.
 pub const NEAR_INT_EPS: f64 = 1e-6;
-/// Relative epsilon used to derive stage-2 revenue floor from stage-1 objective.
-pub const STAGE2_REVENUE_FLOOR_REL_EPS: f64 = 1e-6;
 
 #[derive(Debug, Clone, Copy)]
 enum StageObjective {
@@ -24,14 +21,14 @@ enum StageObjective {
 
 #[derive(Debug, Clone)]
 struct OutpostVars {
-    outpost_index: OutpostIndex,
+    outpost_index: OutpostId,
     money_cap_per_hour: u32,
     sell_lines: Vec<(ItemId, u32, Variable)>,
 }
 
 #[derive(Debug, Clone)]
 struct RecipeVars {
-    recipe_index: RecipeIndex,
+    recipe_index: RecipeId,
     facility: FacilityId,
     x: Variable,
     y: Variable,
@@ -41,7 +38,7 @@ struct RecipeVars {
 
 #[derive(Debug, Clone)]
 struct PowerVars {
-    power_recipe_index: PowerRecipeIndex,
+    power_recipe_index: PowerRecipeId,
     ingredient: ItemId,
     power_w: u32,
     duration_s: u32,
@@ -51,15 +48,9 @@ struct PowerVars {
 /// Run the two-stage optimizer:
 /// 1) maximize revenue, 2) minimize machines under a near-optimal revenue floor.
 pub fn run_two_stage(catalog: &Catalog, inputs: &SolveInputs) -> Result<OptimizationResult> {
-    if catalog.recipes().is_empty() {
-        return Err(Error::InvalidInput {
-            message: "catalog.recipes must not be empty".to_string(),
-        });
-    }
-
     let stage1 = solve_stage(catalog, inputs, StageObjective::MaxRevenue)?;
 
-    let rel_eps = STAGE2_REVENUE_FLOOR_REL_EPS * stage1.revenue_per_min.max(1.0);
+    let rel_eps = NEAR_INT_EPS * stage1.revenue_per_min.max(1.0);
     let revenue_floor_per_min = (stage1.revenue_per_min - rel_eps).max(0.0);
     let stage2 = solve_stage(
         catalog,
@@ -79,27 +70,30 @@ fn solve_stage(
 ) -> Result<StageSolution> {
     let item_count = catalog.items().len();
     let mut external_supply = vec![0_u32; item_count];
-    let mut external_supply_items = Vec::with_capacity(inputs.aic.supply_per_min.len());
+    let mut external_supply_items = Vec::with_capacity(inputs.aic.supply_per_min().len());
     let mut active_items = vec![false; item_count];
-    for (item, supply) in inputs.aic.supply_per_min.iter() {
+    for (item, supply) in inputs.aic.supply_per_min().iter() {
         let item_index = item_index(item, item_count)?;
-        external_supply[item_index] = supply;
-        external_supply_items.push((item, supply));
+        external_supply[item_index] = supply.get();
+        external_supply_items.push((item, supply.get()));
         active_items[item_index] = true;
     }
 
     let mut vars = variables!();
 
     let mut recipe_vars = Vec::with_capacity(catalog.recipes().len());
-    for (idx, recipe) in catalog.recipes().iter().enumerate() {
-        let recipe_index = to_recipe_index(idx)?;
+    for (recipe_index, recipe) in catalog.recipes_with_id() {
         let x = vars.add(variable().min(0.0));
         let y = vars.add(variable().integer().min(0.0));
 
         let time_s = recipe.time_s as f64;
         if time_s <= 0.0 {
             return Err(Error::InvalidInput {
-                message: format!("recipe[{idx}] has non-positive time_s {}", recipe.time_s),
+                message: format!(
+                    "recipe[{}] has non-positive time_s {}",
+                    recipe_index.as_u32(),
+                    recipe.time_s
+                ),
             });
         }
 
@@ -128,8 +122,7 @@ fn solve_stage(
     }
 
     let mut power_vars = Vec::with_capacity(catalog.power_recipes().len());
-    for (idx, p) in catalog.power_recipes().iter().enumerate() {
-        let power_recipe_index = to_power_recipe_index(idx)?;
+    for (power_recipe_index, p) in catalog.power_recipes_with_id() {
         let z = vars.add(variable().integer().min(0.0));
         power_vars.push(PowerVars {
             power_recipe_index,
@@ -140,9 +133,8 @@ fn solve_stage(
         });
     }
 
-    let mut outpost_vars = Vec::with_capacity(inputs.aic.outposts.len());
-    for (idx, outpost) in inputs.aic.outposts.iter().enumerate() {
-        let outpost_index = to_outpost_index(idx)?;
+    let mut outpost_vars = Vec::with_capacity(inputs.aic.outposts().len());
+    for (outpost_index, outpost) in inputs.aic.outposts_with_id() {
         let mut sell_lines = Vec::with_capacity(outpost.prices.len());
         for (item, price) in outpost.prices.iter() {
             active_items[item_index(item, item_count)?] = true;
@@ -186,7 +178,7 @@ fn solve_stage(
     }
 
     let mut power_use = Expression::default();
-    power_use += inputs.aic.external_power_consumption_w as f64;
+    power_use += inputs.aic.external_power_consumption_w() as f64;
     for rv in &recipe_vars {
         let facility = catalog
             .facility(rv.facility)
@@ -194,7 +186,7 @@ fn solve_stage(
                 message: format!("unknown facility id {}", rv.facility.as_u32()),
             })?;
         let machine_power_w = facility.power_w.ok_or_else(|| Error::MissingMachinePower {
-            facility: facility.key.clone(),
+            facility: facility.key.to_string(),
         })?;
         if facility.kind != FacilityKind::Machine {
             return Err(Error::InvalidInput {
@@ -393,7 +385,7 @@ fn solve_stage(
 
     Ok(StageSolution {
         p_core_w: inputs.p_core_w,
-        p_ext_w: inputs.aic.external_power_consumption_w,
+        p_ext_w: inputs.aic.external_power_consumption_w(),
         revenue_per_min,
         total_machines,
         total_thermal_banks,
@@ -495,22 +487,4 @@ fn item_index(item: ItemId, item_count: usize) -> Result<usize> {
         });
     }
     Ok(idx)
-}
-
-fn to_outpost_index(index: usize) -> Result<OutpostIndex> {
-    OutpostIndex::from_usize(index).ok_or_else(|| Error::InvalidInput {
-        message: format!("outpost index {index} exceeds u32::MAX"),
-    })
-}
-
-fn to_recipe_index(index: usize) -> Result<RecipeIndex> {
-    RecipeIndex::from_usize(index).ok_or_else(|| Error::InvalidInput {
-        message: format!("recipe index {index} exceeds u32::MAX"),
-    })
-}
-
-fn to_power_recipe_index(index: usize) -> Result<PowerRecipeIndex> {
-    PowerRecipeIndex::from_usize(index).ok_or_else(|| Error::InvalidInput {
-        message: format!("power recipe index {index} exceeds u32::MAX"),
-    })
 }

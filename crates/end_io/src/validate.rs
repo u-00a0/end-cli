@@ -1,7 +1,6 @@
 use crate::schema::StackToml;
 use crate::{Error, Result};
-use end_model::{ItemId, Stack};
-use std::collections::HashSet;
+use end_model::{DisplayName, ItemId, Key, Stack};
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 
@@ -13,19 +12,9 @@ pub(crate) fn resolve_stack_list(
     resolve_item: impl Fn(&str) -> Option<ItemId>,
 ) -> Result<Vec<Stack>> {
     let mut resolved = Vec::with_capacity(raw.len());
-    let mut seen = HashSet::new();
 
     for stack in raw {
-        let s = resolve_stack(path, field, index, stack, &resolve_item)?;
-        if !seen.insert(s.item) {
-            return Err(Error::Schema {
-                path: path.to_path_buf(),
-                field: field.to_string(),
-                index,
-                message: "duplicate item in same list".to_string(),
-            });
-        }
-        resolved.push(s);
+        resolved.push(resolve_stack(path, field, index, stack, &resolve_item)?);
     }
 
     Ok(resolved)
@@ -38,11 +27,11 @@ pub(crate) fn resolve_stack(
     raw: StackToml,
     resolve_item: impl Fn(&str) -> Option<ItemId>,
 ) -> Result<Stack> {
-    let item_key = validate_key(path, &format!("{field}.item"), index, raw.item)?;
+    let item_key = parse_key(path, &format!("{field}.item"), index, raw.item)?;
     let count = parse_positive_u32(path, &format!("{field}.count"), index, raw.count)?;
     let item = resolve_item(item_key.as_str()).ok_or_else(|| Error::UnknownItem {
         path: path.to_path_buf(),
-        key: item_key,
+        key: item_key.to_string(),
     })?;
     Ok(Stack {
         item,
@@ -67,46 +56,43 @@ pub(crate) fn validate_non_empty(
     Ok(())
 }
 
-pub(crate) fn validate_text(
+pub(crate) fn parse_display_name(
     path: &Path,
     field: &str,
     index: Option<usize>,
-    value: &str,
-) -> Result<()> {
-    if value.trim().is_empty() {
-        return Err(Error::Schema {
-            path: path.to_path_buf(),
-            field: field.to_string(),
-            index,
-            message: "must not be blank".to_string(),
-        });
-    }
-    Ok(())
+    value: String,
+) -> Result<DisplayName> {
+    DisplayName::try_from(value).map_err(|source| Error::Schema {
+        path: path.to_path_buf(),
+        field: field.to_string(),
+        index,
+        message: source.to_string(),
+    })
 }
 
-pub(crate) fn validate_key(
+pub(crate) fn parse_optional_display_name(
+    path: &Path,
+    field: &str,
+    index: Option<usize>,
+    value: Option<String>,
+) -> Result<Option<DisplayName>> {
+    value
+        .map(|text| parse_display_name(path, field, index, text))
+        .transpose()
+}
+
+pub(crate) fn parse_key(
     path: &Path,
     field: &str,
     index: Option<usize>,
     key: String,
-) -> Result<String> {
-    if key.trim().is_empty() {
-        return Err(Error::Schema {
-            path: path.to_path_buf(),
-            field: field.to_string(),
-            index,
-            message: "key must not be blank".to_string(),
-        });
-    }
-    if key != key.trim() {
-        return Err(Error::Schema {
-            path: path.to_path_buf(),
-            field: field.to_string(),
-            index,
-            message: "key must not have leading/trailing spaces".to_string(),
-        });
-    }
-    Ok(key)
+) -> Result<Key> {
+    Key::try_from(key).map_err(|source| Error::Schema {
+        path: path.to_path_buf(),
+        field: field.to_string(),
+        index,
+        message: source.to_string(),
+    })
 }
 
 pub(crate) fn parse_positive_u32(

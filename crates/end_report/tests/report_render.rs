@@ -1,71 +1,85 @@
 use end_model::{
-    AicInputs, Catalog, FacilityDef, FacilityKind, ItemDef, OutpostInput, Recipe, Stack,
+    AicInputs, Catalog, DisplayName, FacilityDef, FacilityKind, ItemDef, Key, OutpostInput, Stack,
 };
 use end_opt::{SolveInputs, run_two_stage};
 use end_report::{Lang, build_report};
 use std::num::NonZeroU32;
 
+fn key(value: &str) -> Key {
+    value.try_into().expect("valid key")
+}
+
+fn name(value: &str) -> DisplayName {
+    value.try_into().expect("valid display name")
+}
+
+fn nz(value: u32) -> NonZeroU32 {
+    NonZeroU32::new(value).expect("non-zero")
+}
+
 fn sample_catalog_and_inputs() -> (Catalog, AicInputs, end_opt::OptimizationResult) {
     let mut b = Catalog::builder();
     let ore = b
         .add_item(ItemDef {
-            key: "Ore".to_string(),
-            en: "Ore".to_string(),
-            zh: "Ore_zh".to_string(),
+            key: key("Ore"),
+            en: name("Ore"),
+            zh: name("Ore_zh"),
         })
         .expect("add ore");
     let ingot = b
         .add_item(ItemDef {
-            key: "Ingot".to_string(),
-            en: "Ingot".to_string(),
-            zh: "Ingot_zh".to_string(),
+            key: key("Ingot"),
+            en: name("Ingot"),
+            zh: name("Ingot_zh"),
         })
         .expect("add ingot");
 
     let machine = b
         .add_facility(FacilityDef {
-            key: "Smelter".to_string(),
+            key: key("Smelter"),
             kind: FacilityKind::Machine,
-            power_w: Some(NonZeroU32::new(10).expect("non-zero")),
-            en: "Smelter".to_string(),
-            zh: "Smelter_zh".to_string(),
+            power_w: Some(nz(10)),
+            en: name("Smelter"),
+            zh: name("Smelter_zh"),
         })
         .expect("add machine");
     b.add_facility(FacilityDef {
-        key: "Thermal Bank".to_string(),
+        key: key("Thermal Bank"),
         kind: FacilityKind::ThermalBank,
         power_w: None,
-        en: "Thermal Bank".to_string(),
-        zh: "Thermal_Bank_zh".to_string(),
+        en: name("Thermal Bank"),
+        zh: name("Thermal_Bank_zh"),
     })
     .expect("add thermal bank");
 
-    b.push_recipe(Recipe {
-        facility: machine,
-        time_s: 60,
-        ingredients: vec![Stack {
+    b.push_recipe(
+        machine,
+        60,
+        vec![Stack {
             item: ore,
             count: 1,
         }],
-        products: vec![Stack {
+        vec![Stack {
             item: ingot,
             count: 1,
         }],
-    });
+    )
+    .expect("push recipe");
 
     let catalog = b.build().expect("build catalog");
 
-    let aic = AicInputs {
-        external_power_consumption_w: 0,
-        supply_per_min: vec![(ore, 10)].into(),
-        outposts: vec![OutpostInput {
-            key: "Camp".to_string(),
-            en: Some("Camp".to_string()),
-            zh: Some("Camp_zh".to_string()),
+    let aic = AicInputs::new(
+        0,
+        vec![(ore, nz(10))].into(),
+        vec![OutpostInput {
+            key: key("Camp"),
+            en: Some(name("Camp")),
+            zh: Some(name("Camp_zh")),
             money_cap_per_hour: 600,
             prices: vec![(ingot, 5)].into(),
         }],
-    };
+    )
+    .expect("valid aic inputs");
 
     let result = run_two_stage(
         &catalog,

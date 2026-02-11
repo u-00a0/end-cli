@@ -1,5 +1,4 @@
-use end_model::{FacilityId, ItemId};
-use end_opt::{OutpostIndex, RecipeIndex};
+use end_model::{FacilityId, ItemId, OutpostId, RecipeId};
 use thiserror::Error;
 
 /// Result alias for report generation.
@@ -15,8 +14,8 @@ pub enum Error {
     MissingFacility(FacilityId),
 
     #[error("missing outpost index {}", .0.as_u32())]
-    MissingOutpost(OutpostIndex),
+    MissingOutpost(OutpostId),
 
     #[error("missing recipe index {}", .0.as_u32())]
-    MissingRecipe(RecipeIndex),
+    MissingRecipe(RecipeId),
 }

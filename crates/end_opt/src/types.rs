@@ -1,64 +1,4 @@
-use end_model::{AicInputs, FacilityId, ItemId};
-
-/// Index into `AicInputs.outposts`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct OutpostIndex(u32);
-
-impl OutpostIndex {
-    /// Returns the underlying index value.
-    pub fn as_u32(self) -> u32 {
-        self.0
-    }
-
-    /// Returns the index as `usize` for direct slice indexing.
-    pub fn as_usize(self) -> usize {
-        self.0 as usize
-    }
-
-    pub(crate) fn from_usize(index: usize) -> Option<Self> {
-        u32::try_from(index).ok().map(Self)
-    }
-}
-
-/// Index into `Catalog.recipes`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct RecipeIndex(u32);
-
-impl RecipeIndex {
-    /// Returns the underlying index value.
-    pub fn as_u32(self) -> u32 {
-        self.0
-    }
-
-    /// Returns the index as `usize` for direct slice indexing.
-    pub fn as_usize(self) -> usize {
-        self.0 as usize
-    }
-
-    pub(crate) fn from_usize(index: usize) -> Option<Self> {
-        u32::try_from(index).ok().map(Self)
-    }
-}
-
-/// Index into `Catalog.power_recipes`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct PowerRecipeIndex(u32);
-
-impl PowerRecipeIndex {
-    /// Returns the underlying index value.
-    pub fn as_u32(self) -> u32 {
-        self.0
-    }
-
-    /// Returns the index as `usize` for direct slice indexing.
-    pub fn as_usize(self) -> usize {
-        self.0 as usize
-    }
-
-    pub(crate) fn from_usize(index: usize) -> Option<Self> {
-        u32::try_from(index).ok().map(Self)
-    }
-}
+use end_model::{AicInputs, FacilityId, ItemId, OutpostId, PowerRecipeId, RecipeId};
 
 /// Input bundle for optimization.
 #[derive(Debug, Clone)]
@@ -72,7 +12,7 @@ pub struct SolveInputs {
 /// Value utilization of one outpost.
 #[derive(Debug, Clone)]
 pub struct OutpostValue {
-    pub outpost_index: OutpostIndex,
+    pub outpost_index: OutpostId,
     /// Realized revenue on this outpost.
     pub value_per_min: f64,
     /// Theoretical cap from outpost config.
@@ -84,7 +24,7 @@ pub struct OutpostValue {
 /// One sale line contribution in the ranked top-sales list.
 #[derive(Debug, Clone)]
 pub struct SaleValue {
-    pub outpost_index: OutpostIndex,
+    pub outpost_index: OutpostId,
     /// Item being sold.
     pub item: ItemId,
     /// Revenue contribution.
@@ -103,7 +43,7 @@ pub struct FacilityMachineCount {
 /// Execution and machine usage for one recipe.
 #[derive(Debug, Clone)]
 pub struct RecipeUsage {
-    pub recipe_index: RecipeIndex,
+    pub recipe_index: RecipeId,
     /// Integer machine count assigned to the recipe.
     pub machines: u32,
     /// Recipe runs per minute.
@@ -113,7 +53,7 @@ pub struct RecipeUsage {
 /// Thermal bank deployment for one power recipe.
 #[derive(Debug, Clone)]
 pub struct ThermalBankUsage {
-    pub power_recipe_index: PowerRecipeIndex,
+    pub power_recipe_index: PowerRecipeId,
     /// Fuel item consumed by the thermal bank.
     pub ingredient: ItemId,
     /// Number of thermal banks.
