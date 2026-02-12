@@ -1,7 +1,7 @@
 use end_model::{
-    AicInputs, Catalog, DisplayName, FacilityDef, FacilityKind, ItemDef, Key, OutpostInput, Stack,
+    AicInputs, Catalog, DisplayName, FacilityDef, ItemDef, Key, OutpostInput, Stack, ThermalBankDef,
 };
-use end_opt::{NEAR_INT_EPS, SolveInputs, run_two_stage};
+use end_opt::{Error as OptError, NEAR_INT_EPS, SolveInputs, run_two_stage};
 use std::num::NonZeroU32;
 
 fn key(value: &str) -> Key {
@@ -36,16 +36,13 @@ fn sample_catalog(with_recipes: bool) -> (Catalog, end_model::ItemId, end_model:
     let machine = b
         .add_facility(FacilityDef {
             key: key("Smelter"),
-            kind: FacilityKind::Machine,
-            power_w: Some(nz(10)),
+            power_w: nz(10),
             en: name("Smelter"),
             zh: name("Smelter_zh"),
         })
         .expect("add machine");
-    b.add_facility(FacilityDef {
+    b.add_thermal_bank(ThermalBankDef {
         key: key("Thermal Bank"),
-        kind: FacilityKind::ThermalBank,
-        power_w: None,
         en: name("Thermal Bank"),
         zh: name("Thermal_Bank_zh"),
     })
@@ -190,5 +187,68 @@ fn stage2_respects_revenue_floor_and_basic_invariants() {
             pair[0].machines >= pair[1].machines,
             "recipes_used must be sorted descending by machines"
         );
+    }
+}
+
+#[test]
+fn run_two_stage_rejects_out_of_bounds_aic_item_id_at_entry() {
+    let (catalog, ore, _ingot) = sample_catalog(false);
+
+    let mut other = Catalog::builder();
+    let _a = other
+        .add_item(ItemDef {
+            key: key("A"),
+            en: name("A"),
+            zh: name("A_zh"),
+        })
+        .expect("add item A");
+    let _b = other
+        .add_item(ItemDef {
+            key: key("B"),
+            en: name("B"),
+            zh: name("B_zh"),
+        })
+        .expect("add item B");
+    let alien_item = other
+        .add_item(ItemDef {
+            key: key("C"),
+            en: name("C"),
+            zh: name("C_zh"),
+        })
+        .expect("add item C");
+    other
+        .add_thermal_bank(ThermalBankDef {
+            key: key("Other Thermal Bank"),
+            en: name("Other Thermal Bank"),
+            zh: name("Other_Thermal_Bank_zh"),
+        })
+        .expect("add thermal bank");
+    let _other_catalog = other.build().expect("build other catalog");
+
+    let inputs = SolveInputs {
+        p_core_w: 200,
+        aic: AicInputs::new(
+            0,
+            vec![(alien_item, nz(10))].into(),
+            vec![OutpostInput {
+                key: key("Camp"),
+                en: Some(name("Camp")),
+                zh: Some(name("Camp_zh")),
+                money_cap_per_hour: 600,
+                prices: vec![(ore, 2)].into(),
+            }],
+        )
+        .expect("valid aic inputs"),
+    };
+
+    let err = run_two_stage(&catalog, &inputs).expect_err("mismatched item id should be rejected");
+    match err {
+        OptError::InvalidInput { message } => {
+            assert!(
+                message.contains("supply_per_min"),
+                "error should point at supply source, got: {message}"
+            );
+        }
+        other => panic!("expected InvalidInput, got {other:?}"),
     }
 }

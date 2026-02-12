@@ -16,9 +16,6 @@ pub enum Error {
     #[error("invalid input: {message}")]
     InvalidInput { message: String },
 
-    #[error("missing machine power for facility `{facility}`")]
-    MissingMachinePower { facility: String },
-
     #[error(
         "value not near integer for `{var_name}`: value={value}, nearest={nearest}, delta={delta}, eps={eps}"
     )]
@@ -32,7 +29,4 @@ pub enum Error {
 
     #[error("value out of range for `{var_name}`: {value}")]
     OutOfRange { var_name: String, value: f64 },
-
-    #[error("internal error: {message}")]
-    Internal { message: String },
 }

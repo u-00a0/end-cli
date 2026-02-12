@@ -8,3 +8,6 @@ end-model = { path = "../end_model" }
 end-opt = { path = "../end_opt" }
 thiserror = { workspace = true }
 clap = { workspace = true }
+
+[lints]
+workspace = true

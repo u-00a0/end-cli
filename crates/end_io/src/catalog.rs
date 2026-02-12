@@ -3,7 +3,7 @@ use crate::validate::{
     parse_display_name, parse_key, parse_positive_u32, resolve_stack, resolve_stack_list,
 };
 use crate::{Error, Result};
-use end_model::{Catalog, CatalogBuildError, FacilityDef, FacilityKind, ItemDef, PowerRecipe};
+use end_model::{Catalog, CatalogBuildError, FacilityDef, ItemDef, PowerRecipe, ThermalBankDef};
 use serde::de::DeserializeOwned;
 use std::path::{Path, PathBuf};
 
@@ -78,8 +78,7 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
         builder
             .add_facility(FacilityDef {
                 key,
-                kind: FacilityKind::Machine,
-                power_w: Some(power_w),
+                power_w,
                 en,
                 zh,
             })
@@ -91,15 +90,13 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
     let bank_en = parse_display_name(&fac_path, "thermal_bank.en", None, thermal_bank.en)?;
     let bank_zh = parse_display_name(&fac_path, "thermal_bank.zh", None, thermal_bank.zh)?;
     builder
-        .add_facility(FacilityDef {
+        .add_thermal_bank(ThermalBankDef {
             key: bank_key,
-            kind: FacilityKind::ThermalBank,
-            power_w: None,
             en: bank_en,
             zh: bank_zh,
         })
         .map_err(|source| map_thermal_facility_build_error(&fac_path, source))?;
-    
+
     // add recipes
     for (i, raw) in recipes.into_iter().enumerate() {
         let facility_key = parse_key(&recipes_path, "recipes.facility", Some(i), raw.facility)?;
@@ -189,18 +186,6 @@ fn map_machine_build_error(path: &Path, index: usize, source: CatalogBuildError)
             kind: "facility".to_string(),
             key: key.to_string(),
         },
-        CatalogBuildError::MachineFacilityMissingPower { .. } => Error::Schema {
-            path: path.to_path_buf(),
-            field: "machines.power_w".to_string(),
-            index: Some(index),
-            message: source.to_string(),
-        },
-        CatalogBuildError::ThermalBankFacilityHasPower { .. } => Error::Schema {
-            path: path.to_path_buf(),
-            field: "machines".to_string(),
-            index: Some(index),
-            message: source.to_string(),
-        },
         _ => Error::Schema {
             path: path.to_path_buf(),
             field: "machines".to_string(),
@@ -218,13 +203,6 @@ fn map_thermal_facility_build_error(path: &Path, source: CatalogBuildError) -> E
             kind: "facility".to_string(),
             key: key.to_string(),
         },
-        CatalogBuildError::MachineFacilityMissingPower { .. }
-        | CatalogBuildError::ThermalBankFacilityHasPower { .. } => Error::Schema {
-            path: path.to_path_buf(),
-            field: "thermal_bank".to_string(),
-            index: None,
-            message: source.to_string(),
-        },
         _ => Error::Schema {
             path: path.to_path_buf(),
             field: "thermal_bank".to_string(),
@@ -237,8 +215,7 @@ fn map_thermal_facility_build_error(path: &Path, source: CatalogBuildError) -> E
 /// Collapse recipe build errors into the most specific TOML field path possible.
 fn map_recipe_build_error(path: &Path, index: usize, source: CatalogBuildError) -> Error {
     let field = match source {
-        CatalogBuildError::UnknownRecipeFacilityId(_)
-        | CatalogBuildError::RecipeFacilityMustBeMachine { .. } => "recipes.facility",
+        CatalogBuildError::UnknownRecipeFacilityId(_) => "recipes.facility",
         CatalogBuildError::RecipeTimeMustBePositive => "recipes.time_s",
         CatalogBuildError::RecipeIngredientsMustNotBeEmpty
         | CatalogBuildError::UnknownRecipeItemId {

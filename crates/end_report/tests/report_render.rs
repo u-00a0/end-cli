@@ -1,5 +1,5 @@
 use end_model::{
-    AicInputs, Catalog, DisplayName, FacilityDef, FacilityKind, ItemDef, Key, OutpostInput, Stack,
+    AicInputs, Catalog, DisplayName, FacilityDef, ItemDef, Key, OutpostInput, Stack, ThermalBankDef,
 };
 use end_opt::{SolveInputs, run_two_stage};
 use end_report::{Lang, build_report};
@@ -37,16 +37,13 @@ fn sample_catalog_and_inputs() -> (Catalog, AicInputs, end_opt::OptimizationResu
     let machine = b
         .add_facility(FacilityDef {
             key: key("Smelter"),
-            kind: FacilityKind::Machine,
-            power_w: Some(nz(10)),
+            power_w: nz(10),
             en: name("Smelter"),
             zh: name("Smelter_zh"),
         })
         .expect("add machine");
-    b.add_facility(FacilityDef {
+    b.add_thermal_bank(ThermalBankDef {
         key: key("Thermal Bank"),
-        kind: FacilityKind::ThermalBank,
-        power_w: None,
         en: name("Thermal Bank"),
         zh: name("Thermal_Bank_zh"),
     })

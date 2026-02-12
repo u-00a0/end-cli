@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use crate::Key;
 
 use super::{
-    Catalog, CatalogBuildError, FacilityDef, FacilityId, FacilityKind, ItemDef, ItemId,
-    PowerRecipe, PowerRecipeId, Recipe, RecipeId, Stack,
+    Catalog, CatalogBuildError, FacilityDef, FacilityId, ItemDef, ItemId, PowerRecipe,
+    PowerRecipeId, Recipe, RecipeId, Stack, ThermalBankDef,
 };
 
 /// Builder for [`Catalog`].
@@ -21,7 +21,7 @@ pub struct CatalogBuilder {
     power_recipes: Vec<PowerRecipe>,
     item_index: HashMap<Key, ItemId>,
     facility_index: HashMap<Key, FacilityId>,
-    thermal_bank: Option<FacilityId>,
+    thermal_bank: Option<ThermalBankDef>,
 }
 
 impl CatalogBuilder {
@@ -45,38 +45,39 @@ impl CatalogBuilder {
 
     /// Adds a facility definition and returns its newly assigned [`FacilityId`].
     ///
-    /// Facility keys must be unique. Exactly one facility with kind
-    /// [`FacilityKind::ThermalBank`] is required to build a [`Catalog`].
+    /// Facility keys must be unique.
     pub fn add_facility(&mut self, def: FacilityDef) -> Result<FacilityId, CatalogBuildError> {
-        if self.facility_index.contains_key(def.key.as_str()) {
+        if self.facility_index.contains_key(def.key.as_str())
+            || self
+                .thermal_bank
+                .as_ref()
+                .is_some_and(|bank| bank.key.as_str() == def.key.as_str())
+        {
             return Err(CatalogBuildError::DuplicateFacilityKey(def.key));
-        }
-        match (def.kind, def.power_w) {
-            (FacilityKind::Machine, None) => {
-                return Err(CatalogBuildError::MachineFacilityMissingPower { key: def.key });
-            }
-            (FacilityKind::ThermalBank, Some(_)) => {
-                return Err(CatalogBuildError::ThermalBankFacilityHasPower { key: def.key });
-            }
-            _ => {}
         }
         let id = FacilityId::from_index(self.facilities.len());
         self.facility_index.insert(def.key.clone(), id);
-        if def.kind == FacilityKind::ThermalBank {
-            if self.thermal_bank.is_some() {
-                return Err(CatalogBuildError::MultipleThermalBanks);
-            }
-            self.thermal_bank = Some(id);
-        }
         self.facilities.push(def);
         Ok(id)
+    }
+
+    /// Adds the unique thermal bank definition.
+    pub fn add_thermal_bank(&mut self, def: ThermalBankDef) -> Result<(), CatalogBuildError> {
+        if self.thermal_bank.is_some() {
+            return Err(CatalogBuildError::MultipleThermalBanks);
+        }
+        if self.facility_index.contains_key(def.key.as_str()) {
+            return Err(CatalogBuildError::DuplicateFacilityKey(def.key));
+        }
+        self.thermal_bank = Some(def);
+        Ok(())
     }
 
     /// Appends a production recipe and returns its assigned [`RecipeId`].
     ///
     /// This validates recipe-local invariants and cross-references against the current
     /// builder state:
-    /// - `facility` must exist and be a machine.
+    /// - `facility` must exist.
     /// - `time_s` must be positive.
     /// - `ingredients` / `products` must be non-empty.
     /// - each referenced item must exist.
@@ -88,15 +89,10 @@ impl CatalogBuilder {
         ingredients: Vec<Stack>,
         products: Vec<Stack>,
     ) -> Result<RecipeId, CatalogBuildError> {
-        let facility_def = self
-            .facilities
-            .get(facility.index())
-            .ok_or(CatalogBuildError::UnknownRecipeFacilityId(facility.as_u32()))?;
-        if facility_def.kind != FacilityKind::Machine {
-            return Err(CatalogBuildError::RecipeFacilityMustBeMachine {
-                facility_id: facility.as_u32(),
-                kind: facility_def.kind,
-            });
+        if self.facilities.get(facility.index()).is_none() {
+            return Err(CatalogBuildError::UnknownRecipeFacilityId(
+                facility.as_u32(),
+            ));
         }
         if time_s == 0 {
             return Err(CatalogBuildError::RecipeTimeMustBePositive);
@@ -137,9 +133,11 @@ impl CatalogBuilder {
             ));
         }
         if recipe.ingredient.count == 0 {
-            return Err(CatalogBuildError::PowerRecipeIngredientCountMustBePositive {
-                item_id: recipe.ingredient.item.as_u32(),
-            });
+            return Err(
+                CatalogBuildError::PowerRecipeIngredientCountMustBePositive {
+                    item_id: recipe.ingredient.item.as_u32(),
+                },
+            );
         }
         if recipe.power_w == 0 {
             return Err(CatalogBuildError::PowerRecipePowerMustBePositive);
@@ -163,9 +161,9 @@ impl CatalogBuilder {
         self.facility_index.get(key).copied()
     }
 
-    /// Returns the thermal bank id if it has already been added.
-    pub fn thermal_bank(&self) -> Option<FacilityId> {
-        self.thermal_bank
+    /// Returns the thermal bank definition if it has already been added.
+    pub fn thermal_bank(&self) -> Option<&ThermalBankDef> {
+        self.thermal_bank.as_ref()
     }
 
     /// Finalizes the builder and returns a self-consistent [`Catalog`].

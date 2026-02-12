@@ -3,7 +3,7 @@ use end_model::{AicInputs, FacilityId, ItemId, OutpostId, PowerRecipeId, RecipeI
 /// Input bundle for optimization.
 #[derive(Debug, Clone)]
 pub struct SolveInputs {
-    /// Core/base generation capacity in watts.
+    /// Core generation capacity in watts.
     pub p_core_w: u32,
     /// Scenario inputs (external power, supply, outposts).
     pub aic: AicInputs,

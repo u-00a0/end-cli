@@ -6,7 +6,7 @@ pub use aic_input::{
     AicBuildError, AicInputs, ItemNonZeroU32Map, ItemU32Map, OutpostId, OutpostInput,
 };
 pub use catalog::{
-    Catalog, CatalogBuildError, CatalogBuilder, FacilityDef, FacilityId, FacilityKind, ItemDef,
-    ItemId, P_CORE_W, PowerRecipe, PowerRecipeId, Recipe, RecipeId, Stack,
+    Catalog, CatalogBuildError, CatalogBuilder, FacilityDef, FacilityId, ItemDef, ItemId, P_CORE_W,
+    PowerRecipe, PowerRecipeId, Recipe, RecipeId, Stack, ThermalBankDef,
 };
 pub use text::{DisplayName, DisplayNameValidationError, Key, KeyValidationError};

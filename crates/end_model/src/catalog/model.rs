@@ -4,7 +4,7 @@ use crate::Key;
 
 use super::{
     CatalogBuilder, FacilityDef, FacilityId, ItemDef, ItemId, PowerRecipe, PowerRecipeId, Recipe,
-    RecipeId,
+    RecipeId, ThermalBankDef,
 };
 
 /// Canonical in-memory model resolved from TOML inputs.
@@ -12,7 +12,7 @@ use super::{
 /// ## Design notes
 ///
 /// This type intentionally keeps its fields private so that the internal indices (`key -> id`
-/// lookups and the `thermal_bank` id) cannot be desynchronized from the backing vectors by
+/// lookups and the `thermal_bank` definition) cannot be desynchronized from the backing vectors by
 /// accident.
 ///
 /// Construct a catalog via [`Catalog::builder`] / [`CatalogBuilder::build`].
@@ -24,7 +24,7 @@ pub struct Catalog {
     pub(super) power_recipes: Vec<PowerRecipe>,
     pub(super) item_index: HashMap<Key, ItemId>,
     pub(super) facility_index: HashMap<Key, FacilityId>,
-    pub(super) thermal_bank: FacilityId,
+    pub(super) thermal_bank: ThermalBankDef,
 }
 
 impl Catalog {
@@ -55,9 +55,9 @@ impl Catalog {
         self.power_recipes.get(id.index())
     }
 
-    /// Returns the facility id of the unique thermal bank facility.
-    pub fn thermal_bank(&self) -> FacilityId {
-        self.thermal_bank
+    /// Returns the unique thermal bank definition.
+    pub fn thermal_bank(&self) -> &ThermalBankDef {
+        &self.thermal_bank
     }
 
     /// Returns all items in id order.
@@ -81,6 +81,22 @@ impl Catalog {
             .iter()
             .enumerate()
             .map(|(index, recipe)| (RecipeId::from_index(index), recipe))
+    }
+
+    /// Returns all production recipes paired with ids and already-resolved facility metadata.
+    ///
+    /// Facility lookup is total here because `CatalogBuilder::push_recipe` guarantees each
+    /// `Recipe::facility` points to an existing facility in this catalog.
+    pub fn recipes_with_id_and_facility(
+        &self,
+    ) -> impl Iterator<Item = (RecipeId, &Recipe, &FacilityDef)> + '_ {
+        self.recipes.iter().enumerate().map(|(index, recipe)| {
+            (
+                RecipeId::from_index(index),
+                recipe,
+                &self.facilities[recipe.facility.index()],
+            )
+        })
     }
 
     /// Returns all thermal-bank power recipes.

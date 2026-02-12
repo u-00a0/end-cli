@@ -20,7 +20,7 @@ impl ItemId {
     /// Returns the underlying numeric representation.
     ///
     /// In a single [`Catalog`](super::Catalog), item ids are minted densely in insertion order,
-    /// so this value can be used as an index (`as_u32() as usize`) for per-item arrays whose
+    /// so this value can be used as an index (via [`ItemId::index`]) for per-item arrays whose
     /// length is `catalog.items().len()`.
     ///
     /// The numeric value is catalog-dependent; ids from different catalogs must not be mixed.
@@ -28,12 +28,16 @@ impl ItemId {
         self.0
     }
 
-    pub(crate) fn from_index(index: usize) -> Self {
-        Self(index as u32)
+    /// Returns the zero-based dense index of this item id in its source catalog.
+    ///
+    /// This is equivalent to `self.as_u32() as usize`, provided as a dedicated API to make
+    /// per-item indexing more explicit.
+    pub fn index(self) -> usize {
+        self.0 as usize
     }
 
-    pub(crate) fn index(self) -> usize {
-        self.0 as usize
+    pub(crate) fn from_index(index: usize) -> Self {
+        Self(index as u32)
     }
 }
 
@@ -112,13 +116,6 @@ impl PowerRecipeId {
     }
 }
 
-/// Facility category used by the optimizer and report layers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FacilityKind {
-    Machine,
-    ThermalBank,
-}
-
 /// Item metadata and display texts.
 #[derive(Debug, Clone)]
 pub struct ItemDef {
@@ -127,12 +124,19 @@ pub struct ItemDef {
     pub zh: DisplayName,
 }
 
-/// Facility metadata and display texts.
+/// Machine facility metadata and display texts.
 #[derive(Debug, Clone)]
 pub struct FacilityDef {
     pub key: Key,
-    pub kind: FacilityKind,
-    pub power_w: Option<NonZeroU32>,
+    pub power_w: NonZeroU32,
+    pub en: DisplayName,
+    pub zh: DisplayName,
+}
+
+/// Thermal bank metadata and display texts.
+#[derive(Debug, Clone)]
+pub struct ThermalBankDef {
+    pub key: Key,
     pub en: DisplayName,
     pub zh: DisplayName,
 }

@@ -3,7 +3,7 @@ use crate::types::{
     ExternalSupplySlack, FacilityMachineCount, OptimizationResult, OutpostValue, RecipeUsage,
     SaleValue, SolveInputs, StageSolution, ThermalBankUsage,
 };
-use end_model::{Catalog, FacilityId, FacilityKind, ItemId, OutpostId, PowerRecipeId, RecipeId};
+use end_model::{Catalog, FacilityId, ItemId, OutpostId, PowerRecipeId, RecipeId};
 use good_lp::{
     Expression, Solution, SolverModel, Variable, constraint, default_solver, variable, variables,
 };
@@ -30,6 +30,7 @@ struct OutpostVars {
 struct RecipeVars {
     recipe_index: RecipeId,
     facility: FacilityId,
+    facility_power_w: u32,
     x: Variable,
     y: Variable,
     throughput_per_min: f64,
@@ -48,6 +49,8 @@ struct PowerVars {
 /// Run the two-stage optimizer:
 /// 1) maximize revenue, 2) minimize machines under a near-optimal revenue floor.
 pub fn run_two_stage(catalog: &Catalog, inputs: &SolveInputs) -> Result<OptimizationResult> {
+    validate_aic_item_ids(inputs, catalog.items().len())?;
+
     let stage1 = solve_stage(catalog, inputs, StageObjective::MaxRevenue)?;
 
     let rel_eps = NEAR_INT_EPS * stage1.revenue_per_min.max(1.0);
@@ -69,170 +72,129 @@ fn solve_stage(
     objective: StageObjective,
 ) -> Result<StageSolution> {
     let item_count = catalog.items().len();
-    let mut external_supply = vec![0_u32; item_count];
-    let mut external_supply_items = Vec::with_capacity(inputs.aic.supply_per_min().len());
-    let mut active_items = vec![false; item_count];
-    for (item, supply) in inputs.aic.supply_per_min().iter() {
-        let item_index = item_index(item, item_count)?;
-        external_supply[item_index] = supply.get();
-        external_supply_items.push((item, supply.get()));
-        active_items[item_index] = true;
-    }
+
+    // preprocess supply into a vector for easy indexing
+    let supplies = inputs.aic.supply_per_min().iter().fold(
+        vec![0_u32; item_count],
+        |mut supplies, (item, supply)| {
+            supplies[item.index()] = supply.get();
+            supplies
+        },
+    );
 
     let mut vars = variables!();
 
-    let mut recipe_vars = Vec::with_capacity(catalog.recipes().len());
-    for (recipe_index, recipe) in catalog.recipes_with_id() {
-        let x = vars.add(variable().min(0.0));
-        let y = vars.add(variable().integer().min(0.0));
+    let recipe_vars = catalog
+        .recipes_with_id_and_facility()
+        .map(|(recipe_index, recipe, facility)| {
+            let x = vars.add(variable().min(0.0));
+            let y = vars.add(variable().integer().min(0.0));
+            let time_s = recipe.time_s as f64;
 
-        let time_s = recipe.time_s as f64;
-        if time_s <= 0.0 {
-            return Err(Error::InvalidInput {
-                message: format!(
-                    "recipe[{}] has non-positive time_s {}",
-                    recipe_index.as_u32(),
-                    recipe.time_s
-                ),
-            });
-        }
+            let net = recipe
+                .ingredients
+                .iter()
+                .map(|stack| (stack.item, -(stack.count as f64)))
+                .chain(
+                    recipe
+                        .products
+                        .iter()
+                        .map(|stack| (stack.item, stack.count as f64)),
+                )
+                .fold(
+                    SmallVec::with_capacity(recipe.ingredients.len() + recipe.products.len()),
+                    |mut net, (item, delta)| {
+                        add_recipe_net_delta(&mut net, item, delta);
+                        net
+                    },
+                );
 
-        let mut net: SmallVec<[(ItemId, f64); 4]> =
-            SmallVec::with_capacity(recipe.ingredients.len() + recipe.products.len());
-        for stack in &recipe.ingredients {
-            add_recipe_net_delta(&mut net, stack.item, -(stack.count as f64));
-        }
-        for stack in &recipe.products {
-            add_recipe_net_delta(&mut net, stack.item, stack.count as f64);
-        }
-        net.retain(|(_, delta)| delta.abs() > 1e-12);
-        net.sort_by_key(|(item, _)| *item);
-        for (item, _) in &net {
-            active_items[item_index(*item, item_count)?] = true;
-        }
+            RecipeVars {
+                recipe_index,
+                facility: recipe.facility,
+                facility_power_w: facility.power_w.get(),
+                x,
+                y,
+                throughput_per_min: 60.0 / time_s,
+                net,
+            }
+        })
+        .collect::<Vec<_>>();
 
-        recipe_vars.push(RecipeVars {
-            recipe_index,
-            facility: recipe.facility,
-            x,
-            y,
-            throughput_per_min: 60.0 / time_s,
-            net,
-        });
-    }
-
-    let mut power_vars = Vec::with_capacity(catalog.power_recipes().len());
-    for (power_recipe_index, p) in catalog.power_recipes_with_id() {
-        let z = vars.add(variable().integer().min(0.0));
-        power_vars.push(PowerVars {
-            power_recipe_index,
+    let power_vars = catalog
+        .power_recipes_with_id()
+        .map(|(id, p)| PowerVars {
+            power_recipe_index: id,
             ingredient: p.ingredient.item,
             power_w: p.power_w,
             duration_s: p.time_s,
-            z,
-        });
-    }
+            z: vars.add(variable().integer().min(0.0)),
+        })
+        .collect::<Vec<_>>();
 
-    let mut outpost_vars = Vec::with_capacity(inputs.aic.outposts().len());
-    for (outpost_index, outpost) in inputs.aic.outposts_with_id() {
-        let mut sell_lines = Vec::with_capacity(outpost.prices.len());
-        for (item, price) in outpost.prices.iter() {
-            active_items[item_index(item, item_count)?] = true;
-            let qty = vars.add(variable().min(0.0));
-            sell_lines.push((item, price, qty));
+    let outpost_vars = inputs
+        .aic
+        .outposts_with_id()
+        .map(|(id, outpost)| {
+            let sell_lines = outpost
+                .prices
+                .iter()
+                .map(|(item, price)| {
+                    let qty = vars.add(variable().min(0.0));
+                    (item, price, qty)
+                })
+                .collect::<Vec<_>>();
+
+            OutpostVars {
+                outpost_index: id,
+                money_cap_per_hour: outpost.money_cap_per_hour,
+                sell_lines,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let revenue: Expression = outpost_vars
+        .iter()
+        .flat_map(|ov| ov.sell_lines.iter())
+        .map(|(_, price, qty)| *qty * *price)
+        .sum();
+
+    let total_machines: Expression = recipe_vars.iter().map(|rv| rv.y).sum();
+    let total_thermal_banks: Expression = power_vars.iter().map(|pv| pv.z).sum();
+
+    let power_gen = inputs.p_core_w as f64
+        + power_vars
+            .iter()
+            .map(|pv| pv.z * pv.power_w)
+            .sum::<Expression>();
+
+    let power_use = Expression::from(inputs.aic.external_power_consumption_w() as f64)
+        + recipe_vars
+            .iter()
+            .map(|rv| rv.y * rv.facility_power_w)
+            .sum::<Expression>();
+
+    // Build per-item balances by dispatching each contribution to its item bucket.
+    let mut item_balance = supplies
+        .iter()
+        .map(|supply_per_min| Expression::from(*supply_per_min as f64))
+        .collect::<Vec<_>>();
+
+    for rv in &recipe_vars {
+        for (item, delta) in &rv.net {
+            item_balance[item.index()] += *delta * rv.x;
         }
-        sell_lines.sort_by_key(|(item, _, _)| *item);
-
-        outpost_vars.push(OutpostVars {
-            outpost_index,
-            money_cap_per_hour: outpost.money_cap_per_hour,
-            sell_lines,
-        });
     }
 
-    for pv in &power_vars {
-        active_items[item_index(pv.ingredient, item_count)?] = true;
-    }
-
-    let mut revenue = Expression::default();
     for ov in &outpost_vars {
-        for (_, price, qty) in &ov.sell_lines {
-            revenue += *price as f64 * *qty;
+        for (item, _, qty) in &ov.sell_lines {
+            item_balance[item.index()] -= *qty;
         }
     }
 
-    let mut total_machines_expr = Expression::default();
-    for rv in &recipe_vars {
-        total_machines_expr += 1.0 * rv.y;
-    }
-
-    let mut total_thermal_banks_expr = Expression::default();
     for pv in &power_vars {
-        total_thermal_banks_expr += 1.0 * pv.z;
-    }
-
-    let mut power_gen = Expression::default();
-    power_gen += inputs.p_core_w as f64;
-    for pv in &power_vars {
-        power_gen += pv.power_w as f64 * pv.z;
-    }
-
-    let mut power_use = Expression::default();
-    power_use += inputs.aic.external_power_consumption_w() as f64;
-    for rv in &recipe_vars {
-        let facility = catalog
-            .facility(rv.facility)
-            .ok_or_else(|| Error::Internal {
-                message: format!("unknown facility id {}", rv.facility.as_u32()),
-            })?;
-        let machine_power_w = facility.power_w.ok_or_else(|| Error::MissingMachinePower {
-            facility: facility.key.to_string(),
-        })?;
-        if facility.kind != FacilityKind::Machine {
-            return Err(Error::InvalidInput {
-                message: format!(
-                    "recipe[{}] references non-machine facility `{}`",
-                    rv.recipe_index.as_u32(),
-                    facility.key
-                ),
-            });
-        }
-        power_use += machine_power_w.get() as f64 * rv.y;
-    }
-
-    let mut balance_exprs: Vec<Option<Expression>> = vec![None; item_count];
-    for (item_idx, is_active) in active_items.into_iter().enumerate() {
-        if !is_active {
-            continue;
-        }
-        let mut balance = Expression::default();
-        balance += external_supply[item_idx] as f64;
-
-        for rv in &recipe_vars {
-            for (item, delta) in &rv.net {
-                if item_index(*item, item_count)? == item_idx {
-                    balance += *delta * rv.x;
-                    break;
-                }
-            }
-        }
-
-        for ov in &outpost_vars {
-            for (sell_item, _, qty) in &ov.sell_lines {
-                if item_index(*sell_item, item_count)? == item_idx {
-                    balance -= 1.0 * *qty;
-                }
-            }
-        }
-
-        for pv in &power_vars {
-            if item_index(pv.ingredient, item_count)? == item_idx {
-                let consume_per_min = 60.0 / pv.duration_s as f64;
-                balance -= consume_per_min * pv.z;
-            }
-        }
-
-        balance_exprs[item_idx] = Some(balance);
+        let consume_per_min = 60.0 / pv.duration_s as f64;
+        item_balance[pv.ingredient.index()] -= consume_per_min * pv.z;
     }
 
     let mut model = match objective {
@@ -240,109 +202,116 @@ fn solve_stage(
         StageObjective::MinMachines {
             revenue_floor_per_min,
         } => vars
-            .minimise(total_machines_expr.clone() + total_thermal_banks_expr.clone())
+            .minimise(total_machines.clone() + total_thermal_banks.clone())
             .using(default_solver)
             .with(constraint!(revenue.clone() >= revenue_floor_per_min)),
     };
 
-    for ov in &outpost_vars {
-        let mut outpost_value = Expression::default();
-        for (_, price, qty) in &ov.sell_lines {
-            outpost_value += *price as f64 * *qty;
-        }
-        model = model.with(constraint!(
+    model = outpost_vars.iter().fold(model, |model, ov| {
+        let outpost_value: Expression = ov
+            .sell_lines
+            .iter()
+            .map(|(_, price, qty)| *qty * *price)
+            .sum();
+        model.with(constraint!(
             outpost_value <= ov.money_cap_per_hour as f64 / 60.0
-        ));
-    }
+        ))
+    });
 
-    model = model.with(constraint!(power_gen.clone() >= power_use.clone()));
+    model = model.with(constraint!(&power_gen >= power_use.clone()));
 
-    for rv in &recipe_vars {
-        model = model.with(constraint!(rv.x <= rv.throughput_per_min * rv.y));
-    }
+    model = recipe_vars.iter().fold(model, |model, rv| {
+        model.with(constraint!(rv.x <= rv.throughput_per_min * rv.y))
+    });
 
-    for expr in balance_exprs.iter().flatten() {
-        model = model.with(constraint!(expr.clone() >= 0.0));
-    }
+    model = item_balance.iter().fold(model, |model, expr| {
+        model.with(constraint!(expr.clone() >= 0.0))
+    });
 
     let solution = model.solve().map_err(|source| Error::Solver { source })?;
 
     let revenue_per_min = solution.eval(&revenue);
     let total_machines = near_u32(
         || "total_machines".to_string(),
-        solution.eval(&total_machines_expr),
+        solution.eval(&total_machines),
     )?;
     let total_thermal_banks = near_u32(
         || "total_thermal_banks".to_string(),
-        solution.eval(&total_thermal_banks_expr),
+        solution.eval(&total_thermal_banks),
     )?;
 
     let power_gen_w = near_i64(|| "power_gen_w".to_string(), solution.eval(&power_gen))?;
     let power_use_w = near_i64(|| "power_use_w".to_string(), solution.eval(&power_use))?;
     let power_margin_w = power_gen_w - power_use_w;
 
-    let mut outpost_values = Vec::with_capacity(outpost_vars.len());
     let mut top_sales = Vec::with_capacity(
         outpost_vars
             .iter()
             .map(|ov| ov.sell_lines.len())
             .sum::<usize>(),
     );
+    let outpost_values = outpost_vars
+        .iter()
+        .map(|ov| {
+            let sales = ov
+                .sell_lines
+                .iter()
+                .filter_map(|(item, price, qty)| {
+                    let qty_value = solution.value(*qty);
+                    if qty_value <= 1e-9 {
+                        return None;
+                    }
+                    let value = *price as f64 * qty_value;
+                    if value <= 1e-9 {
+                        return None;
+                    }
+                    Some(SaleValue {
+                        outpost_index: ov.outpost_index,
+                        item: *item,
+                        value_per_min: value,
+                    })
+                })
+                .collect::<Vec<_>>();
+            let value_per_min = sales.iter().map(|sale| sale.value_per_min).sum::<f64>();
+            top_sales.extend(sales);
 
-    for ov in &outpost_vars {
-        let mut value_per_min = 0.0;
-        for (item, price, qty) in &ov.sell_lines {
-            let qty_value = solution.value(*qty);
-            if qty_value <= 1e-9 {
-                continue;
-            }
-            let value = *price as f64 * qty_value;
-            if value <= 1e-9 {
-                continue;
-            }
-            value_per_min += value;
-            top_sales.push(SaleValue {
+            let cap_per_min = ov.money_cap_per_hour as f64 / 60.0;
+            let ratio = value_per_min / cap_per_min;
+
+            OutpostValue {
                 outpost_index: ov.outpost_index,
-                item: *item,
-                value_per_min: value,
-            });
-        }
-
-        let cap_per_min = ov.money_cap_per_hour as f64 / 60.0;
-        let ratio = if cap_per_min > 0.0 {
-            value_per_min / cap_per_min
-        } else {
-            0.0
-        };
-
-        outpost_values.push(OutpostValue {
-            outpost_index: ov.outpost_index,
-            value_per_min,
-            cap_per_min,
-            ratio,
-        });
-    }
+                value_per_min,
+                cap_per_min,
+                ratio,
+            }
+        })
+        .collect::<Vec<_>>();
 
     top_sales.sort_by(|a, b| b.value_per_min.total_cmp(&a.value_per_min));
     top_sales.truncate(10);
 
-    let mut machines_by_facility_map: HashMap<FacilityId, u32> = HashMap::new();
-    let mut recipes_used = Vec::with_capacity(recipe_vars.len());
-    for rv in &recipe_vars {
-        let machines = near_u32(
-            || format!("recipes[{}].machines", rv.recipe_index.as_u32()),
-            solution.value(rv.y),
-        )?;
-        let executions_per_min = solution.value(rv.x);
-        if machines > 0 {
-            *machines_by_facility_map.entry(rv.facility).or_insert(0) += machines;
-            recipes_used.push(RecipeUsage {
-                recipe_index: rv.recipe_index,
-                machines,
-                executions_per_min,
-            });
-        }
-    }
+    let (machines_by_facility_map, mut recipes_used) = recipe_vars.iter().try_fold(
+        (
+            HashMap::<FacilityId, u32>::new(),
+            Vec::with_capacity(recipe_vars.len()),
+        ),
+        |(mut machines_by_facility_map, mut recipes_used), rv| -> Result<_> {
+            let machines = near_u32(
+                || format!("recipes[{}].machines", rv.recipe_index.as_u32()),
+                solution.value(rv.y),
+            )?;
+            let executions_per_min = solution.value(rv.x);
+            if machines > 0 {
+                *machines_by_facility_map.entry(rv.facility).or_insert(0) += machines;
+                recipes_used.push(RecipeUsage {
+                    recipe_index: rv.recipe_index,
+                    machines,
+                    executions_per_min,
+                });
+            }
+            Ok((machines_by_facility_map, recipes_used))
+        },
+    )?;
 
     let mut machines_by_facility = machines_by_facility_map
         .into_iter()
@@ -353,34 +322,40 @@ fn solve_stage(
     recipes_used.sort_by(|a, b| b.machines.cmp(&a.machines));
     recipes_used.truncate(20);
 
-    let mut thermal_banks_used = Vec::with_capacity(power_vars.len());
-    for pv in &power_vars {
-        let banks = near_u32(
-            || format!("power_recipes[{}].banks", pv.power_recipe_index.as_u32()),
-            solution.value(pv.z),
-        )?;
-        if banks > 0 {
-            thermal_banks_used.push(ThermalBankUsage {
+    let mut thermal_banks_used = power_vars
+        .iter()
+        .map(|pv| -> Result<Option<ThermalBankUsage>> {
+            let banks = near_u32(
+                || format!("power_recipes[{}].banks", pv.power_recipe_index.as_u32()),
+                solution.value(pv.z),
+            )?;
+            Ok((banks > 0).then_some(ThermalBankUsage {
                 power_recipe_index: pv.power_recipe_index,
                 ingredient: pv.ingredient,
                 banks,
                 power_w: pv.power_w,
                 duration_s: pv.duration_s,
-            });
-        }
-    }
+            }))
+        })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
     thermal_banks_used.sort_by(|a, b| b.banks.cmp(&a.banks));
 
-    let mut external_supply_slack = Vec::with_capacity(external_supply_items.len());
-    for (item, supply) in external_supply_items {
-        if let Some(expr) = &balance_exprs[item_index(item, item_count)?] {
-            external_supply_slack.push(ExternalSupplySlack {
-                item,
-                slack_per_min: solution.eval(expr),
-                supply_per_min: supply as f64,
-            });
-        }
-    }
+    let mut external_supply_slack = inputs
+        .aic
+        .supply_per_min()
+        .iter()
+        .map(|(item, supply)| {
+                let expr = &item_balance[item.index()];
+                ExternalSupplySlack {
+                    item,
+                    slack_per_min: solution.eval(expr),
+                supply_per_min: supply.get() as f64,
+                }
+            })
+            .collect::<Vec<_>>();
     external_supply_slack.sort_by(|a, b| a.slack_per_min.total_cmp(&b.slack_per_min));
 
     Ok(StageSolution {
@@ -399,6 +374,37 @@ fn solve_stage(
         thermal_banks_used,
         external_supply_slack,
     })
+}
+
+fn validate_aic_item_ids(inputs: &SolveInputs, item_count: usize) -> Result<()> {
+    for (item, _) in inputs.aic.supply_per_min().iter() {
+        if item.index() >= item_count {
+            return Err(Error::InvalidInput {
+                message: format!(
+                    "supply_per_min contains item id {} out of bounds for catalog with {} items",
+                    item.as_u32(),
+                    item_count
+                ),
+            });
+        }
+    }
+
+    for (outpost_index, outpost) in inputs.aic.outposts_with_id() {
+        for (item, _) in outpost.prices.iter() {
+            if item.index() >= item_count {
+                return Err(Error::InvalidInput {
+                    message: format!(
+                        "outposts[{}].prices contains item id {} out of bounds for catalog with {} items",
+                        outpost_index.as_u32(),
+                        item.as_u32(),
+                        item_count
+                    ),
+                });
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn near_u32<F>(var_name: F, value: f64) -> Result<u32>
@@ -473,18 +479,4 @@ fn add_recipe_net_delta(net: &mut SmallVec<[(ItemId, f64); 4]>, item: ItemId, de
         return;
     }
     net.push((item, delta));
-}
-
-fn item_index(item: ItemId, item_count: usize) -> Result<usize> {
-    let idx = item.as_u32() as usize;
-    if idx >= item_count {
-        return Err(Error::InvalidInput {
-            message: format!(
-                "item id {} is out of bounds for catalog with {} items",
-                item.as_u32(),
-                item_count
-            ),
-        });
-    }
-    Ok(idx)
 }

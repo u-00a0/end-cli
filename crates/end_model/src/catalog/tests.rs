@@ -12,7 +12,11 @@ fn name(value: &str) -> DisplayName {
     value.try_into().expect("valid display name")
 }
 
-fn sample_builder() -> (CatalogBuilder, ItemId, ItemId, FacilityId, FacilityId) {
+fn nz(value: u32) -> NonZeroU32 {
+    NonZeroU32::new(value).expect("non-zero")
+}
+
+fn sample_builder() -> (CatalogBuilder, ItemId, ItemId, FacilityId) {
     let mut builder = Catalog::builder();
     let a = builder
         .add_item(ItemDef {
@@ -31,27 +35,24 @@ fn sample_builder() -> (CatalogBuilder, ItemId, ItemId, FacilityId, FacilityId) 
     let machine = builder
         .add_facility(FacilityDef {
             key: key("M1"),
-            kind: FacilityKind::Machine,
-            power_w: Some(NonZeroU32::new(10).expect("non-zero")),
+            power_w: nz(10),
             en: name("M1"),
             zh: name("M1"),
         })
         .expect("add machine");
-    let thermal = builder
-        .add_facility(FacilityDef {
+    builder
+        .add_thermal_bank(ThermalBankDef {
             key: key("Thermal Bank"),
-            kind: FacilityKind::ThermalBank,
-            power_w: None,
             en: name("Thermal Bank"),
             zh: name("Thermal Bank"),
         })
-        .expect("add thermal");
-    (builder, a, b, machine, thermal)
+        .expect("add thermal bank");
+    (builder, a, b, machine)
 }
 
 #[test]
 fn push_recipe_rejects_duplicate_items_in_same_list() {
-    let (mut builder, a, b, machine, _) = sample_builder();
+    let (mut builder, a, b, machine) = sample_builder();
     let err = builder
         .push_recipe(
             machine,
@@ -74,24 +75,40 @@ fn push_recipe_rejects_duplicate_items_in_same_list() {
 }
 
 #[test]
-fn push_recipe_rejects_thermal_bank_facility() {
-    let (mut builder, a, b, _, thermal) = sample_builder();
+fn push_recipe_rejects_out_of_catalog_facility_id() {
+    let mut other = Catalog::builder();
+    let _ = other
+        .add_facility(FacilityDef {
+            key: key("X1"),
+            power_w: nz(10),
+            en: name("X1"),
+            zh: name("X1"),
+        })
+        .expect("add facility X1");
+    let foreign_facility = other
+        .add_facility(FacilityDef {
+            key: key("X2"),
+            power_w: nz(20),
+            en: name("X2"),
+            zh: name("X2"),
+        })
+        .expect("add facility X2");
+
+    let (mut builder, a, b, _machine) = sample_builder();
     let err = builder
         .push_recipe(
-            thermal,
+            foreign_facility,
             60,
             vec![Stack { item: a, count: 1 }],
             vec![Stack { item: b, count: 1 }],
         )
-        .expect_err("thermal bank should not be accepted as recipe facility");
+        .expect_err("foreign facility id should fail");
 
     assert!(
         matches!(
             err,
-            CatalogBuildError::RecipeFacilityMustBeMachine {
-                facility_id,
-                kind: FacilityKind::ThermalBank
-            } if facility_id == thermal.as_u32()
+            CatalogBuildError::UnknownRecipeFacilityId(facility_id)
+                if facility_id == foreign_facility.as_u32()
         ),
         "unexpected error: {err:?}"
     );
@@ -122,7 +139,7 @@ fn push_recipe_rejects_out_of_catalog_item_id() {
         })
         .expect("add item Z");
 
-    let (mut builder, _a, b, machine, _) = sample_builder();
+    let (mut builder, _a, b, machine) = sample_builder();
     let err = builder
         .push_recipe(
             machine,
@@ -148,45 +165,104 @@ fn push_recipe_rejects_out_of_catalog_item_id() {
 }
 
 #[test]
-fn add_facility_rejects_machine_without_power() {
+fn add_facility_rejects_duplicate_key() {
     let mut builder = Catalog::builder();
-    let err = builder
+    let _ = builder
         .add_facility(FacilityDef {
             key: key("M2"),
-            kind: FacilityKind::Machine,
-            power_w: None,
+            power_w: nz(10),
             en: name("M2"),
             zh: name("M2"),
         })
-        .expect_err("machine without power should fail");
+        .expect("first facility should be accepted");
+    let err = builder
+        .add_facility(FacilityDef {
+            key: key("M2"),
+            power_w: nz(20),
+            en: name("M2-dupe"),
+            zh: name("M2-dupe"),
+        })
+        .expect_err("duplicate facility key should fail");
 
     assert!(
-        matches!(
-            err,
-            CatalogBuildError::MachineFacilityMissingPower { ref key } if key.as_str() == "M2"
-        ),
+        matches!(err, CatalogBuildError::DuplicateFacilityKey(ref key) if key.as_str() == "M2"),
         "unexpected error: {err:?}"
     );
 }
 
 #[test]
-fn add_facility_rejects_thermal_bank_with_power() {
+fn add_thermal_bank_rejects_duplicate_machine_key() {
     let mut builder = Catalog::builder();
-    let err = builder
+    let _ = builder
         .add_facility(FacilityDef {
-            key: key("TB"),
-            kind: FacilityKind::ThermalBank,
-            power_w: Some(NonZeroU32::new(1).expect("non-zero")),
+            key: key("M2"),
+            power_w: nz(10),
+            en: name("M2"),
+            zh: name("M2"),
+        })
+        .expect("machine should be accepted");
+    let err = builder
+        .add_thermal_bank(ThermalBankDef {
+            key: key("M2"),
             en: name("TB"),
             zh: name("TB"),
         })
-        .expect_err("thermal bank with power should fail");
+        .expect_err("thermal bank key colliding with machine should fail");
 
     assert!(
-        matches!(
-            err,
-            CatalogBuildError::ThermalBankFacilityHasPower { ref key } if key.as_str() == "TB"
-        ),
+        matches!(err, CatalogBuildError::DuplicateFacilityKey(ref key) if key.as_str() == "M2"),
+        "unexpected error: {err:?}"
+    );
+}
+
+#[test]
+fn add_thermal_bank_rejects_multiple_entries() {
+    let mut builder = Catalog::builder();
+    builder
+        .add_thermal_bank(ThermalBankDef {
+            key: key("TB1"),
+            en: name("TB1"),
+            zh: name("TB1"),
+        })
+        .expect("first thermal bank should be accepted");
+    let err = builder
+        .add_thermal_bank(ThermalBankDef {
+            key: key("TB2"),
+            en: name("TB2"),
+            zh: name("TB2"),
+        })
+        .expect_err("second thermal bank should fail");
+
+    assert!(
+        matches!(err, CatalogBuildError::MultipleThermalBanks),
+        "unexpected error: {err:?}"
+    );
+}
+
+#[test]
+fn build_rejects_missing_thermal_bank() {
+    let mut builder = Catalog::builder();
+    let _ = builder
+        .add_item(ItemDef {
+            key: key("A"),
+            en: name("A"),
+            zh: name("A"),
+        })
+        .expect("add item");
+    let _ = builder
+        .add_facility(FacilityDef {
+            key: key("M1"),
+            power_w: nz(10),
+            en: name("M1"),
+            zh: name("M1"),
+        })
+        .expect("add machine");
+
+    let err = builder
+        .build()
+        .expect_err("missing thermal bank should fail");
+    assert!(
+        matches!(err, CatalogBuildError::MissingThermalBank),
         "unexpected error: {err:?}"
     );
 }
@@ -216,7 +292,7 @@ fn push_power_recipe_rejects_out_of_catalog_item_id() {
         })
         .expect("add item Z");
 
-    let (mut builder, _, _, _, _) = sample_builder();
+    let (mut builder, _, _, _) = sample_builder();
     let err = builder
         .push_power_recipe(PowerRecipe {
             ingredient: Stack {
@@ -240,7 +316,7 @@ fn push_power_recipe_rejects_out_of_catalog_item_id() {
 
 #[test]
 fn push_power_recipe_rejects_zero_fields() {
-    let (mut builder, a, _, _, _) = sample_builder();
+    let (mut builder, a, _, _) = sample_builder();
 
     let err_count = builder
         .push_power_recipe(PowerRecipe {

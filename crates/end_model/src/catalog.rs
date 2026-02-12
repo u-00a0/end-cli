@@ -7,8 +7,8 @@ pub use builder::CatalogBuilder;
 pub use error::CatalogBuildError;
 pub use model::Catalog;
 pub use types::{
-    FacilityDef, FacilityId, FacilityKind, ItemDef, ItemId, PowerRecipe, PowerRecipeId, Recipe,
-    RecipeId, Stack,
+    FacilityDef, FacilityId, ItemDef, ItemId, PowerRecipe, PowerRecipeId, Recipe, RecipeId, Stack,
+    ThermalBankDef,
 };
 
 /// Base/core generation capacity (watts) used by the default CLI flow.

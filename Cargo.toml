@@ -19,3 +19,12 @@ smallvec = "1"
 thiserror = "2"
 toml = "0.8"
 vector-map = "1"
+
+[workspace.lints.clippy]
+# unwrap_used = "deny"
+# expect_used = "deny"
+# panic = "deny"
+# dbg_macro = "warn"
+# cargo = "warn"
+# pedantic = "warn"
+# indexing_slicing = "warn"

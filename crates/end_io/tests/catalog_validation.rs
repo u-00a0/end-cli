@@ -1,5 +1,4 @@
 use end_io::{Error, load_catalog};
-use end_model::FacilityKind;
 use std::fs;
 use tempfile::TempDir;
 
@@ -82,10 +81,8 @@ fn load_builtin_catalog_success() {
         "builtin catalog has no recipes"
     );
 
-    let thermal_bank = catalog
-        .facility(catalog.thermal_bank())
-        .expect("thermal bank id must resolve");
-    assert_eq!(thermal_bank.kind, FacilityKind::ThermalBank);
+    let thermal_bank = catalog.thermal_bank();
+    assert_eq!(thermal_bank.key.as_str(), "Thermal Bank");
 }
 
 #[test]
@@ -151,7 +148,13 @@ products = [{ item = "B", count = 1 }]
     )
     .expect_err("thermal bank in recipes should fail");
 
-    assert_schema_location(&err, "recipes.toml", "recipes.facility", Some(0));
+    assert!(
+        matches!(
+            err,
+            Error::UnknownFacility { ref key, .. } if key == "Thermal Bank"
+        ),
+        "unexpected error: {err:?}"
+    );
 }
 
 #[test]
