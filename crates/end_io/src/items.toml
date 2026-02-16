@@ -261,7 +261,7 @@ zh = "铁制部件"
 [[items]]
 key = "Ferrium Ore"
 en = "Ferrium Ore"
-zh = "铁矿"
+zh = "蓝铁矿"
 
 [[items]]
 key = "Ferrium Part"
@@ -291,32 +291,32 @@ zh = "高容谷地电池"
 [[items]]
 key = "Industrial Explosive"
 en = "Industrial Explosive"
-zh = "工业炸药"
+zh = "工业爆炸物"
 
 [[items]]
 key = "Jincao"
 en = "Jincao"
-zh = "金草"
+zh = "锦草"
 
 [[items]]
 key = "Jincao Drink"
 en = "Jincao Drink"
-zh = "金草饮料"
+zh = "锦草饮料"
 
 [[items]]
 key = "Jincao Powder"
 en = "Jincao Powder"
-zh = "金草粉"
+zh = "锦草粉"
 
 [[items]]
 key = "Jincao Seed"
 en = "Jincao Seed"
-zh = "金草种子"
+zh = "锦草种子"
 
 [[items]]
 key = "Jincao Solution"
 en = "Jincao Solution"
-zh = "金草溶液"
+zh = "锦草溶液"
 
 [[items]]
 key = "LC Valley Battery"

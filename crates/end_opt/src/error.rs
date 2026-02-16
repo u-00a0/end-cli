@@ -1,3 +1,4 @@
+use end_model::{ItemId, RecipeId};
 use good_lp::ResolutionError;
 use thiserror::Error;
 
@@ -29,4 +30,19 @@ pub enum Error {
 
     #[error("value out of range for `{var_name}`: {value}")]
     OutOfRange { var_name: String, value: f64 },
+
+    #[error("missing recipe for recipe id {recipe_index:?}")]
+    MissingRecipe { recipe_index: RecipeId },
+
+    #[error("expected strictly positive finite flow for `{context}`, got {value}")]
+    InvalidPositiveFlow { context: String, value: f64 },
+
+    #[error(
+        "logistics infeasible for item {item:?}: total supply {total_supply_per_min} < total demand {total_demand_per_min}"
+    )]
+    LogisticsInfeasible {
+        item: ItemId,
+        total_supply_per_min: f64,
+        total_demand_per_min: f64,
+    },
 }

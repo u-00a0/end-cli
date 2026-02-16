@@ -1,7 +1,8 @@
 use crate::error::{Error, Result};
+use crate::logistics::{LOGISTICS_EPS, build_logistics_plan};
 use crate::types::{
-    ExternalSupplySlack, FacilityMachineCount, OptimizationResult, OutpostValue, RecipeUsage,
-    SaleValue, SolveInputs, StageSolution, ThermalBankUsage,
+    ExternalSupplySlack, FacilityMachineCount, OptimizationResult, OutpostSaleQty, OutpostValue,
+    PosF64, RecipeUsage, SaleValue, SolveInputs, StageSolution, ThermalBankUsage,
 };
 use end_model::{Catalog, FacilityId, ItemId, OutpostId, PowerRecipeId, RecipeId};
 use good_lp::{
@@ -65,8 +66,13 @@ pub fn run_two_stage(catalog: &Catalog, inputs: &SolveInputs) -> Result<Optimiza
             revenue_floor_per_min,
         },
     )?;
+    let logistics = build_logistics_plan(catalog, &inputs.aic, &stage2)?;
 
-    Ok(OptimizationResult { stage1, stage2 })
+    Ok(OptimizationResult {
+        stage1,
+        stage2,
+        logistics,
+    })
 }
 
 fn solve_stage(
@@ -256,50 +262,60 @@ fn solve_stage(
             .map(|ov| ov.sell_lines.len())
             .sum::<usize>(),
     );
+    let mut outpost_sales_qty = Vec::with_capacity(
+        outpost_vars
+            .iter()
+            .map(|ov| ov.sell_lines.len())
+            .sum::<usize>(),
+    );
     let outpost_values = outpost_vars
         .iter()
-        .map(|ov| {
-            let outpost_sales = ov
-                .sell_lines
-                .iter()
-                .filter_map(|(item, price, qty)| {
-                    let qty_value = solution.value(*qty);
-                    if qty_value <= 1e-9 {
-                        return None;
-                    }
-                    let value = *price as f64 * qty_value;
-                    Some(SaleValue {
-                        outpost_index: ov.outpost_index,
-                        item: *item,
-                        value_per_min: value,
-                    })
-                })
-                .collect::<Vec<_>>();
-            let value_per_min = outpost_sales
-                .iter()
-                .map(|sale| sale.value_per_min)
-                .sum::<f64>();
-            sales.extend(outpost_sales);
+        .map(|ov| -> Result<_> {
+            let mut value_per_min = 0.0;
+            for (item, price, qty) in &ov.sell_lines {
+                let qty_value = solution.value(*qty);
+                if qty_value <= LOGISTICS_EPS {
+                    continue;
+                }
+                let qty_per_min = PosF64::new(qty_value).ok_or(Error::InvalidPositiveFlow {
+                    context: format!(
+                        "outpost_sales_qty[outpost={},item={}]",
+                        ov.outpost_index.as_u32(),
+                        item.as_u32()
+                    ),
+                    value: qty_value,
+                })?;
+                let value = *price as f64 * qty_value;
+                sales.push(SaleValue {
+                    outpost_index: ov.outpost_index,
+                    item: *item,
+                    value_per_min: value,
+                });
+                outpost_sales_qty.push(OutpostSaleQty {
+                    outpost_index: ov.outpost_index,
+                    item: *item,
+                    qty_per_min,
+                    price: *price,
+                });
+                value_per_min += value;
+            }
 
             let cap_per_min = ov.money_cap_per_hour as f64 / 60.0;
             let ratio = value_per_min / cap_per_min;
 
-            OutpostValue {
+            Ok(OutpostValue {
                 outpost_index: ov.outpost_index,
                 value_per_min,
                 cap_per_min,
                 ratio,
-            }
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>>>()?;
 
     sales.sort_by(|a, b| b.value_per_min.total_cmp(&a.value_per_min));
 
     let (machines_by_facility_map, mut recipes_used) = recipe_vars.iter().try_fold(
-        (
-            HashMap::<FacilityId, u32>::new(),
-            Vec::with_capacity(recipe_vars.len()),
-        ),
+        (HashMap::<FacilityId, u32>::new(), Vec::with_capacity(recipe_vars.len())),
         |(mut machines_by_facility_map, mut recipes_used), rv| -> Result<_> {
             let machines = near_u32(
                 || format!("recipes[{}].machines", rv.recipe_index.as_u32()),
@@ -326,25 +342,24 @@ fn solve_stage(
 
     recipes_used.sort_by(|a, b| b.machines.cmp(&a.machines));
 
-    let mut thermal_banks_used = power_vars
-        .iter()
-        .map(|pv| -> Result<Option<ThermalBankUsage>> {
-            let banks = near_u32(
-                || format!("power_recipes[{}].banks", pv.power_recipe_index.as_u32()),
-                solution.value(pv.z),
-            )?;
-            Ok((banks > 0).then_some(ThermalBankUsage {
-                power_recipe_index: pv.power_recipe_index,
-                ingredient: pv.ingredient,
-                banks,
-                power_w: pv.power_w,
-                duration_s: pv.duration_s,
-            }))
-        })
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+    let mut thermal_banks_used = Vec::with_capacity(power_vars.len());
+    for pv in &power_vars {
+        let banks = near_u32(
+            || format!("power_recipes[{}].banks", pv.power_recipe_index.as_u32()),
+            solution.value(pv.z),
+        )?;
+        if banks == 0 {
+            continue;
+        }
+
+        thermal_banks_used.push(ThermalBankUsage {
+            power_recipe_index: pv.power_recipe_index,
+            ingredient: pv.ingredient,
+            banks,
+            power_w: pv.power_w,
+            duration_s: pv.duration_s,
+        });
+    }
     thermal_banks_used.sort_by(|a, b| b.banks.cmp(&a.banks));
 
     let mut external_supply_slack = inputs
@@ -373,6 +388,7 @@ fn solve_stage(
         power_margin_w,
         outpost_values,
         top_sales: sales,
+        outpost_sales_qty,
         machines_by_facility,
         recipes_used,
         thermal_banks_used,

@@ -99,10 +99,12 @@ fn build_report_contains_key_sections_in_both_languages() {
     assert!(zh.contains("交易"));
     assert!(zh.contains("电力"));
     assert!(zh.contains("产线"));
+    assert!(zh.contains("物流"));
 
     let en = build_report(Lang::En, &catalog, &aic, &result).expect("render en report");
     assert!(en.contains("Conclusion"));
     assert!(en.contains("Trading"));
     assert!(en.contains("Power"));
     assert!(en.contains("Production"));
+    assert!(en.contains("Logistics"));
 }

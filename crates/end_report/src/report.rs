@@ -4,7 +4,8 @@ use crate::format::{
 };
 use crate::{Error, Lang, Result};
 use end_model::{AicInputs, Catalog};
-use end_opt::OptimizationResult;
+use end_opt::{DemandSite, ItemSubproblem, OptimizationResult, SupplySite, build_item_subproblems};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Render a human-readable optimization report from solved results.
 pub fn build_report(
@@ -242,6 +243,10 @@ pub fn build_report(
     }
 
     out.push('\n');
+    out.push_str(&format!("{}\n", a.h(t(lang, "物流", "Logistics"))));
+    render_logistics(lang, catalog, inputs, result, &mut out)?;
+
+    out.push('\n');
     out.push_str(&format!(
         "{}\n",
         a.h(t(lang, "瓶颈与改进", "Bottlenecks & Tips"))
@@ -342,4 +347,385 @@ pub fn build_report(
     }
 
     Ok(out)
+}
+
+fn render_logistics(
+    lang: Lang,
+    catalog: &Catalog,
+    inputs: &AicInputs,
+    result: &OptimizationResult,
+    out: &mut String,
+) -> Result<()> {
+    let subproblems =
+        build_item_subproblems(catalog, inputs, &result.stage2).map_err(Error::LogisticsBuild)?;
+    let subproblem_by_item = subproblems
+        .into_iter()
+        .map(|subproblem| (subproblem.item, subproblem))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut item_plans = result.logistics.per_item.iter().collect::<Vec<_>>();
+    item_plans.sort_by_key(|plan| plan.item.as_u32());
+
+    let total_edges = item_plans
+        .iter()
+        .map(|plan| plan.edges.len())
+        .sum::<usize>();
+    let total_flow = item_plans
+        .iter()
+        .flat_map(|plan| plan.edges.iter())
+        .map(|edge| edge.flow_per_min.get())
+        .sum::<f64>();
+
+    out.push_str(&format!(
+        "- {}\n",
+        match lang {
+            Lang::Zh => format!(
+                "总物流连接 {} 条，覆盖 {} 种物品，总流量 {:.3}/min。",
+                total_edges,
+                item_plans.len(),
+                total_flow
+            ),
+            Lang::En => format!(
+                "{} logistics edges across {} items, total flow {:.3}/min.",
+                total_edges,
+                item_plans.len(),
+                total_flow
+            ),
+        }
+    ));
+
+    if item_plans.is_empty() {
+        out.push_str(&format!(
+            "{}\n",
+            t(
+                lang,
+                "- 当前场景没有需要分配的物流边。",
+                "- No logistics edges are required in this scenario."
+            )
+        ));
+        return Ok(());
+    }
+
+    let edge_preview_limit = 6usize;
+    for item_plan in item_plans {
+        let item_name = item_display_name(lang, catalog, item_plan.item)?;
+        let subproblem = subproblem_by_item
+            .get(&item_plan.item)
+            .ok_or(Error::MissingLogisticsItem(item_plan.item))?;
+        let total_item_flow = item_plan
+            .edges
+            .iter()
+            .map(|edge| edge.flow_per_min.get())
+            .sum::<f64>();
+        let grouped_edges = group_logistics_edges(lang, catalog, inputs, subproblem, item_plan)?;
+
+        out.push_str(&format!(
+            "- {}: {}\n",
+            item_name,
+            match lang {
+                Lang::Zh => format!(
+                    "供给点 {}，需求点 {}，连接 {}（合并后 {} 组），流量 {:.3}/min",
+                    subproblem.supplies.len(),
+                    subproblem.demands.len(),
+                    item_plan.edges.len(),
+                    grouped_edges.len(),
+                    total_item_flow,
+                ),
+                Lang::En => format!(
+                    "supplies {}, demands {}, edges {} (merged into {} groups), flow {:.3}/min",
+                    subproblem.supplies.len(),
+                    subproblem.demands.len(),
+                    item_plan.edges.len(),
+                    grouped_edges.len(),
+                    total_item_flow,
+                ),
+            }
+        ));
+
+        for group in grouped_edges.iter().take(edge_preview_limit) {
+            let from = with_machine_ordinals(&group.from.base, &group.from_ordinals);
+            let to = with_machine_ordinals(&group.to.base, &group.to_ordinals);
+            let detail = if group.edge_count == 1 {
+                format!("{:.3}/min", group.flow_per_min)
+            } else {
+                format!(
+                    "{:.3}/min x{} = {:.3}/min",
+                    group.flow_per_min, group.edge_count, group.total_flow_per_min
+                )
+            };
+            out.push_str(&format!("  - {} -> {}: {}\n", from, to, detail));
+        }
+
+        if grouped_edges.len() > edge_preview_limit {
+            out.push_str(&format!(
+                "  - {}\n",
+                match lang {
+                    Lang::Zh => format!(
+                        "其余 {} 组连接略。",
+                        grouped_edges.len() - edge_preview_limit
+                    ),
+                    Lang::En => format!(
+                        "{} more merged groups omitted.",
+                        grouped_edges.len() - edge_preview_limit
+                    ),
+                }
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn find_supply_site(
+    subproblem: &ItemSubproblem,
+    node_id: end_opt::SupplyNodeId,
+    item: end_model::ItemId,
+) -> Result<&SupplySite> {
+    subproblem
+        .supplies
+        .iter()
+        .find(|node| node.id == node_id)
+        .map(|node| &node.site)
+        .ok_or(Error::MissingLogisticsSupplyNode {
+            item,
+            node: node_id,
+        })
+}
+
+fn find_demand_site(
+    subproblem: &ItemSubproblem,
+    node_id: end_opt::DemandNodeId,
+    item: end_model::ItemId,
+) -> Result<&DemandSite> {
+    subproblem
+        .demands
+        .iter()
+        .find(|node| node.id == node_id)
+        .map(|node| &node.site)
+        .ok_or(Error::MissingLogisticsDemandNode {
+            item,
+            node: node_id,
+        })
+}
+
+#[derive(Debug, Clone)]
+struct RenderedEndpoint {
+    base: String,
+    machine_ordinal: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
+struct GroupedLogisticsEdge {
+    from: RenderedEndpoint,
+    to: RenderedEndpoint,
+    from_ordinals: BTreeSet<u32>,
+    to_ordinals: BTreeSet<u32>,
+    flow_per_min: f64,
+    total_flow_per_min: f64,
+    edge_count: usize,
+}
+
+fn group_logistics_edges(
+    lang: Lang,
+    catalog: &Catalog,
+    inputs: &AicInputs,
+    subproblem: &ItemSubproblem,
+    item_plan: &end_opt::ItemFlowPlan,
+) -> Result<Vec<GroupedLogisticsEdge>> {
+    let mut grouped = BTreeMap::<(String, String, i64), GroupedLogisticsEdge>::new();
+
+    for edge in &item_plan.edges {
+        let from_site = find_supply_site(subproblem, edge.from, item_plan.item)?;
+        let to_site = find_demand_site(subproblem, edge.to, item_plan.item)?;
+        let from = describe_supply_site(lang, catalog, from_site)?;
+        let to = describe_demand_site(lang, inputs, catalog, to_site)?;
+        let flow_per_min = edge.flow_per_min.get();
+        let key = (
+            from.base.clone(),
+            to.base.clone(),
+            quantized_flow(flow_per_min),
+        );
+
+        let group = grouped.entry(key).or_insert_with(|| GroupedLogisticsEdge {
+            from: from.clone(),
+            to: to.clone(),
+            from_ordinals: BTreeSet::new(),
+            to_ordinals: BTreeSet::new(),
+            flow_per_min,
+            total_flow_per_min: 0.0,
+            edge_count: 0,
+        });
+
+        if let Some(ordinal) = from.machine_ordinal {
+            group.from_ordinals.insert(ordinal);
+        }
+        if let Some(ordinal) = to.machine_ordinal {
+            group.to_ordinals.insert(ordinal);
+        }
+        group.edge_count += 1;
+        group.total_flow_per_min += flow_per_min;
+    }
+
+    let mut groups = grouped.into_values().collect::<Vec<_>>();
+    groups.sort_by(|lhs, rhs| {
+        rhs.total_flow_per_min
+            .total_cmp(&lhs.total_flow_per_min)
+            .then_with(|| rhs.edge_count.cmp(&lhs.edge_count))
+            .then_with(|| lhs.from.base.cmp(&rhs.from.base))
+            .then_with(|| lhs.to.base.cmp(&rhs.to.base))
+    });
+    Ok(groups)
+}
+
+fn describe_supply_site(
+    lang: Lang,
+    catalog: &Catalog,
+    site: &SupplySite,
+) -> Result<RenderedEndpoint> {
+    let rendered = match site {
+        SupplySite::ExternalSupply { item } => {
+            let item = item_display_name(lang, catalog, *item)?;
+            match lang {
+                Lang::Zh => RenderedEndpoint {
+                    base: format!("外部供给({item})"),
+                    machine_ordinal: None,
+                },
+                Lang::En => RenderedEndpoint {
+                    base: format!("External supply ({item})"),
+                    machine_ordinal: None,
+                },
+            }
+        }
+        SupplySite::RecipeOutput {
+            recipe_index,
+            machine,
+            ..
+        } => {
+            let recipe = catalog
+                .recipe(*recipe_index)
+                .ok_or(Error::MissingRecipe(*recipe_index))?;
+            let facility = facility_display_name(lang, catalog, recipe.facility)?;
+            match lang {
+                Lang::Zh => RenderedEndpoint {
+                    base: format!("{} r{} 产出", facility, recipe_index.as_u32()),
+                    machine_ordinal: Some(machine.get()),
+                },
+                Lang::En => RenderedEndpoint {
+                    base: format!("{} r{} output", facility, recipe_index.as_u32()),
+                    machine_ordinal: Some(machine.get()),
+                },
+            }
+        }
+    };
+    Ok(rendered)
+}
+
+fn describe_demand_site(
+    lang: Lang,
+    inputs: &AicInputs,
+    catalog: &Catalog,
+    site: &DemandSite,
+) -> Result<RenderedEndpoint> {
+    let rendered = match site {
+        DemandSite::RecipeInput {
+            recipe_index,
+            machine,
+            ..
+        } => {
+            let recipe = catalog
+                .recipe(*recipe_index)
+                .ok_or(Error::MissingRecipe(*recipe_index))?;
+            let facility = facility_display_name(lang, catalog, recipe.facility)?;
+            match lang {
+                Lang::Zh => RenderedEndpoint {
+                    base: format!("{} r{} 投入", facility, recipe_index.as_u32()),
+                    machine_ordinal: Some(machine.get()),
+                },
+                Lang::En => RenderedEndpoint {
+                    base: format!("{} r{} input", facility, recipe_index.as_u32()),
+                    machine_ordinal: Some(machine.get()),
+                },
+            }
+        }
+        DemandSite::OutpostSale {
+            outpost_index,
+            item,
+        } => {
+            let outpost = inputs
+                .outpost(*outpost_index)
+                .ok_or(Error::MissingOutpost(*outpost_index))?;
+            let item = item_display_name(lang, catalog, *item)?;
+            match lang {
+                Lang::Zh => RenderedEndpoint {
+                    base: format!("{} 出售({item})", outpost_display_name(lang, outpost)),
+                    machine_ordinal: None,
+                },
+                Lang::En => RenderedEndpoint {
+                    base: format!("{} sale ({item})", outpost_display_name(lang, outpost)),
+                    machine_ordinal: None,
+                },
+            }
+        }
+        DemandSite::ThermalBankFuel {
+            power_recipe_index,
+            bank,
+            ..
+        } => match lang {
+            Lang::Zh => RenderedEndpoint {
+                base: format!("热容池 p{} 燃料", power_recipe_index.as_u32()),
+                machine_ordinal: Some(bank.get()),
+            },
+            Lang::En => RenderedEndpoint {
+                base: format!("Thermal bank p{} fuel", power_recipe_index.as_u32()),
+                machine_ordinal: Some(bank.get()),
+            },
+        },
+    };
+    Ok(rendered)
+}
+
+fn quantized_flow(flow_per_min: f64) -> i64 {
+    (flow_per_min * 1_000_000_000.0).round() as i64
+}
+
+fn with_machine_ordinals(base: &str, ordinals: &BTreeSet<u32>) -> String {
+    if ordinals.is_empty() {
+        return base.to_string();
+    }
+    format!("{base} #{}", format_machine_ranges(ordinals))
+}
+
+fn format_machine_ranges(ordinals: &BTreeSet<u32>) -> String {
+    let mut parts = Vec::new();
+    let mut start = None::<u32>;
+    let mut prev = 0u32;
+
+    for &ordinal in ordinals {
+        match start {
+            None => {
+                start = Some(ordinal);
+                prev = ordinal;
+            }
+            Some(range_start) if ordinal == prev + 1 => {
+                prev = ordinal;
+                start = Some(range_start);
+            }
+            Some(range_start) => {
+                parts.push(render_machine_range(range_start, prev));
+                start = Some(ordinal);
+                prev = ordinal;
+            }
+        }
+    }
+    if let Some(range_start) = start {
+        parts.push(render_machine_range(range_start, prev));
+    }
+    parts.join(",")
+}
+
+fn render_machine_range(start: u32, end: u32) -> String {
+    if start == end {
+        return start.to_string();
+    }
+    format!("{start}-{end}")
 }
