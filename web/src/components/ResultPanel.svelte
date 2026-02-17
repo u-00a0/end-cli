@@ -215,7 +215,6 @@
       }}
       disabled={solveOutputText.length === 0}
       aria-label={copyButtonLabel}
-      title={copyButtonLabel}
     >
       <span class="material-symbols-outlined icon" aria-hidden="true">
         {copyState === "copied" ? "check" : "content_copy"}

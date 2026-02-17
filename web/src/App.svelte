@@ -42,7 +42,7 @@
 
   const NARROW_LAYOUT_QUERY = "(max-width: 1160px)";
   const SPLITTER_WIDTH_PX = 12;
-  const MIN_EDITOR_WIDTH_PX = 360;
+  const MIN_EDITOR_WIDTH_PX = 720;
   const MIN_RIGHT_WIDTH_PX = 420;
   const AUTO_SOLVE_DEBOUNCE_MS = 900;
 
@@ -90,7 +90,6 @@
   let errorMessage = $state("");
 
   let result = $state<SolvePayload | null>(null);
-  let graphFilter = $state<"all" | string>("all");
   let selectedOutpostIndex = $state(-1);
 
   let layoutElement = $state<HTMLElement | null>(null);
@@ -171,7 +170,6 @@
     draft = parseAicToml(text);
     selectedOutpostIndex = draft.outposts.length > 0 ? 0 : -1;
     result = null;
-    graphFilter = "all";
     errorMessage = "";
     solverController?.resetSolvedFingerprint();
   }
@@ -431,7 +429,6 @@
       },
       onSolved: (payload) => {
         result = payload;
-        graphFilter = "all";
       },
     });
 
@@ -577,14 +574,7 @@
         </section>
 
         <section class="panel graph">
-          <GraphPanel
-            {lang}
-            {result}
-            {graphFilter}
-            onGraphFilterChange={(nextFilter) => {
-              graphFilter = nextFilter;
-            }}
-          />
+          <GraphPanel {lang} {result} />
         </section>
       </div>
     {:else}
@@ -604,14 +594,7 @@
       <section
         class={`panel graph ${activeTab !== "graph" ? "tab-hidden" : ""}`}
       >
-        <GraphPanel
-          {lang}
-          {result}
-          {graphFilter}
-          onGraphFilterChange={(nextFilter) => {
-            graphFilter = nextFilter;
-          }}
-        />
+        <GraphPanel {lang} {result} />
       </section>
     {/if}
 

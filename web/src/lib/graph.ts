@@ -2,8 +2,6 @@ import dagre from '@dagrejs/dagre';
 import type { Edge, Node, Position } from '@xyflow/svelte';
 import type { LogisticsGraphDto } from './types';
 
-type FilterKey = string | 'all';
-
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 44;
 const NODE_X_OFFSET = NODE_WIDTH / 2;
@@ -77,16 +75,10 @@ function layoutNodesWithDagre(nodes: Node[], edges: Edge[]): Node[] {
 }
 
 export function buildFlowGraph(
-  graph: LogisticsGraphDto,
-  filterKey: FilterKey
+  graph: LogisticsGraphDto
 ): { nodes: Node[]; edges: Edge[] } {
-  const filteredEdges =
-    filterKey === 'all'
-      ? graph.edges
-      : graph.edges.filter((edge) => edge.itemKey === filterKey);
-
   const nodeIdSet = new Set<string>();
-  for (const edge of filteredEdges) {
+  for (const edge of graph.edges) {
     nodeIdSet.add(edge.source);
     nodeIdSet.add(edge.target);
   }
@@ -113,7 +105,7 @@ export function buildFlowGraph(
     };
   });
 
-  const drawnEdges: Edge[] = filteredEdges
+  const drawnEdges: Edge[] = graph.edges
     .slice()
     .sort(compareEdgesForLayout)
     .map((edge) => ({

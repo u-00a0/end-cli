@@ -23,18 +23,14 @@
   interface Props {
     lang: LangTag;
     result: SolvePayload | null;
-    graphFilter: "all" | string;
-    onGraphFilterChange: (nextFilter: "all" | string) => void;
   }
 
-  let { lang, result, graphFilter, onGraphFilterChange }: Props = $props();
+  let { lang, result }: Props = $props();
   let panelElement = $state<HTMLElement | null>(null);
   let isFullscreen = $state(false);
 
   const flow = $derived<{ nodes: Node[]; edges: Edge[] }>(
-    result
-      ? buildFlowGraph(result.logisticsGraph, graphFilter)
-      : { nodes: [], edges: [] },
+    result ? buildFlowGraph(result.logisticsGraph) : { nodes: [], edges: [] },
   );
 
   function t(zh: string, en: string): string {
@@ -120,18 +116,6 @@
 
     {#if result}
       <div class="header-controls">
-        <select
-          value={graphFilter}
-          onchange={(event) => {
-            onGraphFilterChange((event.currentTarget as HTMLSelectElement).value);
-          }}
-        >
-          <option value="all">{t("全部物品", "All items")}</option>
-          {#each result.logisticsGraph.items as item}
-            <option value={item.itemKey}>{item.itemName}</option>
-          {/each}
-        </select>
-
         <button
           type="button"
           class="fullscreen-toggle"
@@ -183,14 +167,6 @@
     height: clamp(380px, 52vh, 720px);
     overflow: hidden;
     background: var(--panel-strong);
-  }
-
-  select {
-    border: 1px solid color-mix(in srgb, var(--line) 90%, #b7cec2);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px;
-    background: var(--panel-strong);
-    color: inherit;
   }
 
   .fullscreen-toggle {

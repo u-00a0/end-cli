@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SelectField, { type SelectOption } from "./SelectField.svelte";
   import type { EditorPanelProps } from "../lib/editor-actions";
   import type { OutpostDraft } from "../lib/types";
 
@@ -14,19 +15,15 @@
   const selectedOutpost = $derived<OutpostDraft | null>(
     draft.outposts[selectedOutpostIndex] ?? null,
   );
+  const catalogOptions = $derived<SelectOption[]>(
+    catalogItems.map((item) => ({
+      value: item.key,
+      label: t(item.zh, item.en),
+    })),
+  );
 
   function t(zh: string, en: string): string {
     return lang === "zh" ? zh : en;
-  }
-
-  function itemTitle(itemKey: string): string {
-    const item = catalogItems.find((entry) => entry.key === itemKey);
-    if (!item) {
-      return itemKey;
-    }
-    return lang === "zh"
-      ? `${item.zh} (${item.key})`
-      : `${item.en} (${item.key})`;
   }
 </script>
 
@@ -47,7 +44,6 @@
         onclick={actions.resetToDefault}
         disabled={isResetDisabled}
         aria-label={t("重置默认配置", "Reset Default")}
-        title={t("重置默认配置", "Reset Default")}
       >
         <span class="material-symbols-outlined icon" aria-hidden="true"
           >delete_forever</span
@@ -118,18 +114,14 @@
 
     {#each draft.supply as row, rowIndex}
       <div class="row-grid">
-        <select
+        <SelectField
           value={row.itemKey}
-          onchange={(event) =>
-            actions.supply.setKey(
-              rowIndex,
-              (event.currentTarget as HTMLSelectElement).value,
-            )}
-        >
-          {#each catalogItems as item}
-            <option value={item.key}>{itemTitle(item.key)}</option>
-          {/each}
-        </select>
+          options={catalogOptions}
+          ariaLabel={t("选择供给物品", "Select supply item")}
+          searchPlaceholder={t("搜索物品...", "Search items...")}
+          emptyText={t("无匹配物品", "No matching items")}
+          onChange={(nextValue) => actions.supply.setKey(rowIndex, nextValue)}
+        />
 
         <input
           type="number"
@@ -185,7 +177,8 @@
               onclick={() => actions.outposts.select(outpostIndex)}
             >
               <p class="outpost-pick-title">
-                {outpost.key || `${t("据点", "Outpost")} ${outpostIndex + 1}`}
+                {t(outpost.zh, outpost.en) ||
+                  `${t("据点", "Outpost")} ${outpostIndex + 1}`}
               </p>
               <p class="outpost-pick-meta">
                 {t("每小时交易上限", "Money Cap / h")}: {outpost.moneyCapPerHour}
@@ -201,7 +194,7 @@
           <article class="outpost-card">
             <div class="outpost-head">
               <h4>
-                {selectedOutpost.key ||
+                {t(selectedOutpost.zh, selectedOutpost.en) ||
                   `${t("据点", "Outpost")} ${(selectedOutpostIndex >= 0 ? selectedOutpostIndex : 0) + 1}`}
               </h4>
               <button
@@ -246,7 +239,7 @@
               </label>
 
               <label>
-                {t("英文显示名", "En Display Name")}
+                {t("英文显示名", "En Disp Name")}
                 <input
                   type="text"
                   value={selectedOutpost.en}
@@ -260,7 +253,7 @@
               </label>
 
               <label>
-                {t("中文显示名", "Zh Display Name")}
+                {t("中文显示名", "Zh Disp Name")}
                 <input
                   type="text"
                   value={selectedOutpost.zh}
@@ -294,19 +287,19 @@
 
             {#each selectedOutpost.prices as price, priceIndex}
               <div class="row-grid">
-                <select
+                <SelectField
                   value={price.itemKey}
-                  onchange={(event) =>
+                  options={catalogOptions}
+                  ariaLabel={t("选择收购物品", "Select price item")}
+                  searchPlaceholder={t("搜索物品...", "Search items...")}
+                  emptyText={t("无匹配物品", "No matching items")}
+                  onChange={(nextValue) =>
                     actions.prices.setKey(
                       selectedOutpostIndex,
                       priceIndex,
-                      (event.currentTarget as HTMLSelectElement).value,
+                      nextValue,
                     )}
-                >
-                  {#each catalogItems as item}
-                    <option value={item.key}>{itemTitle(item.key)}</option>
-                  {/each}
-                </select>
+                />
 
                 <input
                   type="number"
@@ -380,7 +373,7 @@
   .outpost-layout {
     display: grid;
     gap: var(--space-3);
-    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    grid-template-columns: 200px minmax(0, 1fr);
   }
 
   .outpost-list {
@@ -424,6 +417,13 @@
     display: grid;
     gap: var(--space-2);
     background: var(--panel-strong);
+    container-type: inline-size;
+  }
+
+  .row-grid.two label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
   }
 
   .outpost-head {
@@ -433,8 +433,7 @@
     gap: var(--space-2);
   }
 
-  input,
-  select {
+  input {
     border: 1px solid color-mix(in srgb, var(--line) 90%, #b6cec2);
     border-radius: var(--radius-sm);
     padding: 8px 12px;
@@ -524,6 +523,12 @@
 
   @media (max-width: 1200px) {
     .outpost-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @container (max-width: 480px) {
+    .row-grid.two {
       grid-template-columns: 1fr;
     }
   }

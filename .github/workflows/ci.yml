@@ -25,6 +25,9 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Configure git to use HTTPS instead of SSH
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
 
