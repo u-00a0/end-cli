@@ -263,7 +263,7 @@ pub fn build_report(
                 "- {}\n",
                 match lang {
                     Lang::Zh => format!(
-                        "{}交易额触顶，做的很好！",
+                        "{}交易额触顶，做得好！",
                         outpost_display_name(lang, outpost)
                     ),
                     Lang::En => format!(
@@ -281,8 +281,8 @@ pub fn build_report(
             "- {}\n",
             t(
                 lang,
-                "电力接近满载：想扩产需要更多热容池燃料（或降低 P^ext/机器数）。",
-                "Power is near full load: scaling up needs more thermal-bank fuel (or fewer machines / lower P^ext).",
+                "电力接近满载：想扩产需要更多热容池燃料。",
+                "Power is near full load: scaling up needs more thermal-bank fuel.",
             )
         ));
     }

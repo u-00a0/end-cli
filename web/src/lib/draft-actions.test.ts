@@ -1,0 +1,74 @@
+import { describe, expect, it } from 'vitest';
+import {
+  addOutpost,
+  addPriceRow,
+  addSupplyRow,
+  normalizeSelectedOutpostIndex,
+  removeOutpost,
+  removePriceRow,
+  removeSupplyRow,
+  setExternalPower,
+  setOutpostField,
+  setPriceValue,
+  setSupplyValue
+} from './draft-actions';
+import type { AicDraft } from './types';
+
+const EMPTY_DRAFT: AicDraft = {
+  externalPowerConsumptionW: 0,
+  supply: [],
+  outposts: []
+};
+
+describe('draft actions', () => {
+  it('normalizes numeric inputs as non-negative integers', () => {
+    let draft = setExternalPower(EMPTY_DRAFT, -12.3);
+    draft = addSupplyRow(draft, 'IronOre');
+    draft = setSupplyValue(draft, 0, 4.8);
+
+    expect(draft.externalPowerConsumptionW).toBe(0);
+    expect(draft.supply[0]?.value).toBe(5);
+  });
+
+  it('adds and removes outposts while maintaining selected index', () => {
+    const added1 = addOutpost(EMPTY_DRAFT, -1);
+    const added2 = addOutpost(added1.draft, added1.selectedOutpostIndex);
+
+    expect(added2.draft.outposts).toHaveLength(2);
+    expect(added2.selectedOutpostIndex).toBe(1);
+
+    const removed = removeOutpost(added2.draft, added2.selectedOutpostIndex, 1);
+    expect(removed.draft.outposts).toHaveLength(1);
+    expect(removed.selectedOutpostIndex).toBe(0);
+  });
+
+  it('updates outpost fields and price rows immutably', () => {
+    const added = addOutpost(EMPTY_DRAFT, -1);
+
+    let draft = setOutpostField(added.draft, 0, 'key', 'TradeHub');
+    draft = addPriceRow(draft, 0, 'Circuit');
+    draft = setPriceValue(draft, 0, 0, 12.6);
+
+    expect(draft.outposts[0]?.key).toBe('TradeHub');
+    expect(draft.outposts[0]?.prices[0]?.price).toBe(13);
+
+    const afterRemovePrice = removePriceRow(draft, 0, 0);
+    expect(afterRemovePrice.outposts[0]?.prices).toHaveLength(0);
+  });
+
+  it('removes supply rows by index', () => {
+    let draft = addSupplyRow(EMPTY_DRAFT, 'A');
+    draft = addSupplyRow(draft, 'B');
+
+    const after = removeSupplyRow(draft, 0);
+    expect(after.supply).toHaveLength(1);
+    expect(after.supply[0]?.itemKey).toBe('B');
+  });
+
+  it('normalizes selected outpost index for empty and invalid states', () => {
+    expect(normalizeSelectedOutpostIndex(EMPTY_DRAFT, 2)).toBe(-1);
+
+    const added = addOutpost(EMPTY_DRAFT, -1);
+    expect(normalizeSelectedOutpostIndex(added.draft, 9)).toBe(0);
+  });
+});

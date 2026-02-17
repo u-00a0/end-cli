@@ -5,6 +5,7 @@ members = [
   "crates/end_opt",
   "crates/end_report",
   "crates/end_cli",
+  "crates/end_web",
 ]
 default-members = ["crates/end_cli"]
 resolver = "2"
@@ -15,6 +16,7 @@ clap = { version = "4", features = ["derive"] }
 good_lp = { version = "1", default-features = false, features = ["highs"] }
 mlua = { version = "0.10", features = ["lua54", "vendored", "send"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 smallvec = "1"
 thiserror = "2"
 toml = "1"
@@ -29,5 +31,6 @@ vector-map = "1"
 # pedantic = "warn"
 indexing_slicing = "warn"
 
-# [patch.crates-io]
-# highs-sys = { path = "../highs-sys" }
+# for PR #43 adds wasm32-unknown-emscripten support
+[patch.crates-io]
+highs-sys = { git = "https://github.com/rust-or/highs-sys" }

@@ -1,0 +1,19 @@
+[package]
+name = "end-web"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+end-io = { path = "../end_io" }
+end-model = { path = "../end_model" }
+end-opt = { path = "../end_opt" }
+end-report = { path = "../end_report" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

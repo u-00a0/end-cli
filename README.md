@@ -145,3 +145,17 @@ end-cli --help
 end-cli init --help
 end-cli solve --help
 ```
+
+## Web
+
+仍在开发。
+
+```bash
+# 仓库根目录：先构建并同步 wasm 到 web/public/wasm
+bash scripts/build_web_wasm.sh
+
+# 启动前端
+cd web
+npm install
+npm run dev
+```

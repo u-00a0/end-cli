@@ -4,10 +4,8 @@
 source "/home/xks/apps/emsdk/emsdk_env.sh" && \
 CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
 CARGO_PROFILE_RELEASE_LTO=true \
-RUSTFLAGS='-Copt-level=z -Cstrip=symbols -Clink-arg=-sASSERTIONS=0 -Clink-arg=-sMALLOC=emmalloc
--Clink-arg=-sINCOMING_MODULE_JS_API=[]' \
-cargo build --target wasm32-unknown-emscripten --release --config 'patch.crates-io.highs-
-sys.path="../highs-sys"'
+RUSTFLAGS='-Copt-level=z -Cstrip=symbols -Clink-arg=-sASSERTIONS=0 -Clink-arg=-sMALLOC=emmalloc -Clink-arg=-sINCOMING_MODULE_JS_API=[]' \
+cargo build --target wasm32-unknown-emscripten --release
 ```
 
 然后做一遍后处理（进一步压缩 wasm）：

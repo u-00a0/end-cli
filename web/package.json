@@ -1,0 +1,30 @@
+{
+  "name": "end-web-spa",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test:unit": "vitest run",
+    "test:e2e": "mkdir -p /tmp/playwright-home/.pki/nssdb && HOME=/tmp/playwright-home PLAYWRIGHT_BROWSERS_PATH=/home/xks/.cache/ms-playwright playwright test",
+    "build:wasm": "bash ../scripts/build_web_wasm.sh"
+  },
+  "dependencies": {
+    "@material-symbols/font-400": "^0.40.2",
+    "@xyflow/svelte": "^1.1.3",
+    "smol-toml": "^1.6.0",
+    "svelte": "^5.25.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tsconfig/svelte": "^5.0.4",
+    "svelte-check": "^4.1.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #f3f7f4;
+  --panel: #ffffffec;
+  --panel-strong: #ffffff;
+  --ink: #15353d;
+  --ink-soft: #4d676f;
+  --line: #c8d9cf;
+  --accent: #0a7c66;
+  --accent-soft: #dff4eb;
+  --warn: #9d6300;
+  --danger: #b93458;
+  --shadow-soft: 0 20px 40px -34px rgba(19, 36, 31, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  background:
+    radial-gradient(circle at 8% -16%, #daf3e8 0%, #daf3e800 52%),
+    radial-gradient(circle at 92% 10%, #f9e9c8 0%, #f9e9c800 45%),
+    linear-gradient(170deg, #f7faf8 0%, #edf3ef 100%);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+p {
+  margin: 0;
+}
+
+h2 {
+  font-size: clamp(16px, 1.4vw, 20px);
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 14px;
+  letter-spacing: -0.005em;
+}
+
+code,
+pre {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+}

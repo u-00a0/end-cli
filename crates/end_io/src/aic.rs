@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 const BUILTIN_AIC_TOML: &str = include_str!("aic.toml");
 const BUILTIN_AIC_PATH: &str = "<builtin>/aic.toml";
+const MEMORY_AIC_PATH: &str = "<memory>/aic.toml";
 
 /// Load `aic.toml` from disk and resolve key-based references against a catalog.
 pub fn load_aic(path: &Path, catalog: &Catalog) -> Result<AicInputs> {
@@ -15,11 +16,21 @@ pub fn load_aic(path: &Path, catalog: &Catalog) -> Result<AicInputs> {
         path: path.to_path_buf(),
         source,
     })?;
-    let raw: AicToml = toml::from_str(&src).map_err(|source| Error::TomlParse {
+    let raw: AicToml = toml::from_str(src.as_str()).map_err(|source| Error::TomlParse {
         path: path.to_path_buf(),
         source,
     })?;
     resolve_aic(path.to_path_buf(), raw, catalog)
+}
+
+/// Parse `aic.toml` from in-memory text and resolve references against a catalog.
+pub fn load_aic_from_str(src: &str, catalog: &Catalog) -> Result<AicInputs> {
+    let path = PathBuf::from(MEMORY_AIC_PATH);
+    let raw: AicToml = toml::from_str(src).map_err(|source| Error::TomlParse {
+        path: path.clone(),
+        source,
+    })?;
+    resolve_aic(path, raw, catalog)
 }
 
 /// Serialize [`default_aic`] as pretty TOML.
