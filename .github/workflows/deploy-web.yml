@@ -31,10 +31,14 @@ jobs:
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
+      - name: Configure git to use HTTPS instead of SSH
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Setup emsdk
+        uses: pyodide/setup-emsdk@v4
         with:
-          version: 3.1.74
+          version: 5.0.0
+          actions-cache-folder: emsdk-cache
 
       - name: Build WASM
         run: bash scripts/build_web_wasm.sh
