@@ -22,6 +22,11 @@ fi
 
 export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
 export CARGO_PROFILE_RELEASE_LTO=true
+
+# Force new Wasm exception handling (Rust 1.93+ default) for highs-sys
+# to avoid __resumeException linker errors
+export CXXFLAGS="${CXXFLAGS:-} -fwasm-exceptions"
+
 WASM_STACK_SIZE="${END_WEB_WASM_STACK_SIZE:-1048576}"
 RUSTFLAGS_ARGS=(
   "-Copt-level=z"
