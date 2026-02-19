@@ -1,3 +1,5 @@
+use crate::consts::LOGISTICS_EPS;
+use crate::error::{Error, Result};
 use end_model::{FacilityId, ItemId, OutpostId, PowerRecipeId, RecipeId};
 use std::num::NonZeroU32;
 
@@ -154,9 +156,52 @@ pub struct DemandNode {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ItemSubproblem {
-    pub item: ItemId,
-    pub supplies: Vec<SupplyNode>,
-    pub demands: Vec<DemandNode>,
+    item: ItemId,
+    supplies: Vec<SupplyNode>,
+    demands: Vec<DemandNode>,
+}
+
+impl ItemSubproblem {
+    pub(crate) fn new(
+        item: ItemId,
+        supplies: Vec<SupplyNode>,
+        demands: Vec<DemandNode>,
+    ) -> Result<Self> {
+        if demands.is_empty() {
+            return Err(Error::InvalidInput {
+                message: format!(
+                    "item {} subproblem requires at least one demand node",
+                    item.as_u32()
+                ),
+            });
+        }
+        let total_supply = supplies.iter().map(|s| s.capacity_per_min.get()).sum::<f64>();
+        let total_demand = demands.iter().map(|d| d.demand_per_min.get()).sum::<f64>();
+        if total_supply + LOGISTICS_EPS < total_demand {
+            return Err(Error::LogisticsInfeasible {
+                item,
+                total_supply_per_min: total_supply,
+                total_demand_per_min: total_demand,
+            });
+        }
+        Ok(Self {
+            item,
+            supplies,
+            demands,
+        })
+    }
+
+    pub fn item(&self) -> ItemId {
+        self.item
+    }
+
+    pub fn supplies(&self) -> &[SupplyNode] {
+        &self.supplies
+    }
+
+    pub fn demands(&self) -> &[DemandNode] {
+        &self.demands
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

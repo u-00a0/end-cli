@@ -1,5 +1,6 @@
+use crate::consts::LOGISTICS_EPS;
 use crate::error::{Error, Result};
-use crate::logistics::{LOGISTICS_EPS, build_logistics_plan};
+use crate::logistics::build_logistics_plan;
 use crate::types::{
     ExternalSupplySlack, FacilityMachineCount, OptimizationResult, OutpostSaleQty, OutpostValue,
     PosF64, RecipeUsage, StageSolution, ThermalBankUsage,

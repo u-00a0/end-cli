@@ -1,3 +1,4 @@
+use crate::consts::LOGISTICS_EPS;
 use crate::error::{Error, Result};
 use crate::types::{
     DemandNode, DemandNodeId, DemandSite, ItemFlowEdge, ItemFlowPlan, ItemSubproblem,
@@ -6,9 +7,6 @@ use crate::types::{
 };
 use end_model::{AicInputs, Catalog, ItemId, Recipe};
 use std::collections::BTreeMap;
-
-/// Floating-point tolerance used by logistics expansion and assignment.
-pub const LOGISTICS_EPS: f64 = 1e-9;
 
 #[derive(Debug, Default)]
 struct ItemAccumulator {
@@ -125,11 +123,8 @@ pub fn build_item_subproblems(
 
     let subproblems = per_item
         .into_iter()
-        .filter_map(|(item, bucket)| {
-            if bucket.demands.is_empty() {
-                return None;
-            }
-
+        .filter(|(_, bucket)| !bucket.demands.is_empty())
+        .map(|(item, bucket)| {
             let supplies = bucket
                 .supplies
                 .into_iter()
@@ -151,47 +146,17 @@ pub fn build_item_subproblems(
                 })
                 .collect::<Vec<_>>();
 
-            Some(ItemSubproblem {
-                item,
-                supplies,
-                demands,
-            })
+            ItemSubproblem::new(item, supplies, demands)
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(subproblems)
 }
 
 /// Solve one item flow assignment with deterministic Best-Fit.
 pub fn solve_item_best_fit(subproblem: &ItemSubproblem) -> Result<ItemFlowPlan> {
-    let total_supply = subproblem
-        .supplies
-        .iter()
-        .map(|s| s.capacity_per_min.get())
-        .sum::<f64>();
-    let total_demand = subproblem
-        .demands
-        .iter()
-        .map(|d| d.demand_per_min.get())
-        .sum::<f64>();
-
-    if total_demand <= LOGISTICS_EPS {
-        return Ok(ItemFlowPlan {
-            item: subproblem.item,
-            edges: Vec::new(),
-        });
-    }
-
-    if total_supply + LOGISTICS_EPS < total_demand {
-        return Err(Error::LogisticsInfeasible {
-            item: subproblem.item,
-            total_supply_per_min: total_supply,
-            total_demand_per_min: total_demand,
-        });
-    }
-
     let mut remaining_supply = subproblem
-        .supplies
+        .supplies()
         .iter()
         .map(|s| SupplyState {
             id: s.id,
@@ -200,7 +165,7 @@ pub fn solve_item_best_fit(subproblem: &ItemSubproblem) -> Result<ItemFlowPlan> 
         .collect::<Vec<_>>();
 
     let mut demand_order = subproblem
-        .demands
+        .demands()
         .iter()
         .map(|demand| (demand.id, demand.demand_per_min.get()))
         .collect::<Vec<_>>();
@@ -225,7 +190,7 @@ pub fn solve_item_best_fit(subproblem: &ItemSubproblem) -> Result<ItemFlowPlan> 
             } else {
                 let residual_supply = remaining_supply.iter().map(|s| s.remaining).sum::<f64>();
                 return Err(Error::LogisticsInfeasible {
-                    item: subproblem.item,
+                    item: subproblem.item(),
                     total_supply_per_min: residual_supply,
                     total_demand_per_min: remaining_demand,
                 });
@@ -235,7 +200,7 @@ pub fn solve_item_best_fit(subproblem: &ItemSubproblem) -> Result<ItemFlowPlan> 
                 supply_index < remaining_supply.len(),
                 "selected supply index {} out of bounds for item {}",
                 supply_index,
-                subproblem.item.as_u32()
+                subproblem.item().as_u32()
             );
             // SAFETY: supply_index comes from searching remaining_supply in this loop and is valid.
             let supply = unsafe { remaining_supply.get_unchecked_mut(supply_index) };
@@ -245,7 +210,7 @@ pub fn solve_item_best_fit(subproblem: &ItemSubproblem) -> Result<ItemFlowPlan> 
             if flow <= LOGISTICS_EPS {
                 let residual_supply = remaining_supply.iter().map(|s| s.remaining).sum::<f64>();
                 return Err(Error::LogisticsInfeasible {
-                    item: subproblem.item,
+                    item: subproblem.item(),
                     total_supply_per_min: residual_supply,
                     total_demand_per_min: remaining_demand,
                 });
@@ -277,14 +242,14 @@ pub fn solve_item_best_fit(subproblem: &ItemSubproblem) -> Result<ItemFlowPlan> 
             let flow_per_min = PosF64::new(flow_per_min).ok_or(Error::InvalidPositiveFlow {
                 context: format!(
                     "flow edge item={} from={} to={}",
-                    subproblem.item.as_u32(),
+                    subproblem.item().as_u32(),
                     from.as_u32(),
                     to.as_u32()
                 ),
                 value: flow_per_min,
             })?;
             Ok(ItemFlowEdge {
-                item: subproblem.item,
+                item: subproblem.item(),
                 from,
                 to,
                 flow_per_min,
@@ -293,7 +258,7 @@ pub fn solve_item_best_fit(subproblem: &ItemSubproblem) -> Result<ItemFlowPlan> 
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ItemFlowPlan {
-        item: subproblem.item,
+        item: subproblem.item(),
         edges,
     })
 }
@@ -318,13 +283,13 @@ pub fn build_logistics_plan(
         let mut supply_nodes = BTreeMap::<SupplyNodeId, LogisticsNodeId>::new();
         let mut demand_nodes = BTreeMap::<DemandNodeId, LogisticsNodeId>::new();
 
-        for supply in &subproblem.supplies {
+        for supply in subproblem.supplies() {
             let key = supply_site_key(&supply.site);
             let node_id = allocate_logistics_node(&mut node_index, &mut nodes, key);
             supply_nodes.insert(supply.id, node_id);
         }
 
-        for demand in &subproblem.demands {
+        for demand in subproblem.demands() {
             let key = demand_site_key(&demand.site);
             let node_id = allocate_logistics_node(&mut node_index, &mut nodes, key);
             demand_nodes.insert(demand.id, node_id);
@@ -561,7 +526,8 @@ fn find_largest_non_empty_supply(remaining_supply: &[SupplyState]) -> Option<usi
 
 #[cfg(test)]
 mod tests {
-    use super::{LOGISTICS_EPS, build_logistics_plan, solve_item_best_fit};
+    use super::{build_logistics_plan, solve_item_best_fit};
+    use crate::LOGISTICS_EPS;
     use crate::run_two_stage;
     use crate::types::{
         DemandNode, DemandNodeId, DemandSite, ItemSubproblem, LogisticsNodeSite, PosF64,
@@ -589,9 +555,9 @@ mod tests {
     #[test]
     fn best_fit_fully_satisfies_each_demand() {
         let item = sample_item();
-        let subproblem = ItemSubproblem {
+        let subproblem = ItemSubproblem::new(
             item,
-            supplies: vec![
+            vec![
                 SupplyNode {
                     id: SupplyNodeId::from_index(0),
                     site: SupplySite::ExternalSupply { item },
@@ -603,7 +569,7 @@ mod tests {
                     capacity_per_min: PosF64::new(5.0).expect("positive"),
                 },
             ],
-            demands: vec![
+            vec![
                 DemandNode {
                     id: DemandNodeId::from_index(0),
                     site: DemandSite::OutpostSale {
@@ -629,7 +595,8 @@ mod tests {
                     demand_per_min: PosF64::new(4.0).expect("positive"),
                 },
             ],
-        };
+        )
+        .expect("feasible subproblem");
 
         let flow_plan = solve_item_best_fit(&subproblem).expect("best-fit should be feasible");
 
@@ -640,7 +607,7 @@ mod tests {
             *outgoing.entry(edge.from.as_u32()).or_insert(0.0) += edge.flow_per_min.get();
         }
 
-        for demand in &subproblem.demands {
+        for demand in subproblem.demands() {
             let got = incoming.get(&demand.id.as_u32()).copied().unwrap_or(0.0);
             assert!(
                 (got - demand.demand_per_min.get()).abs() <= LOGISTICS_EPS,
@@ -649,7 +616,7 @@ mod tests {
             );
         }
 
-        for supply in &subproblem.supplies {
+        for supply in subproblem.supplies() {
             let used = outgoing.get(&supply.id.as_u32()).copied().unwrap_or(0.0);
             assert!(
                 used <= supply.capacity_per_min.get() + LOGISTICS_EPS,
