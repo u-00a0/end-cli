@@ -181,9 +181,7 @@ pub fn solve_item_best_fit(subproblem: &ItemSubproblem) -> Result<ItemFlowPlan> 
         let mut remaining_demand = demand_per_min;
 
         while remaining_demand > LOGISTICS_EPS {
-            let best_fit_supply = find_best_fit_supply(&remaining_supply, remaining_demand);
-
-            let supply_index = if let Some(index) = best_fit_supply {
+            let supply_index = if let Some(index) = find_best_fit_supply(&remaining_supply, remaining_demand) {
                 index
             } else if let Some(index) = find_largest_non_empty_supply(&remaining_supply) {
                 index
@@ -196,6 +194,7 @@ pub fn solve_item_best_fit(subproblem: &ItemSubproblem) -> Result<ItemFlowPlan> 
                 });
             };
 
+            // TODO: fix this so we eliminate unsafe in business logic.
             debug_assert!(
                 supply_index < remaining_supply.len(),
                 "selected supply index {} out of bounds for item {}",
@@ -296,6 +295,7 @@ pub fn build_logistics_plan(
         }
 
         for edge in &item_plan.edges {
+            // unreachable.
             let Some(from) = supply_nodes.get(&edge.from).copied() else {
                 return Err(Error::InvalidInput {
                     message: format!(
@@ -305,6 +305,7 @@ pub fn build_logistics_plan(
                     ),
                 });
             };
+            // unreachable.
             let Some(to) = demand_nodes.get(&edge.to).copied() else {
                 return Err(Error::InvalidInput {
                     message: format!(
