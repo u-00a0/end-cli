@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map::Entry};
+use std::num::NonZeroU32;
 
 use generativity::{Guard, Id};
 
@@ -10,6 +11,36 @@ use super::{
     RecipeId, Stack, ThermalBankDef,
 };
 
+/// Marker state: thermal bank has not been provided yet.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ThermalBankMissing;
+
+/// Marker state: thermal bank has been provided and is ready for `build`.
+#[derive(Debug, Clone)]
+pub struct ThermalBankReady(ThermalBankDef);
+
+impl ThermalBankReady {
+    fn into_inner(self) -> ThermalBankDef {
+        self.0
+    }
+}
+
+pub trait ThermalBankState {
+    fn thermal_bank(&self) -> Option<&ThermalBankDef>;
+}
+
+impl ThermalBankState for ThermalBankMissing {
+    fn thermal_bank(&self) -> Option<&ThermalBankDef> {
+        None
+    }
+}
+
+impl ThermalBankState for ThermalBankReady {
+    fn thermal_bank(&self) -> Option<&ThermalBankDef> {
+        Some(&self.0)
+    }
+}
+
 /// Builder for [`Catalog`].
 ///
 /// This is the only supported way to construct a catalog, because it:
@@ -17,7 +48,7 @@ use super::{
 /// - Maintains key->id indices (`item_index`, `facility_index`).
 /// - Enforces catalog-level invariants.
 #[derive(Debug)]
-pub struct CatalogBuilder<'id> {
+pub struct CatalogBuilder<'id, State = ThermalBankMissing> {
     brand: Id<'id>,
     items: Vec<ItemDef>,
     facilities: Vec<FacilityDef>,
@@ -25,10 +56,10 @@ pub struct CatalogBuilder<'id> {
     power_recipes: Vec<PowerRecipe<'id>>,
     item_index: HashMap<Key, ItemId<'id>>,
     facility_index: HashMap<Key, FacilityId<'id>>,
-    thermal_bank: Option<ThermalBankDef>,
+    thermal_bank: State,
 }
 
-impl<'id> CatalogBuilder<'id> {
+impl<'id> CatalogBuilder<'id, ThermalBankMissing> {
     /// Creates an empty builder.
     pub fn new(guard: Guard<'id>) -> Self {
         Self {
@@ -39,90 +70,113 @@ impl<'id> CatalogBuilder<'id> {
             power_recipes: Vec::new(),
             item_index: HashMap::new(),
             facility_index: HashMap::new(),
-            thermal_bank: None,
+            thermal_bank: ThermalBankMissing,
         }
     }
 
+    /// Adds the unique thermal bank definition and transitions builder state.
+    pub fn add_thermal_bank(
+        self,
+        def: ThermalBankDef,
+    ) -> Result<CatalogBuilder<'id, ThermalBankReady>, CatalogBuildError> {
+        if self.facility_index.contains_key(def.key.as_str()) {
+            return Err(CatalogBuildError::DuplicateFacilityKey(def.key));
+        }
+        let Self {
+            brand,
+            items,
+            facilities,
+            recipes,
+            power_recipes,
+            item_index,
+            facility_index,
+            thermal_bank: _,
+        } = self;
+        Ok(CatalogBuilder {
+            brand,
+            items,
+            facilities,
+            recipes,
+            power_recipes,
+            item_index,
+            facility_index,
+            thermal_bank: ThermalBankReady(def),
+        })
+    }
+}
+
+impl<'id, State: ThermalBankState> CatalogBuilder<'id, State> {
     /// Adds an item definition and returns its newly assigned [`ItemId`].
     ///
     /// Item keys must be unique.
     pub fn add_item(&mut self, def: ItemDef) -> Result<ItemId<'id>, CatalogBuildError> {
-        if self.item_index.contains_key(def.key.as_str()) {
-            return Err(CatalogBuildError::DuplicateItemKey(def.key));
+        match self.item_index.entry(def.key.clone()) {
+            Entry::Occupied(_) => Err(CatalogBuildError::DuplicateItemKey(def.key)),
+            Entry::Vacant(slot) => {
+                let id = ItemId::from_index(self.items.len(), self.brand);
+                slot.insert(id);
+                self.items.push(def);
+                Ok(id)
+            }
         }
-        let id = ItemId::from_index(self.items.len(), self.brand);
-        self.item_index.insert(def.key.clone(), id);
-        self.items.push(def);
-        Ok(id)
     }
 
     /// Adds a facility definition and returns its newly assigned [`FacilityId`].
     ///
     /// Facility keys must be unique.
     pub fn add_facility(&mut self, def: FacilityDef) -> Result<FacilityId<'id>, CatalogBuildError> {
-        if self.facility_index.contains_key(def.key.as_str())
-            || self
-                .thermal_bank
-                .as_ref()
-                .is_some_and(|bank| bank.key.as_str() == def.key.as_str())
+        if self
+            .thermal_bank
+            .thermal_bank()
+            .is_some_and(|bank| bank.key.as_str() == def.key.as_str())
         {
             return Err(CatalogBuildError::DuplicateFacilityKey(def.key));
         }
-        let id = FacilityId::from_index(self.facilities.len(), self.brand);
-        self.facility_index.insert(def.key.clone(), id);
-        self.facilities.push(def);
-        Ok(id)
-    }
 
-    /// Adds the unique thermal bank definition.
-    pub fn add_thermal_bank(&mut self, def: ThermalBankDef) -> Result<(), CatalogBuildError> {
-        if self.thermal_bank.is_some() {
-            return Err(CatalogBuildError::MultipleThermalBanks);
+        match self.facility_index.entry(def.key.clone()) {
+            Entry::Occupied(_) => Err(CatalogBuildError::DuplicateFacilityKey(def.key)),
+            Entry::Vacant(slot) => {
+                let id = FacilityId::from_index(self.facilities.len(), self.brand);
+                slot.insert(id);
+                self.facilities.push(def);
+                Ok(id)
+            }
         }
-        if self.facility_index.contains_key(def.key.as_str()) {
-            return Err(CatalogBuildError::DuplicateFacilityKey(def.key));
-        }
-        self.thermal_bank = Some(def);
-        Ok(())
     }
 
     /// Appends a production recipe and returns its assigned [`RecipeId`].
     ///
     /// This validates recipe-local invariants and cross-references against the current
     /// builder state:
-    /// - `facility` must exist.
-    /// - `time_s` must be positive.
+    /// - `time_s` is positive by type (`NonZeroU32`).
     /// - `ingredients` / `products` must be non-empty.
     /// - each referenced item must exist.
+    /// - each stack count is positive by type (`NonZeroU32`).
     /// - duplicate items are rejected within `ingredients` and `products` respectively.
     pub fn push_recipe(
         &mut self,
         facility: FacilityId<'id>,
-        time_s: u32,
+        time_s: NonZeroU32,
         ingredients: Vec<Stack<'id>>,
         products: Vec<Stack<'id>>,
     ) -> Result<RecipeId<'id>, CatalogBuildError> {
-        if self.facilities.get(facility.index()).is_none() {
-            return Err(CatalogBuildError::UnknownRecipeFacilityId(
-                facility.as_u32(),
-            ));
-        }
-        if time_s == 0 {
-            return Err(CatalogBuildError::RecipeTimeMustBePositive);
-        }
         if ingredients.is_empty() {
             return Err(CatalogBuildError::RecipeIngredientsMustNotBeEmpty);
         }
         if products.is_empty() {
             return Err(CatalogBuildError::RecipeProductsMustNotBeEmpty);
         }
-        self.validate_recipe_stacks("ingredients", &ingredients)?;
-        self.validate_recipe_stacks("products", &products)?;
+        self.validate_recipe_stacks(&ingredients, |item_id| {
+            CatalogBuildError::DuplicateRecipeIngredientItem { item_id }
+        })?;
+        self.validate_recipe_stacks(&products, |item_id| {
+            CatalogBuildError::DuplicateRecipeProductItem { item_id }
+        })?;
 
         let id = RecipeId::from_index(self.recipes.len(), self.brand);
         self.recipes.push(Recipe {
             facility,
-            time_s,
+            time_s: time_s.get(),
             ingredients,
             products,
         });
@@ -131,34 +185,14 @@ impl<'id> CatalogBuilder<'id> {
 
     /// Appends a thermal-bank power recipe and returns its assigned [`PowerRecipeId`].
     ///
-    /// This validates power-recipe invariants and cross-references against current items:
-    /// - `ingredient.item` must exist.
-    /// - `ingredient.count` must be positive.
-    /// - `power_w` must be positive.
-    /// - `time_s` must be positive.
+    /// Positive-value invariants are enforced by type (`NonZeroU32`):
+    /// - `ingredient.count`
+    /// - `power_w`
+    /// - `time_s`
     pub fn push_power_recipe(
         &mut self,
         recipe: PowerRecipe<'id>,
     ) -> Result<PowerRecipeId<'id>, CatalogBuildError> {
-        if self.items.get(recipe.ingredient.item.index()).is_none() {
-            return Err(CatalogBuildError::UnknownPowerRecipeIngredientItemId(
-                recipe.ingredient.item.as_u32(),
-            ));
-        }
-        if recipe.ingredient.count == 0 {
-            return Err(
-                CatalogBuildError::PowerRecipeIngredientCountMustBePositive {
-                    item_id: recipe.ingredient.item.as_u32(),
-                },
-            );
-        }
-        if recipe.power_w == 0 {
-            return Err(CatalogBuildError::PowerRecipePowerMustBePositive);
-        }
-        if recipe.time_s == 0 {
-            return Err(CatalogBuildError::PowerRecipeTimeMustBePositive);
-        }
-
         let id = PowerRecipeId::from_index(self.power_recipes.len(), self.brand);
         self.power_recipes.push(recipe);
         Ok(id)
@@ -174,56 +208,43 @@ impl<'id> CatalogBuilder<'id> {
         self.facility_index.get(key).copied()
     }
 
-    /// Returns the thermal bank definition if it has already been added.
-    pub fn thermal_bank(&self) -> Option<&ThermalBankDef> {
-        self.thermal_bank.as_ref()
-    }
-
-    /// Finalizes the builder and returns a self-consistent [`Catalog`].
-    ///
-    /// Fails if required invariants are not met (e.g. thermal bank missing).
-    pub fn build(self) -> Result<Catalog<'id>, CatalogBuildError> {
-        let thermal_bank = self
-            .thermal_bank
-            .ok_or(CatalogBuildError::MissingThermalBank)?;
-        Ok(Catalog {
-            brand: self.brand,
-            items: self.items,
-            facilities: self.facilities,
-            recipes: self.recipes,
-            power_recipes: self.power_recipes,
-            item_index: self.item_index,
-            facility_index: self.facility_index,
-            thermal_bank,
-        })
-    }
-
     fn validate_recipe_stacks(
         &self,
-        list: &'static str,
         stacks: &[Stack<'id>],
+        on_duplicate_item: impl Fn(u32) -> CatalogBuildError,
     ) -> Result<(), CatalogBuildError> {
         let mut seen = HashSet::with_capacity(stacks.len());
         for stack in stacks {
-            if stack.count == 0 {
-                return Err(CatalogBuildError::RecipeStackCountMustBePositive {
-                    list,
-                    item_id: stack.item.as_u32(),
-                });
-            }
-            if self.items.get(stack.item.index()).is_none() {
-                return Err(CatalogBuildError::UnknownRecipeItemId {
-                    list,
-                    item_id: stack.item.as_u32(),
-                });
-            }
             if !seen.insert(stack.item) {
-                return Err(CatalogBuildError::DuplicateRecipeItem {
-                    list,
-                    item_id: stack.item.as_u32(),
-                });
+                return Err(on_duplicate_item(stack.item.as_u32()));
             }
         }
         Ok(())
+    }
+}
+
+impl<'id> CatalogBuilder<'id, ThermalBankReady> {
+    /// Finalizes the builder and returns a self-consistent [`Catalog`].
+    pub fn build(self) -> Catalog<'id> {
+        let Self {
+            brand,
+            items,
+            facilities,
+            recipes,
+            power_recipes,
+            item_index,
+            facility_index,
+            thermal_bank,
+        } = self;
+        Catalog {
+            brand,
+            items,
+            facilities,
+            recipes,
+            power_recipes,
+            item_index,
+            facility_index,
+            thermal_bank: thermal_bank.into_inner(),
+        }
     }
 }

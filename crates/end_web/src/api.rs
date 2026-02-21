@@ -1,0 +1,396 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+use end_io::{default_aic_toml, load_aic_from_str, load_catalog};
+use end_model::{AicInputs, Catalog, FacilityId, ItemId, OutpostId, PowerRecipeId, RecipeId};
+use end_opt::{LogisticsNodeSite, OptimizationResult, OutpostSaleQty, run_two_stage};
+use generativity::make_guard;
+
+use crate::dto::{
+    BootstrapPayload, CatalogDto, CatalogItemDto, ExternalSupplySlackDto, FacilityUsageDto,
+    LogisticsEdgeDto, LogisticsGraphDto, LogisticsItemSummaryDto, LogisticsNodeDto,
+    OutpostValueDto, SaleValueDto, SolvePayload, SummaryDto,
+};
+use crate::{Error, Lang, Result};
+
+#[derive(Debug, Clone, Copy)]
+struct ComputedSaleValue<'id> {
+    outpost_index: OutpostId,
+    item: ItemId<'id>,
+    value_per_min: f64,
+}
+
+pub fn bootstrap(lang: Lang) -> Result<BootstrapPayload> {
+    make_guard!(guard);
+    let catalog = load_catalog(None, guard).map_err(Error::Catalog)?;
+    let default_aic_toml = default_aic_toml(&catalog).map_err(Error::DefaultAic)?;
+
+    let mut items = catalog
+        .items()
+        .iter()
+        .map(|item| CatalogItemDto {
+            key: item.key.as_str().to_string(),
+            en: item.en.as_str().to_string(),
+            zh: item.zh.as_str().to_string(),
+        })
+        .collect::<Vec<_>>();
+    items.sort_by(|lhs, rhs| lhs.key.cmp(&rhs.key));
+
+    // `lang` is currently not used by bootstrap payload fields, but keeping it in signature
+    // makes the frontend contract symmetric with solve API and future localization extensions.
+    let _ = lang;
+
+    Ok(BootstrapPayload {
+        default_aic_toml,
+        catalog: CatalogDto { items },
+    })
+}
+
+pub fn solve_from_aic_toml(lang: Lang, aic_toml: &str) -> Result<SolvePayload> {
+    make_guard!(guard);
+    let catalog = load_catalog(None, guard).map_err(Error::Catalog)?;
+    let aic = load_aic_from_str(aic_toml, &catalog).map_err(Error::Aic)?;
+
+    let solved = run_two_stage(&catalog, &aic).map_err(Error::Optimize)?;
+    // TODO remove this.
+    let report_text = build_report_text(&catalog, &aic, &solved)?;
+
+    Ok(SolvePayload {
+        report_text,
+        summary: build_summary(lang, &catalog, &aic, &solved)?,
+        logistics_graph: build_logistics_graph(lang, &catalog, &aic, &solved)?,
+    })
+}
+
+fn build_report_text<'id>(
+    _catalog: &Catalog<'id>,
+    _inputs: &AicInputs<'id>,
+    _solved: &OptimizationResult<'id>,
+) -> Result<String> {
+    // payload keeps the same shape, but report rendering is trimmed out.
+    Ok(String::new())
+}
+
+fn build_summary<'id>(
+    lang: Lang,
+    catalog: &Catalog<'id>,
+    inputs: &AicInputs<'id>,
+    solved: &OptimizationResult<'id>,
+) -> Result<SummaryDto> {
+    let stage1 = &solved.stage1;
+    let stage2 = &solved.stage2;
+
+    let outposts = stage2
+        .outpost_values
+        .iter()
+        .map(|value| {
+            let outpost = inputs
+                .outpost(value.outpost_index)
+                .ok_or(Error::MissingOutpost(value.outpost_index))?;
+            Ok::<_, Error>(OutpostValueDto {
+                key: outpost.key.as_str().to_string(),
+                name: outpost_name(lang, outpost).to_string(),
+                value_per_min: value.value_per_min,
+                cap_per_min: value.cap_per_min,
+                ratio: value.ratio,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let top_sales = top_sales_by_value(&stage2.outpost_sales_qty)
+        .into_iter()
+        .map(|sale| {
+            let outpost = inputs
+                .outpost(sale.outpost_index)
+                .ok_or(Error::MissingOutpost(sale.outpost_index))?;
+            Ok::<_, Error>(SaleValueDto {
+                outpost_key: outpost.key.as_str().to_string(),
+                outpost_name: outpost_name(lang, outpost).to_string(),
+                item_key: item_key(catalog, sale.item)?.to_string(),
+                item_name: item_name(lang, catalog, sale.item)?.to_string(),
+                value_per_min: sale.value_per_min,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let facilities = stage2
+        .machines_by_facility
+        .iter()
+        .map(|usage| {
+            let facility_def = catalog.facility(usage.facility);
+            Ok::<_, Error>(FacilityUsageDto {
+                key: facility_key(catalog, usage.facility)?.to_string(),
+                name: facility_name(lang, catalog, usage.facility)?.to_string(),
+                machines: usage.machines,
+                power_w: facility_def.power_w.get(),
+                total_power_w: facility_def.power_w.get() * usage.machines,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let external_supply_slack = stage2
+        .external_supply_slack
+        .iter()
+        .map(|row| {
+            Ok::<_, Error>(ExternalSupplySlackDto {
+                item_key: item_key(catalog, row.item)?.to_string(),
+                item_name: item_name(lang, catalog, row.item)?.to_string(),
+                supply_per_min: row.supply_per_min,
+                slack_per_min: row.slack_per_min,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(SummaryDto {
+        lang: lang.tag(),
+        stage1_revenue_per_min: stage1.revenue_per_min,
+        stage2_revenue_per_min: stage2.revenue_per_min,
+        stage2_revenue_per_hour: stage2.revenue_per_min * 60.0,
+        total_machines: stage2.total_machines,
+        total_thermal_banks: stage2.total_thermal_banks,
+        power_gen_w: stage2.power_gen_w,
+        power_use_w: stage2.power_use_w,
+        power_margin_w: stage2.power_margin_w,
+        outposts,
+        top_sales,
+        facilities,
+        external_supply_slack,
+    })
+}
+
+fn top_sales_by_value<'id>(lines: &[OutpostSaleQty<'id>]) -> Vec<ComputedSaleValue<'id>> {
+    let mut sales = lines
+        .iter()
+        .map(|line| ComputedSaleValue {
+            outpost_index: line.outpost_index,
+            item: line.item,
+            value_per_min: line.qty_per_min.get() * line.price as f64,
+        })
+        .collect::<Vec<_>>();
+    sales.sort_by(|a, b| b.value_per_min.total_cmp(&a.value_per_min));
+    sales
+}
+
+fn build_logistics_graph<'id>(
+    lang: Lang,
+    catalog: &Catalog<'id>,
+    inputs: &AicInputs<'id>,
+    solved: &OptimizationResult<'id>,
+) -> Result<LogisticsGraphDto> {
+    // 构建配方机器数查找表
+    let recipe_machines: BTreeMap<RecipeId<'id>, u32> = solved
+        .stage2
+        .recipes_used
+        .iter()
+        .map(|r| (r.recipe_index, r.machines.get()))
+        .collect();
+    // 构建热容池数量查找表
+    let thermal_banks: BTreeMap<PowerRecipeId<'id>, u32> = solved
+        .stage2
+        .thermal_banks_used
+        .iter()
+        .map(|t| (t.power_recipe_index, t.banks.get()))
+        .collect();
+
+    let node_by_id = solved
+        .logistics
+        .nodes
+        .iter()
+        .map(|node| (node.id, node))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut nodes = solved
+        .logistics
+        .nodes
+        .iter()
+        .map(|node| {
+            let (kind, label) = describe_logistics_site(
+                lang,
+                catalog,
+                inputs,
+                &node.site,
+                &recipe_machines,
+                &thermal_banks,
+            )?;
+            Ok::<_, Error>(LogisticsNodeDto {
+                id: logistics_node_id(node.id),
+                kind,
+                label,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    nodes.sort_by(|lhs, rhs| lhs.id.cmp(&rhs.id));
+
+    let mut edges = Vec::<LogisticsEdgeDto>::new();
+    let mut item_summary = BTreeMap::<ItemId<'id>, ItemGraphStats>::new();
+
+    for edge in &solved.logistics.edges {
+        let item = edge.item;
+        let item_key = item_key(catalog, item)?.to_string();
+        let item_name = item_name(lang, catalog, item)?.to_string();
+
+        if !node_by_id.contains_key(&edge.from) {
+            return Err(Error::MissingLogisticsNode {
+                item: item.as_u32(),
+                node: edge.from,
+            });
+        }
+        if !node_by_id.contains_key(&edge.to) {
+            return Err(Error::MissingLogisticsNode {
+                item: item.as_u32(),
+                node: edge.to,
+            });
+        }
+
+        edges.push(LogisticsEdgeDto {
+            id: format!("{}:{}:{}", item_key, edge.from.as_u32(), edge.to.as_u32()),
+            item_key,
+            item_name,
+            source: logistics_node_id(edge.from),
+            target: logistics_node_id(edge.to),
+            flow_per_min: edge.flow_per_min.get(),
+        });
+
+        let entry = item_summary.entry(item).or_default();
+        entry.edge_count += 1;
+        entry.node_ids.insert(edge.from.as_u32());
+        entry.node_ids.insert(edge.to.as_u32());
+        entry.total_flow_per_min += edge.flow_per_min.get();
+    }
+
+    let mut items = item_summary
+        .into_iter()
+        .map(|(item, stats)| {
+            Ok::<_, Error>(LogisticsItemSummaryDto {
+                item_key: item_key(catalog, item)?.to_string(),
+                item_name: item_name(lang, catalog, item)?.to_string(),
+                edge_count: stats.edge_count,
+                node_count: stats.node_ids.len(),
+                total_flow_per_min: stats.total_flow_per_min,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    items.sort_by(|lhs, rhs| lhs.item_key.cmp(&rhs.item_key));
+
+    Ok(LogisticsGraphDto {
+        items,
+        nodes,
+        edges,
+    })
+}
+
+#[derive(Debug, Default)]
+struct ItemGraphStats {
+    edge_count: usize,
+    node_ids: BTreeSet<u32>,
+    total_flow_per_min: f64,
+}
+
+fn describe_logistics_site<'id>(
+    lang: Lang,
+    catalog: &Catalog<'id>,
+    inputs: &AicInputs<'id>,
+    site: &LogisticsNodeSite<'id>,
+    recipe_machines: &BTreeMap<RecipeId<'id>, u32>,
+    thermal_banks: &BTreeMap<PowerRecipeId<'id>, u32>,
+) -> Result<(String, String)> {
+    match site {
+        LogisticsNodeSite::ExternalSupply { item } => Ok((
+            "external_supply".to_string(),
+            match lang {
+                Lang::Zh => format!("外部供给 ({})", item_name(lang, catalog, *item)?),
+                Lang::En => format!("External supply ({})", item_name(lang, catalog, *item)?),
+            },
+        )),
+        LogisticsNodeSite::RecipeGroup { recipe_index } => {
+            let recipe = catalog.recipe(*recipe_index);
+            let facility = facility_name(lang, catalog, recipe.facility)?;
+            let machines = recipe_machines.get(recipe_index).copied().unwrap_or(1);
+            Ok((
+                "recipe_group".to_string(),
+                match lang {
+                    Lang::Zh => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32()),
+                    Lang::En => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32()),
+                },
+            ))
+        }
+        LogisticsNodeSite::OutpostSale {
+            outpost_index,
+            item,
+        } => {
+            let outpost = inputs
+                .outpost(*outpost_index)
+                .ok_or(Error::MissingOutpost(*outpost_index))?;
+            Ok((
+                "outpost_sale".to_string(),
+                match lang {
+                    Lang::Zh => format!(
+                        "{} 出售 ({})",
+                        outpost_name(lang, outpost),
+                        item_name(lang, catalog, *item)?
+                    ),
+                    Lang::En => format!(
+                        "{} sale ({})",
+                        outpost_name(lang, outpost),
+                        item_name(lang, catalog, *item)?
+                    ),
+                },
+            ))
+        }
+        LogisticsNodeSite::ThermalBankGroup {
+            power_recipe_index,
+            item: _,
+        } => {
+            let banks = thermal_banks.get(power_recipe_index).copied().unwrap_or(1);
+            Ok((
+                "thermal_bank_group".to_string(),
+                match lang {
+                    Lang::Zh => format!("热容池组 x{} (p{})", banks, power_recipe_index.as_u32()),
+                    Lang::En => format!(
+                        "Thermal bank group x{} (p{})",
+                        banks,
+                        power_recipe_index.as_u32()
+                    ),
+                },
+            ))
+        }
+    }
+}
+
+fn outpost_name<'a, 'id>(lang: Lang, outpost: &'a end_model::OutpostInput<'id>) -> &'a str {
+    match lang {
+        Lang::Zh => outpost.zh.as_deref().unwrap_or(outpost.key.as_str()),
+        Lang::En => outpost.en.as_deref().unwrap_or(outpost.key.as_str()),
+    }
+}
+
+fn item_key<'a, 'id>(catalog: &'a Catalog<'id>, item: ItemId<'id>) -> Result<&'a str> {
+    Ok(catalog.item(item).key.as_str())
+}
+
+fn item_name<'a, 'id>(lang: Lang, catalog: &'a Catalog<'id>, item: ItemId<'id>) -> Result<&'a str> {
+    let item = catalog.item(item);
+    Ok(match lang {
+        Lang::Zh => item.zh.as_str(),
+        Lang::En => item.en.as_str(),
+    })
+}
+
+fn facility_key<'a, 'id>(catalog: &'a Catalog<'id>, facility: FacilityId<'id>) -> Result<&'a str> {
+    Ok(catalog.facility(facility).key.as_str())
+}
+
+fn facility_name<'a, 'id>(
+    lang: Lang,
+    catalog: &'a Catalog<'id>,
+    facility: FacilityId<'id>,
+) -> Result<&'a str> {
+    let facility = catalog.facility(facility);
+    Ok(match lang {
+        Lang::Zh => facility.zh.as_str(),
+        Lang::En => facility.en.as_str(),
+    })
+}
+
+fn logistics_node_id(node: end_opt::LogisticsNodeId) -> String {
+    format!("n{}", node.as_u32())
+}

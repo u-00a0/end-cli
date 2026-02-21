@@ -10,7 +10,7 @@ fn name(value: &str) -> DisplayName {
 }
 
 fn item_name<'id>(catalog: &Catalog<'id>, item: ItemId<'id>) -> String {
-    catalog.item(item).unwrap().en.as_str().to_string()
+    catalog.item(item).en.as_str().to_string()
 }
 
 fn with_catalog<R>(
@@ -27,13 +27,14 @@ fn with_catalog<R>(
             zh: name("Ore"),
         })
         .unwrap();
-    b.add_thermal_bank(ThermalBankDef {
-        key: key(bank_key),
-        en: name("Bank"),
-        zh: name("Bank"),
-    })
-    .unwrap();
-    let catalog = b.build().unwrap();
+    let b = b
+        .add_thermal_bank(ThermalBankDef {
+            key: key(bank_key),
+            en: name("Bank"),
+            zh: name("Bank"),
+        })
+        .unwrap();
+    let catalog = b.build();
     f(catalog, item)
 }
 

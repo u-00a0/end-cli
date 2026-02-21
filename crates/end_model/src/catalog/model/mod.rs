@@ -28,7 +28,7 @@ use crate::Key;
 /// }
 ///
 /// fn item_name<'id>(catalog: &Catalog<'id>, item: ItemId<'id>) -> String {
-///     catalog.item(item).unwrap().en.as_str().to_string()
+///     catalog.item(item).en.as_str().to_string()
 /// }
 ///
 /// fn with_catalog<R>(
@@ -45,13 +45,14 @@ use crate::Key;
 ///             zh: name("Ore"),
 ///         })
 ///         .unwrap();
-///     b.add_thermal_bank(ThermalBankDef {
-///         key: key(bank_key),
-///         en: name("Bank"),
-///         zh: name("Bank"),
-///     })
-///     .unwrap();
-///     let catalog = b.build().unwrap();
+///     let b = b
+///         .add_thermal_bank(ThermalBankDef {
+///             key: key(bank_key),
+///             en: name("Bank"),
+///             zh: name("Bank"),
+///         })
+///         .unwrap();
+///     let catalog = b.build();
 ///     f(catalog, item)
 /// }
 ///
@@ -97,25 +98,57 @@ impl<'id> Catalog<'id> {
     }
 
     /// Returns item metadata by id.
-    pub fn item(&self, id: ItemId<'id>) -> Option<&ItemDef> {
-        self.items.get(id.index())
+    pub fn item(&self, id: ItemId<'id>) -> &ItemDef {
+        let index = id.index();
+        debug_assert!(
+            index < self.items.len(),
+            "invalid item id {} for catalog with {} items",
+            id.as_u32(),
+            self.items.len()
+        );
+        // SAFETY: `ItemId` values are minted by `CatalogBuilder` for this catalog brand.
+        unsafe { self.items.get_unchecked(index) }
     }
 
     /// Returns facility metadata by id.
-    pub fn facility(&self, id: FacilityId<'id>) -> Option<&FacilityDef> {
-        self.facilities.get(id.index())
+    pub fn facility(&self, id: FacilityId<'id>) -> &FacilityDef {
+        let index = id.index();
+        debug_assert!(
+            index < self.facilities.len(),
+            "invalid facility id {} for catalog with {} facilities",
+            id.as_u32(),
+            self.facilities.len()
+        );
+        // SAFETY: `FacilityId` values are minted by `CatalogBuilder` for this catalog brand.
+        unsafe { self.facilities.get_unchecked(index) }
     }
 
     /// Returns a recipe by its id.
     ///
     /// The optimizer and report layers use this id as a stable reference.
-    pub fn recipe(&self, id: RecipeId<'id>) -> Option<&Recipe<'id>> {
-        self.recipes.get(id.index())
+    pub fn recipe(&self, id: RecipeId<'id>) -> &Recipe<'id> {
+        let index = id.index();
+        debug_assert!(
+            index < self.recipes.len(),
+            "invalid recipe id {} for catalog with {} recipes",
+            id.as_u32(),
+            self.recipes.len()
+        );
+        // SAFETY: `RecipeId` values are minted by `CatalogBuilder` for this catalog brand.
+        unsafe { self.recipes.get_unchecked(index) }
     }
 
     /// Returns a power recipe by its id.
-    pub fn power_recipe(&self, id: PowerRecipeId<'id>) -> Option<&PowerRecipe<'id>> {
-        self.power_recipes.get(id.index())
+    pub fn power_recipe(&self, id: PowerRecipeId<'id>) -> &PowerRecipe<'id> {
+        let index = id.index();
+        debug_assert!(
+            index < self.power_recipes.len(),
+            "invalid power recipe id {} for catalog with {} power recipes",
+            id.as_u32(),
+            self.power_recipes.len()
+        );
+        // SAFETY: `PowerRecipeId` values are minted by `CatalogBuilder` for this catalog brand.
+        unsafe { self.power_recipes.get_unchecked(index) }
     }
 
     /// Returns the unique thermal bank definition.
@@ -145,19 +178,6 @@ impl<'id> Catalog<'id> {
             .iter()
             .enumerate()
             .map(move |(index, recipe)| (RecipeId::from_index(index, brand), recipe))
-    }
-
-    /// Returns all production recipes paired with ids and already-resolved facility metadata.
-    pub fn recipes_with_id_and_facility(
-        &self,
-    ) -> impl Iterator<Item = (RecipeId<'id>, &Recipe<'id>, &FacilityDef)> + '_ {
-        let brand = self.brand;
-        self.recipes.iter().enumerate().map(move |(index, recipe)| {
-            // SAFETY: `CatalogBuilder::push_recipe` guarantees each `Recipe::facility` points to an
-            // existing facility in this catalog, so the index is always in-bounds.
-            let facility = unsafe { self.facilities.get_unchecked(recipe.facility.index()) };
-            (RecipeId::from_index(index, brand), recipe, facility)
-        })
     }
 
     /// Returns all thermal-bank power recipes.

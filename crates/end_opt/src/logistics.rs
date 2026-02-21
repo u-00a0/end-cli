@@ -6,7 +6,7 @@ use crate::types::{
     StageSolution, SupplyNode, SupplyNodeId, SupplySite,
 };
 use end_model::{AicInputs, Catalog, ItemId, Recipe};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, btree_map::Entry};
 
 #[derive(Debug, Default)]
 struct ItemAccumulator<'id> {
@@ -42,11 +42,7 @@ pub fn build_item_subproblems<'id>(
             continue;
         }
 
-        let recipe = catalog
-            .recipe(run.recipe_index)
-            .ok_or(Error::MissingRecipe {
-                recipe_index: run.recipe_index.as_u32(),
-            })?;
+        let recipe = catalog.recipe(run.recipe_index);
 
         let throughput_per_machine_per_min = 60.0 / recipe.time_s as f64;
         let machine_capacity = throughput_per_machine_per_min * run.machines.get() as f64;
@@ -349,15 +345,16 @@ fn allocate_logistics_node<'id>(
     nodes: &mut Vec<LogisticsNode<'id>>,
     key: LogisticsNodeKey<'id>,
 ) -> LogisticsNodeId {
-    if let Some(id) = node_index.get(&key).copied() {
-        return id;
+    match node_index.entry(key) {
+        Entry::Occupied(entry) => *entry.get(),
+        Entry::Vacant(entry) => {
+            let id = LogisticsNodeId::from_index(nodes.len());
+            let site = key_to_site(*entry.key());
+            entry.insert(id);
+            nodes.push(LogisticsNode { id, site });
+            id
+        }
     }
-
-    let id = LogisticsNodeId::from_index(nodes.len());
-    let site = key_to_site(key);
-    node_index.insert(key, id);
-    nodes.push(LogisticsNode { id, site });
-    id
 }
 
 fn supply_site_key<'id>(site: &SupplySite<'id>) -> LogisticsNodeKey<'id> {
@@ -419,10 +416,10 @@ fn key_to_site<'id>(key: LogisticsNodeKey<'id>) -> LogisticsNodeSite<'id> {
 fn recipe_net_deltas<'id>(recipe: &Recipe<'id>) -> Vec<(ItemId<'id>, f64)> {
     let mut net = BTreeMap::<ItemId<'id>, f64>::new();
     for ingredient in &recipe.ingredients {
-        *net.entry(ingredient.item).or_insert(0.0) -= ingredient.count as f64;
+        *net.entry(ingredient.item).or_insert(0.0) -= ingredient.count.get() as f64;
     }
     for product in &recipe.products {
-        *net.entry(product.item).or_insert(0.0) += product.count as f64;
+        *net.entry(product.item).or_insert(0.0) += product.count.get() as f64;
     }
     net.into_iter().collect()
 }
@@ -683,42 +680,43 @@ mod tests {
                 zh: name("Assembler_zh"),
             })
             .expect("add assembler");
-        b.add_thermal_bank(ThermalBankDef {
-            key: key("Thermal Bank"),
-            en: name("Thermal Bank"),
-            zh: name("Thermal_Bank_zh"),
-        })
-        .expect("add thermal bank");
+        let mut b = b
+            .add_thermal_bank(ThermalBankDef {
+                key: key("Thermal Bank"),
+                en: name("Thermal Bank"),
+                zh: name("Thermal_Bank_zh"),
+            })
+            .expect("add thermal bank");
 
         let smelt_recipe = b
             .push_recipe(
                 smelter,
-                60,
+                nz(60),
                 vec![Stack {
                     item: ore,
-                    count: 1,
+                    count: nz(1),
                 }],
                 vec![Stack {
                     item: ingot,
-                    count: 1,
+                    count: nz(1),
                 }],
             )
             .expect("push smelting recipe");
         b.push_recipe(
             assembler,
-            60,
+            nz(60),
             vec![Stack {
                 item: ingot,
-                count: 2,
+                count: nz(2),
             }],
             vec![Stack {
                 item: gear,
-                count: 1,
+                count: nz(1),
             }],
         )
         .expect("push gear recipe");
 
-        let catalog = b.build().expect("build catalog");
+        let catalog = b.build();
 
         let aic = AicInputs::parse(
             0,
@@ -796,13 +794,14 @@ mod tests {
                 zh: name("x"),
             })
             .expect("add item");
-        b.add_thermal_bank(ThermalBankDef {
-            key: key("Thermal Bank"),
-            en: name("Thermal Bank"),
-            zh: name("Thermal_Bank_zh"),
-        })
-        .expect("add thermal bank");
-        (b.build().expect("build catalog"), item)
+        let b = b
+            .add_thermal_bank(ThermalBankDef {
+                key: key("Thermal Bank"),
+                en: name("Thermal Bank"),
+                zh: name("Thermal_Bank_zh"),
+            })
+            .expect("add thermal bank");
+        (b.build(), item)
     }
 
     fn sample_outpost_id() -> end_model::OutpostId {

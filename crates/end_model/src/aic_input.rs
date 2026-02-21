@@ -205,7 +205,7 @@ impl<'id> AicInputs<'id> {
     ) -> Result<Self, AicBuildError> {
         let mut seen = HashSet::with_capacity(outposts.len());
         for outpost in &outposts {
-            if !seen.insert(outpost.key.clone()) {
+            if !seen.insert(outpost.key.as_str()) {
                 return Err(AicBuildError::DuplicateOutpostKey {
                     key: outpost.key.clone(),
                 });
@@ -281,14 +281,14 @@ mod tests {
                 zh: name("B"),
             })
             .expect("item b should be insertable");
-        builder
+        let builder = builder
             .add_thermal_bank(ThermalBankDef {
                 key: key("thermal-bank"),
                 en: name("Thermal Bank"),
                 zh: name("Thermal Bank"),
             })
             .expect("thermal bank should be insertable");
-        let catalog = builder.build().expect("catalog should build");
+        let catalog = builder.build();
         (catalog, a, b)
     }
 

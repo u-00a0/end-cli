@@ -38,7 +38,7 @@
     SolvePayload,
   } from "./lib/types";
   import { EMPTY_DRAFT } from "./lib/types";
-  import { loadBootstrap, solveScenario } from "./lib/wasm";
+  import { loadBootstrap, solveScenario, warmupWasmWorker } from "./lib/wasm";
 
   const NARROW_LAYOUT_QUERY = "(max-width: 1160px)";
   const SPLITTER_WIDTH_PX = 12;
@@ -393,6 +393,8 @@
   };
 
   onMount(() => {
+    void warmupWasmWorker().catch(() => undefined);
+
     const restored = restoreLocalState(STORAGE_CONFIG);
     if (restored.leftPaneRatio !== null) {
       leftPaneRatio = restored.leftPaneRatio;

@@ -226,6 +226,13 @@ impl SpanExcerpt {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct RecipeSpanContext {
+    pub recipe: Option<Range<usize>>,
+    pub ingredients: Option<Range<usize>>,
+    pub products: Option<Range<usize>>,
+}
+
 /// Re-map item-related builder errors to precise user-facing schema fields.
 pub fn map_item_build_error(
     path: &Path,
@@ -306,13 +313,6 @@ pub fn map_thermal_facility_build_error(
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct RecipeSpanContext {
-    pub recipe: Option<Range<usize>>,
-    pub ingredients: Option<Range<usize>>,
-    pub products: Option<Range<usize>>,
-}
-
 /// Collapse recipe build errors into the most specific TOML field path possible.
 pub fn map_recipe_build_error(
     path: &Path,
@@ -322,34 +322,14 @@ pub fn map_recipe_build_error(
     source: CatalogBuildError,
 ) -> Error {
     let (field, span) = match source {
-        CatalogBuildError::UnknownRecipeFacilityId(_) => ("recipes.facility", spans.recipe),
-        CatalogBuildError::RecipeTimeMustBePositive => ("recipes.time_s", spans.recipe),
         CatalogBuildError::RecipeIngredientsMustNotBeEmpty
-        | CatalogBuildError::UnknownRecipeItemId {
-            list: "ingredients",
-            ..
-        }
-        | CatalogBuildError::DuplicateRecipeItem {
-            list: "ingredients",
-            ..
-        }
-        | CatalogBuildError::RecipeStackCountMustBePositive {
-            list: "ingredients",
-            ..
-        } => (
+        | CatalogBuildError::DuplicateRecipeIngredientItem { .. } => (
             "recipes.ingredients",
             spans.ingredients.or_else(|| spans.recipe.clone()),
         ),
+
         CatalogBuildError::RecipeProductsMustNotBeEmpty
-        | CatalogBuildError::UnknownRecipeItemId {
-            list: "products", ..
-        }
-        | CatalogBuildError::DuplicateRecipeItem {
-            list: "products", ..
-        }
-        | CatalogBuildError::RecipeStackCountMustBePositive {
-            list: "products", ..
-        } => (
+        | CatalogBuildError::DuplicateRecipeProductItem { .. } => (
             "recipes.products",
             spans.products.or_else(|| spans.recipe.clone()),
         ),
@@ -374,16 +354,8 @@ pub fn map_power_recipe_build_error(
     ingredient_span: Option<Range<usize>>,
     source: CatalogBuildError,
 ) -> Error {
-    let (field, span) = match source {
-        CatalogBuildError::UnknownPowerRecipeIngredientItemId(_)
-        | CatalogBuildError::PowerRecipeIngredientCountMustBePositive { .. } => (
-            "power_recipes.ingredient",
-            ingredient_span.or_else(|| recipe_span.clone()),
-        ),
-        CatalogBuildError::PowerRecipePowerMustBePositive => ("power_recipes.power_w", recipe_span),
-        CatalogBuildError::PowerRecipeTimeMustBePositive => ("power_recipes.time_s", recipe_span),
-        _ => ("power_recipes", recipe_span),
-    };
+    let _ = ingredient_span;
+    let (field, span) = ("power_recipes", recipe_span);
     Error::Schema {
         path: path.to_path_buf(),
         field,

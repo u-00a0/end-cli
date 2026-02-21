@@ -30,9 +30,6 @@ pub enum Error {
     #[error("value out of range for `{var_name}`: {value}")]
     OutOfRange { var_name: String, value: f64 },
 
-    #[error("missing recipe for recipe id {recipe_index}")]
-    MissingRecipe { recipe_index: u32 },
-
     #[error("expected strictly positive finite flow for `{context}`, got {value}")]
     InvalidPositiveFlow { context: String, value: f64 },
 

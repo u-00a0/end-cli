@@ -171,7 +171,7 @@ pub struct ThermalBankDef {
 #[derive(Debug, Clone, Copy)]
 pub struct Stack<'id> {
     pub item: ItemId<'id>,
-    pub count: u32,
+    pub count: NonZeroU32,
 }
 
 /// Production recipe definition.
@@ -187,6 +187,6 @@ pub struct Recipe<'id> {
 #[derive(Debug, Clone, Copy)]
 pub struct PowerRecipe<'id> {
     pub ingredient: Stack<'id>,
-    pub power_w: u32,
-    pub time_s: u32,
+    pub power_w: NonZeroU32,
+    pub time_s: NonZeroU32,
 }

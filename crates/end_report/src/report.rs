@@ -228,9 +228,7 @@ pub fn build_report<'id>(
             ))
         ));
         for r in stage2.recipes_used.iter() {
-            let recipe = catalog
-                .recipe(r.recipe_index)
-                .ok_or(Error::MissingRecipe(r.recipe_index.as_u32()))?;
+            let recipe = catalog.recipe(r.recipe_index);
             let label = format_recipe_label(
                 lang,
                 catalog,
@@ -599,9 +597,7 @@ fn describe_logistics_site<'id>(
             }
         }
         LogisticsNodeSite::RecipeGroup { recipe_index } => {
-            let recipe = catalog
-                .recipe(*recipe_index)
-                .ok_or(Error::MissingRecipe(recipe_index.as_u32()))?;
+            let recipe = catalog.recipe(*recipe_index);
             let facility = facility_display_name(lang, catalog, recipe.facility)?;
             match lang {
                 Lang::Zh => RenderedEndpoint {

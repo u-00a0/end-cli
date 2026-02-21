@@ -46,30 +46,31 @@ fn sample_catalog<'id>(
             zh: name("Smelter_zh"),
         })
         .expect("add machine");
-    b.add_thermal_bank(ThermalBankDef {
-        key: key("Thermal Bank"),
-        en: name("Thermal Bank"),
-        zh: name("Thermal_Bank_zh"),
-    })
-    .expect("add thermal bank");
+    let mut b = b
+        .add_thermal_bank(ThermalBankDef {
+            key: key("Thermal Bank"),
+            en: name("Thermal Bank"),
+            zh: name("Thermal_Bank_zh"),
+        })
+        .expect("add thermal bank");
 
     if with_recipes {
         b.push_recipe(
             machine,
-            60,
+            nz(60),
             vec![Stack {
                 item: ore,
-                count: 1,
+                count: nz(1),
             }],
             vec![Stack {
                 item: ingot,
-                count: 1,
+                count: nz(1),
             }],
         )
         .expect("push recipe");
     }
 
-    let catalog = b.build().expect("build catalog");
+    let catalog = b.build();
     (catalog, ore, ingot)
 }
 

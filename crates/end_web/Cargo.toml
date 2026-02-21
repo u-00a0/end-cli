@@ -10,7 +10,6 @@ crate-type = ["rlib"]
 end-io = { path = "../end_io" }
 end-model = { path = "../end_model" }
 end-opt = { path = "../end_opt" }
-end-report = { path = "../end_report" }
 generativity = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

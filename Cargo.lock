@@ -289,7 +289,6 @@ dependencies = [
  "end-io",
  "end-model",
  "end-opt",
- "end-report",
  "generativity",
  "serde",
  "serde_json",

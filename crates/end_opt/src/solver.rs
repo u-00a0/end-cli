@@ -131,8 +131,9 @@ fn solve_stage<'id>(
     let mut vars = variables!();
 
     let recipe_vars = catalog
-        .recipes_with_id_and_facility()
-        .map(|(recipe_index, recipe, facility)| {
+        .recipes_with_id()
+        .map(|(recipe_index, recipe)| {
+            let facility = catalog.facility(recipe.facility);
             let x = vars.add(variable().min(0.0));
             let y = vars.add(variable().integer().min(0.0));
             let time_s = recipe.time_s as f64;
@@ -140,12 +141,12 @@ fn solve_stage<'id>(
             let net = recipe
                 .ingredients
                 .iter()
-                .map(|stack| (stack.item, -(stack.count as f64)))
+                .map(|stack| (stack.item, -(stack.count.get() as f64)))
                 .chain(
                     recipe
                         .products
                         .iter()
-                        .map(|stack| (stack.item, stack.count as f64)),
+                        .map(|stack| (stack.item, stack.count.get() as f64)),
                 )
                 .fold(
                     SmallVec::with_capacity(recipe.ingredients.len() + recipe.products.len()),
@@ -172,8 +173,8 @@ fn solve_stage<'id>(
         .map(|(id, p)| PowerVars {
             power_recipe_index: id,
             ingredient: p.ingredient.item,
-            power_w: p.power_w,
-            duration_s: p.time_s,
+            power_w: p.power_w.get(),
+            duration_s: p.time_s.get(),
             z: vars.add(variable().integer().min(0.0)),
         })
         .collect::<Vec<_>>();
@@ -358,14 +359,8 @@ fn solve_stage<'id>(
                 solution.value(rv.y),
             )?;
             let executions_per_min = solution.value(rv.x);
-            if machines > 0 {
-                *machines_by_facility_map.entry(rv.facility).or_insert(0) += machines;
-                let machines = NonZeroU32::new(machines).ok_or_else(|| Error::InvalidInput {
-                    message: format!(
-                        "recipes[{}].machines decoded as zero unexpectedly",
-                        rv.recipe_index.as_u32()
-                    ),
-                })?;
+            if let Some(machines) = NonZeroU32::new(machines) {
+                *machines_by_facility_map.entry(rv.facility).or_insert(0) += machines.get();
                 recipes_used.push(RecipeUsage {
                     recipe_index: rv.recipe_index,
                     machines,

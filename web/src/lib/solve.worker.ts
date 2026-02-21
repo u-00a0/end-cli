@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import type { ApiEnvelope, LangTag, SolvePayload } from './types';
+import type { ApiEnvelope, BootstrapPayload, LangTag, SolvePayload } from './types';
 
 interface EndWebModule {
   ccall(
@@ -126,24 +126,58 @@ interface SolveRequest {
   aicToml: string;
 }
 
+interface BootstrapRequest {
+  id: number;
+  kind: 'bootstrap';
+  lang: LangTag;
+}
+
+interface WarmupRequest {
+  id: number;
+  kind: 'warmup';
+}
+
 interface WorkerInitRequest {
   kind: 'init';
   wasmBase: string;
 }
 
+interface BootstrapOk {
+  id: number;
+  kind: 'bootstrap_ok';
+  payload: BootstrapPayload;
+}
+
+interface BootstrapErr {
+  id: number;
+  kind: 'bootstrap_err';
+  message: string;
+}
+
+interface WarmupOk {
+  id: number;
+  kind: 'warmup_ok';
+}
+
+interface WarmupErr {
+  id: number;
+  kind: 'warmup_err';
+  message: string;
+}
+
 interface SolveOk {
   id: number;
-  kind: 'ok';
+  kind: 'solve_ok';
   payload: SolvePayload;
 }
 
 interface SolveErr {
   id: number;
-  kind: 'err';
+  kind: 'solve_err';
   message: string;
 }
 
-type WorkerRequest = WorkerInitRequest | SolveRequest;
+type WorkerRequest = WorkerInitRequest | BootstrapRequest | WarmupRequest | SolveRequest;
 
 let scriptLoaded = false;
 let modulePromise: Promise<EndWebModule> | null = null;
@@ -190,6 +224,11 @@ async function solveScenario(lang: LangTag, aicToml: string): Promise<SolvePaylo
   return callJsonApi<SolvePayload>(module, 'end_web_solve_from_aic_toml', [lang, aicToml]);
 }
 
+async function loadBootstrap(lang: LangTag): Promise<BootstrapPayload> {
+  const module = await getModule();
+  return callJsonApi<BootstrapPayload>(module, 'end_web_bootstrap', [lang]);
+}
+
 const scope = self as EndWorkerGlobalScope;
 
 scope.onmessage = (event: MessageEvent<WorkerRequest>): void => {
@@ -197,6 +236,45 @@ scope.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     const request = event.data;
     if (request.kind === 'init') {
       wasmBase = normalizeBasePath(request.wasmBase);
+      return;
+    }
+
+    if (request.kind === 'bootstrap') {
+      try {
+        const payload = await loadBootstrap(request.lang);
+        const response: BootstrapOk = {
+          id: request.id,
+          kind: 'bootstrap_ok',
+          payload
+        };
+        scope.postMessage(response);
+      } catch (error) {
+        const response: BootstrapErr = {
+          id: request.id,
+          kind: 'bootstrap_err',
+          message: error instanceof Error ? error.message : String(error)
+        };
+        scope.postMessage(response);
+      }
+      return;
+    }
+
+    if (request.kind === 'warmup') {
+      try {
+        await getModule();
+        const response: WarmupOk = {
+          id: request.id,
+          kind: 'warmup_ok'
+        };
+        scope.postMessage(response);
+      } catch (error) {
+        const response: WarmupErr = {
+          id: request.id,
+          kind: 'warmup_err',
+          message: error instanceof Error ? error.message : String(error)
+        };
+        scope.postMessage(response);
+      }
       return;
     }
 
@@ -208,14 +286,14 @@ scope.onmessage = (event: MessageEvent<WorkerRequest>): void => {
       const payload = await solveScenario(request.lang, request.aicToml);
       const response: SolveOk = {
         id: request.id,
-        kind: 'ok',
+        kind: 'solve_ok',
         payload
       };
       scope.postMessage(response);
     } catch (error) {
       const response: SolveErr = {
         id: request.id,
-        kind: 'err',
+        kind: 'solve_err',
         message: error instanceof Error ? error.message : String(error)
       };
       scope.postMessage(response);

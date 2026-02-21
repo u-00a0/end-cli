@@ -1,12 +1,15 @@
-use crate::error::{RecipeSpanContext, map_item_build_error, map_machine_build_error, map_power_recipe_build_error, map_recipe_build_error, map_thermal_facility_build_error};
+use crate::error::{
+    RecipeSpanContext, map_item_build_error, map_machine_build_error, map_power_recipe_build_error,
+    map_recipe_build_error, map_thermal_facility_build_error,
+};
 use crate::schema::{FacilitiesToml, ItemsToml, RecipesToml, StackToml};
 use crate::{Error, Result};
 use end_model::{Catalog, FacilityDef, ItemDef, ItemId, PowerRecipe, Stack, ThermalBankDef};
 use generativity::Guard;
 use serde::de::DeserializeOwned;
-use toml::Spanned;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use toml::Spanned;
 
 const BUILTIN_ITEMS: &str = include_str!("items.toml");
 const BUILTIN_FACILITIES: &str = include_str!("facilities.toml");
@@ -115,7 +118,7 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
     // add thermal bank
     let thermal_bank_span = thermal_bank.span();
     let thermal_bank = thermal_bank.into_inner();
-    builder
+    let mut builder = builder
         .add_thermal_bank(ThermalBankDef {
             key: thermal_bank.key,
             en: thermal_bank.en,
@@ -152,7 +155,7 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
         })?;
 
         builder
-            .push_recipe(facility, raw.time_s.get(), ingredients, products)
+            .push_recipe(facility, raw.time_s, ingredients, products)
             .map_err(|source| {
                 map_recipe_build_error(
                     &recipes_path,
@@ -179,8 +182,8 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
         builder
             .push_power_recipe(PowerRecipe {
                 ingredient,
-                power_w: raw.power_w.get(),
-                time_s: raw.time_s.get(),
+                power_w: raw.power_w,
+                time_s: raw.time_s,
             })
             .map_err(|source| {
                 map_power_recipe_build_error(
@@ -195,14 +198,7 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
     }
 
     // build the catalog
-    builder.build().map_err(|source| Error::Schema {
-        path: Path::new("<memory>/catalog").to_path_buf(),
-        field: "catalog",
-        index: None,
-        span: None,
-        src: None,
-        message: source.to_string(),
-    })
+    Ok(builder.build())
 }
 
 /// Resolve a list of already-validated stack entries against catalog item ids.
@@ -239,6 +235,6 @@ pub(crate) fn resolve_stack<'id>(
     })?;
     Ok(Stack {
         item,
-        count: raw.count.get(),
+        count: raw.count,
     })
 }

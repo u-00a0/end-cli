@@ -7,15 +7,21 @@ use thiserror::Error;
 /// Stable key used by model entities.
 /// Keys must be non-blank and must not have leading/trailing spaces.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Key(String);
+pub struct Key(Box<str>);
 
 impl Key {
     pub fn as_str(&self) -> &str {
-        self.0.as_str()
+        self.0.as_ref()
     }
 
-    pub fn into_string(self) -> String {
-        self.0
+    fn validate(value: &str) -> Result<(), KeyValidationError> {
+        if value.trim().is_empty() {
+            return Err(KeyValidationError::Blank);
+        }
+        if value != value.trim() {
+            return Err(KeyValidationError::LeadingOrTrailingSpaces);
+        }
+        Ok(())
     }
 }
 
@@ -23,13 +29,8 @@ impl TryFrom<String> for Key {
     type Error = KeyValidationError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        if value.trim().is_empty() {
-            return Err(KeyValidationError::Blank);
-        }
-        if value != value.trim() {
-            return Err(KeyValidationError::LeadingOrTrailingSpaces);
-        }
-        Ok(Self(value))
+        Self::validate(value.as_str())?;
+        Ok(Self(value.into_boxed_str()))
     }
 }
 
@@ -37,7 +38,8 @@ impl TryFrom<&str> for Key {
     type Error = KeyValidationError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::try_from(value.to_string())
+        Self::validate(value)?;
+        Ok(Self(value.into()))
     }
 }
 
@@ -67,12 +69,6 @@ impl fmt::Display for Key {
     }
 }
 
-impl From<Key> for String {
-    fn from(value: Key) -> Self {
-        value.into_string()
-    }
-}
-
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum KeyValidationError {
     #[error("key must not be blank")]
@@ -88,10 +84,6 @@ pub struct DisplayName(String);
 impl DisplayName {
     pub fn as_str(&self) -> &str {
         self.0.as_str()
-    }
-
-    pub fn into_string(self) -> String {
-        self.0
     }
 }
 
@@ -131,12 +123,6 @@ impl Deref for DisplayName {
 impl fmt::Display for DisplayName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
-    }
-}
-
-impl From<DisplayName> for String {
-    fn from(value: DisplayName) -> Self {
-        value.into_string()
     }
 }
 

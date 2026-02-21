@@ -50,36 +50,45 @@ fn sample_builder<'id>(
             zh: name("M1"),
         })
         .expect("add machine");
-    builder
-        .add_thermal_bank(ThermalBankDef {
-            key: key("Thermal Bank"),
-            en: name("Thermal Bank"),
-            zh: name("Thermal Bank"),
-        })
-        .expect("add thermal bank");
     (builder, a, b, machine)
 }
 
 #[test]
 fn push_recipe_rejects_duplicate_items_in_same_list() {
     make_guard!(guard);
-    let (mut builder, a, b, machine) = sample_builder(guard);
+    let (builder, a, b, machine) = sample_builder(guard);
+    let mut builder = builder
+        .add_thermal_bank(ThermalBankDef {
+            key: key("Thermal Bank"),
+            en: name("Thermal Bank"),
+            zh: name("Thermal Bank"),
+        })
+        .expect("add thermal bank");
     let err = builder
         .push_recipe(
             machine,
-            60,
-            vec![Stack { item: a, count: 1 }, Stack { item: a, count: 2 }],
-            vec![Stack { item: b, count: 1 }],
+            nz(60),
+            vec![
+                Stack {
+                    item: a,
+                    count: nz(1),
+                },
+                Stack {
+                    item: a,
+                    count: nz(2),
+                },
+            ],
+            vec![Stack {
+                item: b,
+                count: nz(1),
+            }],
         )
         .expect_err("duplicate ingredients should fail");
 
     assert!(
         matches!(
             err,
-            CatalogBuildError::DuplicateRecipeItem {
-                list: "ingredients",
-                item_id
-            } if item_id == a.as_u32()
+            CatalogBuildError::DuplicateRecipeIngredientItem { item_id } if item_id == a.as_u32()
         ),
         "unexpected error: {err:?}"
     );
@@ -139,101 +148,24 @@ fn add_thermal_bank_rejects_duplicate_machine_key() {
 }
 
 #[test]
-fn add_thermal_bank_rejects_multiple_entries() {
+fn push_power_recipe_accepts_valid_values() {
     make_guard!(guard);
-    let mut builder = Catalog::builder(guard);
+    let (builder, a, _, _) = sample_builder(guard);
+    let mut builder = builder
+        .add_thermal_bank(ThermalBankDef {
+            key: key("Thermal Bank"),
+            en: name("Thermal Bank"),
+            zh: name("Thermal Bank"),
+        })
+        .expect("add thermal bank");
     builder
-        .add_thermal_bank(ThermalBankDef {
-            key: key("TB1"),
-            en: name("TB1"),
-            zh: name("TB1"),
-        })
-        .expect("first thermal bank should be accepted");
-    let err = builder
-        .add_thermal_bank(ThermalBankDef {
-            key: key("TB2"),
-            en: name("TB2"),
-            zh: name("TB2"),
-        })
-        .expect_err("second thermal bank should fail");
-
-    assert!(
-        matches!(err, CatalogBuildError::MultipleThermalBanks),
-        "unexpected error: {err:?}"
-    );
-}
-
-#[test]
-fn build_rejects_missing_thermal_bank() {
-    make_guard!(guard);
-    let mut builder = Catalog::builder(guard);
-    let _ = builder
-        .add_item(ItemDef {
-            key: key("A"),
-            en: name("A"),
-            zh: name("A"),
-        })
-        .expect("add item");
-    let _ = builder
-        .add_facility(FacilityDef {
-            key: key("M1"),
-            power_w: nz(10),
-            en: name("M1"),
-            zh: name("M1"),
-        })
-        .expect("add machine");
-
-    let err = builder
-        .build()
-        .expect_err("missing thermal bank should fail");
-    assert!(
-        matches!(err, CatalogBuildError::MissingThermalBank),
-        "unexpected error: {err:?}"
-    );
-}
-
-#[test]
-fn push_power_recipe_rejects_zero_fields() {
-    make_guard!(guard);
-    let (mut builder, a, _, _) = sample_builder(guard);
-
-    let err_count = builder
         .push_power_recipe(PowerRecipe {
-            ingredient: Stack { item: a, count: 0 },
-            power_w: 1,
-            time_s: 1,
+            ingredient: Stack {
+                item: a,
+                count: nz(1),
+            },
+            power_w: nz(1),
+            time_s: nz(1),
         })
-        .expect_err("zero ingredient count should fail");
-    assert!(
-        matches!(
-            err_count,
-            CatalogBuildError::PowerRecipeIngredientCountMustBePositive { item_id }
-                if item_id == a.as_u32()
-        ),
-        "unexpected error: {err_count:?}"
-    );
-
-    let err_power = builder
-        .push_power_recipe(PowerRecipe {
-            ingredient: Stack { item: a, count: 1 },
-            power_w: 0,
-            time_s: 1,
-        })
-        .expect_err("zero power should fail");
-    assert!(
-        matches!(err_power, CatalogBuildError::PowerRecipePowerMustBePositive),
-        "unexpected error: {err_power:?}"
-    );
-
-    let err_time = builder
-        .push_power_recipe(PowerRecipe {
-            ingredient: Stack { item: a, count: 1 },
-            power_w: 1,
-            time_s: 0,
-        })
-        .expect_err("zero time should fail");
-    assert!(
-        matches!(err_time, CatalogBuildError::PowerRecipeTimeMustBePositive),
-        "unexpected error: {err_time:?}"
-    );
+        .expect("non-zero fields are accepted");
 }

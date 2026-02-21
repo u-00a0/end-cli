@@ -56,9 +56,7 @@ pub(crate) fn item_display_name<'a, 'id>(
     catalog: &'a Catalog<'id>,
     item: ItemId<'id>,
 ) -> Result<&'a str> {
-    let item_def: &ItemDef = catalog
-        .item(item)
-        .ok_or(Error::MissingItem(item.as_u32()))?;
+    let item_def: &ItemDef = catalog.item(item);
     Ok(match lang {
         Lang::Zh => item_def.zh.as_str(),
         Lang::En => item_def.en.as_str(),
@@ -70,9 +68,7 @@ pub(crate) fn facility_display_name<'a, 'id>(
     catalog: &'a Catalog<'id>,
     facility: FacilityId<'id>,
 ) -> Result<&'a str> {
-    let facility_def: &FacilityDef = catalog
-        .facility(facility)
-        .ok_or(Error::MissingFacility(facility.as_u32()))?;
+    let facility_def: &FacilityDef = catalog.facility(facility);
     Ok(match lang {
         Lang::Zh => facility_def.zh.as_str(),
         Lang::En => facility_def.en.as_str(),

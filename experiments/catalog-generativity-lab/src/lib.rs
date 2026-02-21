@@ -30,7 +30,7 @@
 //! ```
 
 use generativity::{Guard, Id};
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 
@@ -73,14 +73,15 @@ impl<'id> CatalogBuilder<'id> {
 
     pub fn add_item(&mut self, key: impl Into<String>) -> Result<ItemId<'id>, BuildError> {
         let key = key.into();
-        if self.item_index.contains_key(&key) {
-            return Err(BuildError::DuplicateItemKey(key));
+        match self.item_index.entry(key.clone()) {
+            Entry::Occupied(_) => Err(BuildError::DuplicateItemKey(key)),
+            Entry::Vacant(slot) => {
+                let id = ItemId::new(self.items.len(), self.brand);
+                self.items.push(key);
+                slot.insert(id);
+                Ok(id)
+            }
         }
-
-        let id = ItemId::new(self.items.len(), self.brand);
-        self.items.push(key.clone());
-        self.item_index.insert(key, id);
-        Ok(id)
     }
 
     pub fn build(self) -> Catalog<'id> {
