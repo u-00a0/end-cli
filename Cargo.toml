@@ -13,6 +13,7 @@ resolver = "2"
 [workspace.dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
+generativity = "1"
 good_lp = { version = "1", default-features = false, features = ["highs"] }
 mlua = { version = "0.10", features = ["lua54", "vendored", "send"] }
 serde = { version = "1", features = ["derive"] }

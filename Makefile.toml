@@ -7,6 +7,10 @@ args = ["clippy", "--workspace", "--examples", "--benches"]
 command = "cargo"
 args = ["nextest", "run", "--workspace", "--show-progress", "none"]
 
+[tasks.doctest]
+command = "cargo"
+args = ["test", "--workspace", "--doc"]
+
 [tasks.done]
 workspace = false
-dependencies = ["clippy", "test"]
+dependencies = ["clippy", "test", "doctest"]

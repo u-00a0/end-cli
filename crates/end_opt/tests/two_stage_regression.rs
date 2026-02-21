@@ -1,7 +1,9 @@
 use end_model::{
     AicInputs, Catalog, DisplayName, FacilityDef, ItemDef, Key, OutpostInput, Stack, ThermalBankDef,
 };
-use end_opt::{Error as OptError, NEAR_INT_EPS, run_two_stage};
+use end_opt::{NEAR_INT_EPS, run_two_stage};
+use generativity::Guard;
+use generativity::make_guard;
 use std::num::NonZeroU32;
 
 fn key(value: &str) -> Key {
@@ -16,8 +18,11 @@ fn nz(value: u32) -> NonZeroU32 {
     NonZeroU32::new(value).expect("non-zero")
 }
 
-fn sample_catalog(with_recipes: bool) -> (Catalog, end_model::ItemId, end_model::ItemId) {
-    let mut b = Catalog::builder();
+fn sample_catalog<'id>(
+    guard: Guard<'id>,
+    with_recipes: bool,
+) -> (Catalog<'id>, end_model::ItemId<'id>, end_model::ItemId<'id>) {
+    let mut b = Catalog::builder(guard);
     let ore = b
         .add_item(ItemDef {
             key: key("Ore"),
@@ -68,10 +73,14 @@ fn sample_catalog(with_recipes: bool) -> (Catalog, end_model::ItemId, end_model:
     (catalog, ore, ingot)
 }
 
-fn sample_catalog_and_aic(with_recipes: bool) -> (Catalog, AicInputs) {
-    let (catalog, ore, ingot) = sample_catalog(with_recipes);
+fn sample_catalog_and_aic<'id>(
+    guard: Guard<'id>,
+    with_recipes: bool,
+) -> (Catalog<'id>, AicInputs<'id>) {
+    let (catalog, ore, ingot) = sample_catalog(guard, with_recipes);
 
-    let aic = AicInputs::new(
+    let aic = AicInputs::parse(
+        &catalog,
         0,
         vec![(ore, nz(10))].into(),
         vec![OutpostInput {
@@ -89,8 +98,10 @@ fn sample_catalog_and_aic(with_recipes: bool) -> (Catalog, AicInputs) {
 
 #[test]
 fn run_two_stage_allows_empty_recipes_with_direct_external_sales() {
-    let (catalog, ore, _ingot) = sample_catalog(false);
-    let aic = AicInputs::new(
+    make_guard!(guard);
+    let (catalog, ore, _ingot) = sample_catalog(guard, false);
+    let aic = AicInputs::parse(
+        &catalog,
         0,
         vec![(ore, nz(10))].into(),
         vec![OutpostInput {
@@ -144,7 +155,8 @@ fn run_two_stage_allows_empty_recipes_with_direct_external_sales() {
 
 #[test]
 fn stage2_respects_revenue_floor_and_basic_invariants() {
-    let (catalog, aic) = sample_catalog_and_aic(true);
+    make_guard!(guard);
+    let (catalog, aic) = sample_catalog_and_aic(guard, true);
     let result = run_two_stage(&catalog, &aic).expect("solve sample model");
 
     let floor = (result.stage1.revenue_per_min
@@ -181,65 +193,5 @@ fn stage2_respects_revenue_floor_and_basic_invariants() {
             pair[0].machines >= pair[1].machines,
             "recipes_used must be sorted descending by machines"
         );
-    }
-}
-
-#[test]
-fn run_two_stage_rejects_out_of_bounds_aic_item_id_at_entry() {
-    let (catalog, ore, _ingot) = sample_catalog(false);
-
-    let mut other = Catalog::builder();
-    let _a = other
-        .add_item(ItemDef {
-            key: key("A"),
-            en: name("A"),
-            zh: name("A_zh"),
-        })
-        .expect("add item A");
-    let _b = other
-        .add_item(ItemDef {
-            key: key("B"),
-            en: name("B"),
-            zh: name("B_zh"),
-        })
-        .expect("add item B");
-    let alien_item = other
-        .add_item(ItemDef {
-            key: key("C"),
-            en: name("C"),
-            zh: name("C_zh"),
-        })
-        .expect("add item C");
-    other
-        .add_thermal_bank(ThermalBankDef {
-            key: key("Other Thermal Bank"),
-            en: name("Other Thermal Bank"),
-            zh: name("Other_Thermal_Bank_zh"),
-        })
-        .expect("add thermal bank");
-    let _other_catalog = other.build().expect("build other catalog");
-
-    let aic = AicInputs::new(
-        0,
-        vec![(alien_item, nz(10))].into(),
-        vec![OutpostInput {
-            key: key("Camp"),
-            en: Some(name("Camp")),
-            zh: Some(name("Camp_zh")),
-            money_cap_per_hour: 600,
-            prices: vec![(ore, 2)].into(),
-        }],
-    )
-    .expect("valid aic inputs");
-
-    let err = run_two_stage(&catalog, &aic).expect_err("mismatched item id should be rejected");
-    match err {
-        OptError::InvalidInput { message } => {
-            assert!(
-                message.contains("supply_per_min"),
-                "error should point at supply source, got: {message}"
-            );
-        }
-        other => panic!("expected InvalidInput, got {other:?}"),
     }
 }

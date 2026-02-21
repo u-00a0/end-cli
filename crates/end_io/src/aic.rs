@@ -11,7 +11,7 @@ const BUILTIN_AIC_PATH: &str = "<builtin>/aic.toml";
 const MEMORY_AIC_PATH: &str = "<memory>/aic.toml";
 
 /// Load `aic.toml` from disk and resolve key-based references against a catalog.
-pub fn load_aic(path: &Path, catalog: &Catalog) -> Result<AicInputs> {
+pub fn load_aic<'id>(path: &Path, catalog: &Catalog<'id>) -> Result<AicInputs<'id>> {
     let src = std::fs::read_to_string(path).map_err(|source| Error::Io {
         path: path.to_path_buf(),
         source,
@@ -24,7 +24,7 @@ pub fn load_aic(path: &Path, catalog: &Catalog) -> Result<AicInputs> {
 }
 
 /// Parse `aic.toml` from in-memory text and resolve references against a catalog.
-pub fn load_aic_from_str(src: &str, catalog: &Catalog) -> Result<AicInputs> {
+pub fn load_aic_from_str<'id>(src: &str, catalog: &Catalog<'id>) -> Result<AicInputs<'id>> {
     let path = PathBuf::from(MEMORY_AIC_PATH);
     let raw: AicToml = toml::from_str(src).map_err(|source| Error::TomlParse {
         path: path.clone(),
@@ -34,7 +34,7 @@ pub fn load_aic_from_str(src: &str, catalog: &Catalog) -> Result<AicInputs> {
 }
 
 /// Serialize [`default_aic`] as pretty TOML.
-pub fn default_aic_toml(catalog: &Catalog) -> Result<String> {
+pub fn default_aic_toml<'id>(catalog: &Catalog<'id>) -> Result<String> {
     // validate first. because user can specify `init --data-dir`, we want to make sure the built-in AIC is valid against the potentially customized catalog.
     let path = PathBuf::from(BUILTIN_AIC_PATH);
     let raw: AicToml = toml::from_str(BUILTIN_AIC_TOML).map_err(|source| Error::TomlParse {
@@ -46,7 +46,7 @@ pub fn default_aic_toml(catalog: &Catalog) -> Result<String> {
 }
 
 /// Convert parsed AIC TOML into validated domain inputs and resolve catalog references.
-fn resolve_aic(path: PathBuf, raw: AicToml, catalog: &Catalog) -> Result<AicInputs> {
+fn resolve_aic<'id>(path: PathBuf, raw: AicToml, catalog: &Catalog<'id>) -> Result<AicInputs<'id>> {
     // parse external power consumption
     let external_power_consumption_w = parse_non_negative_u32(
         &path,
@@ -106,8 +106,13 @@ fn resolve_aic(path: PathBuf, raw: AicToml, catalog: &Catalog) -> Result<AicInpu
         });
     }
 
-    AicInputs::new(external_power_consumption_w, supply_per_min, outposts)
-        .map_err(|source| map_aic_build_error(&path, source))
+    AicInputs::parse(
+        catalog,
+        external_power_consumption_w,
+        supply_per_min,
+        outposts,
+    )
+    .map_err(|source| map_aic_build_error(&path, source))
 }
 
 /// Translate model-level AIC build errors into crate-level loading errors.

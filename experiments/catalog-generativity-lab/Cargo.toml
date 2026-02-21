@@ -1,0 +1,12 @@
+[package]
+name = "catalog-generativity-lab"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+generativity = "1"
+
+[lints.clippy]
+indexing_slicing = "warn"

@@ -3,7 +3,7 @@ use std::iter::FromIterator;
 use std::num::NonZeroU32;
 use vector_map::VecMap;
 
-use crate::{DisplayName, ItemId, Key};
+use crate::{Catalog, DisplayName, ItemId, Key};
 use thiserror::Error;
 
 /// Stable identifier for an outpost in [`AicInputs`].
@@ -30,9 +30,9 @@ impl OutpostId {
 /// This uses a vector-backed map (`VecMap`) and is intended for small collections
 /// such as outpost price tables.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct ItemU32Map(VecMap<ItemId, u32>);
+pub struct ItemU32Map<'id>(VecMap<ItemId<'id>, u32>);
 
-impl ItemU32Map {
+impl<'id> ItemU32Map<'id> {
     pub fn new() -> Self {
         Self(VecMap::new())
     }
@@ -49,50 +49,50 @@ impl ItemU32Map {
         self.0.is_empty()
     }
 
-    pub fn insert(&mut self, item: ItemId, value: u32) -> Option<u32> {
+    pub fn insert(&mut self, item: ItemId<'id>, value: u32) -> Option<u32> {
         self.0.insert(item, value)
     }
 
-    pub fn get(&self, item: ItemId) -> Option<&u32> {
+    pub fn get(&self, item: ItemId<'id>) -> Option<&u32> {
         self.0.get(&item)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (ItemId, u32)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (ItemId<'id>, u32)> + '_ {
         self.0.iter().map(|(item, value)| (*item, *value))
     }
 }
 
-impl Extend<(ItemId, u32)> for ItemU32Map {
-    fn extend<T: IntoIterator<Item = (ItemId, u32)>>(&mut self, iter: T) {
+impl<'id> Extend<(ItemId<'id>, u32)> for ItemU32Map<'id> {
+    fn extend<T: IntoIterator<Item = (ItemId<'id>, u32)>>(&mut self, iter: T) {
         for (item, value) in iter {
             self.insert(item, value);
         }
     }
 }
 
-impl FromIterator<(ItemId, u32)> for ItemU32Map {
-    fn from_iter<T: IntoIterator<Item = (ItemId, u32)>>(iter: T) -> Self {
+impl<'id> FromIterator<(ItemId<'id>, u32)> for ItemU32Map<'id> {
+    fn from_iter<T: IntoIterator<Item = (ItemId<'id>, u32)>>(iter: T) -> Self {
         let mut map = Self::new();
         map.extend(iter);
         map
     }
 }
 
-impl<const N: usize> From<[(ItemId, u32); N]> for ItemU32Map {
-    fn from(value: [(ItemId, u32); N]) -> Self {
+impl<'id, const N: usize> From<[(ItemId<'id>, u32); N]> for ItemU32Map<'id> {
+    fn from(value: [(ItemId<'id>, u32); N]) -> Self {
         value.into_iter().collect()
     }
 }
 
-impl From<Vec<(ItemId, u32)>> for ItemU32Map {
-    fn from(value: Vec<(ItemId, u32)>) -> Self {
+impl<'id> From<Vec<(ItemId<'id>, u32)>> for ItemU32Map<'id> {
+    fn from(value: Vec<(ItemId<'id>, u32)>) -> Self {
         value.into_iter().collect()
     }
 }
 
-impl IntoIterator for ItemU32Map {
-    type Item = (ItemId, u32);
-    type IntoIter = vector_map::IntoIter<ItemId, u32>;
+impl<'id> IntoIterator for ItemU32Map<'id> {
+    type Item = (ItemId<'id>, u32);
+    type IntoIter = vector_map::IntoIter<ItemId<'id>, u32>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -104,9 +104,9 @@ impl IntoIterator for ItemU32Map {
 /// This currently uses a vector-backed map (`VecMap`) and is intended for small collections
 /// such as scenario external supply tables.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct ItemNonZeroU32Map(VecMap<ItemId, NonZeroU32>);
+pub struct ItemNonZeroU32Map<'id>(VecMap<ItemId<'id>, NonZeroU32>);
 
-impl ItemNonZeroU32Map {
+impl<'id> ItemNonZeroU32Map<'id> {
     pub fn new() -> Self {
         Self(VecMap::new())
     }
@@ -123,50 +123,50 @@ impl ItemNonZeroU32Map {
         self.0.is_empty()
     }
 
-    pub fn insert(&mut self, item: ItemId, value: NonZeroU32) -> Option<NonZeroU32> {
+    pub fn insert(&mut self, item: ItemId<'id>, value: NonZeroU32) -> Option<NonZeroU32> {
         self.0.insert(item, value)
     }
 
-    pub fn get(&self, item: ItemId) -> Option<&NonZeroU32> {
+    pub fn get(&self, item: ItemId<'id>) -> Option<&NonZeroU32> {
         self.0.get(&item)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (ItemId, NonZeroU32)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (ItemId<'id>, NonZeroU32)> + '_ {
         self.0.iter().map(|(item, value)| (*item, *value))
     }
 }
 
-impl Extend<(ItemId, NonZeroU32)> for ItemNonZeroU32Map {
-    fn extend<T: IntoIterator<Item = (ItemId, NonZeroU32)>>(&mut self, iter: T) {
+impl<'id> Extend<(ItemId<'id>, NonZeroU32)> for ItemNonZeroU32Map<'id> {
+    fn extend<T: IntoIterator<Item = (ItemId<'id>, NonZeroU32)>>(&mut self, iter: T) {
         for (item, value) in iter {
             self.insert(item, value);
         }
     }
 }
 
-impl FromIterator<(ItemId, NonZeroU32)> for ItemNonZeroU32Map {
-    fn from_iter<T: IntoIterator<Item = (ItemId, NonZeroU32)>>(iter: T) -> Self {
+impl<'id> FromIterator<(ItemId<'id>, NonZeroU32)> for ItemNonZeroU32Map<'id> {
+    fn from_iter<T: IntoIterator<Item = (ItemId<'id>, NonZeroU32)>>(iter: T) -> Self {
         let mut map = Self::new();
         map.extend(iter);
         map
     }
 }
 
-impl<const N: usize> From<[(ItemId, NonZeroU32); N]> for ItemNonZeroU32Map {
-    fn from(value: [(ItemId, NonZeroU32); N]) -> Self {
+impl<'id, const N: usize> From<[(ItemId<'id>, NonZeroU32); N]> for ItemNonZeroU32Map<'id> {
+    fn from(value: [(ItemId<'id>, NonZeroU32); N]) -> Self {
         value.into_iter().collect()
     }
 }
 
-impl From<Vec<(ItemId, NonZeroU32)>> for ItemNonZeroU32Map {
-    fn from(value: Vec<(ItemId, NonZeroU32)>) -> Self {
+impl<'id> From<Vec<(ItemId<'id>, NonZeroU32)>> for ItemNonZeroU32Map<'id> {
+    fn from(value: Vec<(ItemId<'id>, NonZeroU32)>) -> Self {
         value.into_iter().collect()
     }
 }
 
-impl IntoIterator for ItemNonZeroU32Map {
-    type Item = (ItemId, NonZeroU32);
-    type IntoIter = vector_map::IntoIter<ItemId, NonZeroU32>;
+impl<'id> IntoIterator for ItemNonZeroU32Map<'id> {
+    type Item = (ItemId<'id>, NonZeroU32);
+    type IntoIter = vector_map::IntoIter<ItemId<'id>, NonZeroU32>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -175,20 +175,20 @@ impl IntoIterator for ItemNonZeroU32Map {
 
 /// One outpost configuration, includes price table and money cap.
 #[derive(Debug, Clone)]
-pub struct OutpostInput {
+pub struct OutpostInput<'id> {
     pub key: Key,
     pub en: Option<DisplayName>,
     pub zh: Option<DisplayName>,
     pub money_cap_per_hour: u32,
-    pub prices: ItemU32Map,
+    pub prices: ItemU32Map<'id>,
 }
 
 /// Full scenario inputs consumed by optimization.
 #[derive(Debug, Clone)]
-pub struct AicInputs {
+pub struct AicInputs<'id> {
     external_power_consumption_w: u32,
-    supply_per_min: ItemNonZeroU32Map,
-    outposts: Vec<OutpostInput>,
+    supply_per_min: ItemNonZeroU32Map<'id>,
+    outposts: Vec<OutpostInput<'id>>,
 }
 
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
@@ -197,11 +197,12 @@ pub enum AicBuildError {
     DuplicateOutpostKey { key: Key },
 }
 
-impl AicInputs {
-    pub fn new(
+impl<'id> AicInputs<'id> {
+    pub fn parse(
+        _catalog: &Catalog<'id>,
         external_power_consumption_w: u32,
-        supply_per_min: ItemNonZeroU32Map,
-        outposts: Vec<OutpostInput>,
+        supply_per_min: ItemNonZeroU32Map<'id>,
+        outposts: Vec<OutpostInput<'id>>,
     ) -> Result<Self, AicBuildError> {
         let mut seen = HashSet::with_capacity(outposts.len());
         for outpost in &outposts {
@@ -223,21 +224,21 @@ impl AicInputs {
         self.external_power_consumption_w
     }
 
-    pub fn supply_per_min(&self) -> &ItemNonZeroU32Map {
+    pub fn supply_per_min(&self) -> &ItemNonZeroU32Map<'id> {
         &self.supply_per_min
     }
 
-    pub fn outposts(&self) -> &[OutpostInput] {
+    pub fn outposts(&self) -> &[OutpostInput<'id>] {
         &self.outposts
     }
 
     /// Returns an outpost by id.
-    pub fn outpost(&self, id: OutpostId) -> Option<&OutpostInput> {
+    pub fn outpost(&self, id: OutpostId) -> Option<&OutpostInput<'id>> {
         self.outposts.get(id.index())
     }
 
     /// Returns all outposts paired with their stable ids.
-    pub fn outposts_with_id(&self) -> impl Iterator<Item = (OutpostId, &OutpostInput)> + '_ {
+    pub fn outposts_with_id(&self) -> impl Iterator<Item = (OutpostId, &OutpostInput<'id>)> + '_ {
         self.outposts
             .iter()
             .enumerate()
@@ -247,9 +248,11 @@ impl AicInputs {
 
 #[cfg(test)]
 mod tests {
+    use generativity::make_guard;
+
     use crate::{
         AicBuildError, Catalog, DisplayName, ItemDef, ItemNonZeroU32Map, ItemU32Map, Key,
-        OutpostInput,
+        OutpostInput, ThermalBankDef,
     };
     use std::num::NonZeroU32;
 
@@ -261,8 +264,10 @@ mod tests {
         value.try_into().expect("valid display name")
     }
 
-    fn sample_item_ids() -> (crate::ItemId, crate::ItemId) {
-        let mut builder = Catalog::builder();
+    fn sample_catalog<'id>(
+        guard: generativity::Guard<'id>,
+    ) -> (Catalog<'id>, crate::ItemId<'id>, crate::ItemId<'id>) {
+        let mut builder = Catalog::builder(guard);
         let a = builder
             .add_item(ItemDef {
                 key: key("a"),
@@ -277,12 +282,21 @@ mod tests {
                 zh: name("B"),
             })
             .expect("item b should be insertable");
-        (a, b)
+        builder
+            .add_thermal_bank(ThermalBankDef {
+                key: key("thermal-bank"),
+                en: name("Thermal Bank"),
+                zh: name("Thermal Bank"),
+            })
+            .expect("thermal bank should be insertable");
+        let catalog = builder.build().expect("catalog should build");
+        (catalog, a, b)
     }
 
     #[test]
     fn item_u32_map_keeps_unique_keys() {
-        let (item, _) = sample_item_ids();
+        make_guard!(guard);
+        let (_, item, _) = sample_catalog(guard);
         let mut map = ItemU32Map::new();
 
         assert_eq!(map.insert(item, 10), None);
@@ -293,7 +307,8 @@ mod tests {
 
     #[test]
     fn item_u32_map_from_vec_uses_last_value_for_duplicates() {
-        let (a, b) = sample_item_ids();
+        make_guard!(guard);
+        let (_, a, b) = sample_catalog(guard);
         let map: ItemU32Map = vec![(a, 1), (b, 3), (a, 2)].into();
 
         assert_eq!(map.len(), 2);
@@ -303,7 +318,8 @@ mod tests {
 
     #[test]
     fn item_non_zero_u32_map_from_vec_uses_last_value_for_duplicates() {
-        let (a, b) = sample_item_ids();
+        make_guard!(guard);
+        let (_, a, b) = sample_catalog(guard);
         let map: ItemNonZeroU32Map = vec![
             (a, NonZeroU32::new(1).expect("non-zero")),
             (b, NonZeroU32::new(3).expect("non-zero")),
@@ -317,10 +333,12 @@ mod tests {
     }
 
     #[test]
-    fn aic_new_rejects_duplicate_outpost_keys() {
-        let (_, b) = sample_item_ids();
+    fn aic_parse_rejects_duplicate_outpost_keys() {
+        make_guard!(guard);
+        let (catalog, _, b) = sample_catalog(guard);
         let camp = key("Camp");
-        let err = crate::AicInputs::new(
+        let err = crate::AicInputs::parse(
+            &catalog,
             0,
             vec![(b, NonZeroU32::new(1).expect("non-zero"))].into(),
             vec![

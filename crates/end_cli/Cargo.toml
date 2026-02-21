@@ -10,6 +10,7 @@ end-io = { path = "../end_io" }
 end-model = { path = "../end_model" }
 end-opt = { path = "../end_opt" }
 end-report = { path = "../end_report" }
+generativity = { workspace = true }
 toml = { workspace = true }
 
 [dev-dependencies]

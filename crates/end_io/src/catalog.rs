@@ -4,6 +4,7 @@ use crate::validate::{
 };
 use crate::{Error, Result};
 use end_model::{Catalog, CatalogBuildError, FacilityDef, ItemDef, PowerRecipe, ThermalBankDef};
+use generativity::Guard;
 use serde::de::DeserializeOwned;
 use std::path::{Path, PathBuf};
 
@@ -43,7 +44,7 @@ fn load_data_file<T: DeserializeOwned>(
 /// Load and validate catalog inputs (`items.toml`, `facilities.toml`, `recipes.toml`).
 ///
 /// When `data_dir` is `None`, built-in TOML data embedded at compile time is used.
-pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
+pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<Catalog<'id>> {
     // bring in our data
     let (items_path, items_doc): (_, ItemsToml) =
         load_data_file(data_dir, "items.toml", BUILTIN_ITEMS)?;
@@ -56,7 +57,7 @@ pub fn load_catalog(data_dir: Option<&Path>) -> Result<Catalog> {
     let (recipes, power_recipes) = (recipes_doc.recipes, recipes_doc.power_recipes);
 
     // create a builder
-    let mut builder = Catalog::builder();
+    let mut builder = Catalog::builder(guard);
 
     // add items
     for (i, raw) in items.into_iter().enumerate() {

@@ -31,10 +31,10 @@ pub struct OutpostValue {
 
 /// One sale line contribution with quantity information.
 #[derive(Debug, Clone, PartialEq)]
-pub struct OutpostSaleQty {
+pub struct OutpostSaleQty<'id> {
     pub outpost_index: OutpostId,
     /// Item being sold.
-    pub item: ItemId,
+    pub item: ItemId<'id>,
     /// Sold quantity in units/min.
     pub qty_per_min: PosF64,
     /// Unit price used by optimization objective.
@@ -43,17 +43,17 @@ pub struct OutpostSaleQty {
 
 /// Machine count aggregated by facility type.
 #[derive(Debug, Clone)]
-pub struct FacilityMachineCount {
+pub struct FacilityMachineCount<'id> {
     /// Facility id from `Catalog.facilities`.
-    pub facility: FacilityId,
+    pub facility: FacilityId<'id>,
     /// Integer machine count.
     pub machines: u32,
 }
 
 /// Execution and machine usage for one recipe.
 #[derive(Debug, Clone)]
-pub struct RecipeUsage {
-    pub recipe_index: RecipeId,
+pub struct RecipeUsage<'id> {
+    pub recipe_index: RecipeId<'id>,
     /// Integer machine count assigned to the recipe.
     pub machines: NonZeroU32,
     /// Recipe runs per minute.
@@ -62,10 +62,10 @@ pub struct RecipeUsage {
 
 /// Thermal bank deployment for one power recipe.
 #[derive(Debug, Clone)]
-pub struct ThermalBankUsage {
-    pub power_recipe_index: PowerRecipeId,
+pub struct ThermalBankUsage<'id> {
+    pub power_recipe_index: PowerRecipeId<'id>,
     /// Fuel item consumed by the thermal bank.
-    pub ingredient: ItemId,
+    pub ingredient: ItemId<'id>,
     /// Number of thermal banks.
     pub banks: NonZeroU32,
     /// Per-bank power output.
@@ -114,58 +114,58 @@ impl LogisticsNodeId {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SupplySite {
+pub enum SupplySite<'id> {
     ExternalSupply {
-        item: ItemId,
+        item: ItemId<'id>,
     },
     RecipeOutput {
-        recipe_index: RecipeId,
-        item: ItemId,
+        recipe_index: RecipeId<'id>,
+        item: ItemId<'id>,
     },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DemandSite {
+pub enum DemandSite<'id> {
     RecipeInput {
-        recipe_index: RecipeId,
-        item: ItemId,
+        recipe_index: RecipeId<'id>,
+        item: ItemId<'id>,
     },
     OutpostSale {
         outpost_index: OutpostId,
-        item: ItemId,
+        item: ItemId<'id>,
     },
     ThermalBankFuel {
-        power_recipe_index: PowerRecipeId,
-        item: ItemId,
+        power_recipe_index: PowerRecipeId<'id>,
+        item: ItemId<'id>,
     },
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SupplyNode {
+pub struct SupplyNode<'id> {
     pub id: SupplyNodeId,
-    pub site: SupplySite,
+    pub site: SupplySite<'id>,
     pub capacity_per_min: PosF64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct DemandNode {
+pub struct DemandNode<'id> {
     pub id: DemandNodeId,
-    pub site: DemandSite,
+    pub site: DemandSite<'id>,
     pub demand_per_min: PosF64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ItemSubproblem {
-    item: ItemId,
-    supplies: Vec<SupplyNode>,
-    demands: Vec<DemandNode>,
+pub struct ItemSubproblem<'id> {
+    item: ItemId<'id>,
+    supplies: Vec<SupplyNode<'id>>,
+    demands: Vec<DemandNode<'id>>,
 }
 
-impl ItemSubproblem {
+impl<'id> ItemSubproblem<'id> {
     pub(crate) fn new(
-        item: ItemId,
-        supplies: Vec<SupplyNode>,
-        demands: Vec<DemandNode>,
+        item: ItemId<'id>,
+        supplies: Vec<SupplyNode<'id>>,
+        demands: Vec<DemandNode<'id>>,
     ) -> Result<Self> {
         if demands.is_empty() {
             return Err(Error::InvalidInput {
@@ -175,11 +175,14 @@ impl ItemSubproblem {
                 ),
             });
         }
-        let total_supply = supplies.iter().map(|s| s.capacity_per_min.get()).sum::<f64>();
+        let total_supply = supplies
+            .iter()
+            .map(|s| s.capacity_per_min.get())
+            .sum::<f64>();
         let total_demand = demands.iter().map(|d| d.demand_per_min.get()).sum::<f64>();
         if total_supply + LOGISTICS_EPS < total_demand {
             return Err(Error::LogisticsInfeasible {
-                item,
+                item: item.as_u32(),
                 total_supply_per_min: total_supply,
                 total_demand_per_min: total_demand,
             });
@@ -191,76 +194,76 @@ impl ItemSubproblem {
         })
     }
 
-    pub fn item(&self) -> ItemId {
+    pub fn item(&self) -> ItemId<'id> {
         self.item
     }
 
-    pub fn supplies(&self) -> &[SupplyNode] {
+    pub fn supplies(&self) -> &[SupplyNode<'id>] {
         &self.supplies
     }
 
-    pub fn demands(&self) -> &[DemandNode] {
+    pub fn demands(&self) -> &[DemandNode<'id>] {
         &self.demands
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum LogisticsNodeSite {
+pub enum LogisticsNodeSite<'id> {
     ExternalSupply {
-        item: ItemId,
+        item: ItemId<'id>,
     },
     RecipeGroup {
-        recipe_index: RecipeId,
+        recipe_index: RecipeId<'id>,
     },
     OutpostSale {
         outpost_index: OutpostId,
-        item: ItemId,
+        item: ItemId<'id>,
     },
     ThermalBankGroup {
-        power_recipe_index: PowerRecipeId,
-        item: ItemId,
+        power_recipe_index: PowerRecipeId<'id>,
+        item: ItemId<'id>,
     },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LogisticsNode {
+pub struct LogisticsNode<'id> {
     pub id: LogisticsNodeId,
-    pub site: LogisticsNodeSite,
+    pub site: LogisticsNodeSite<'id>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ItemFlowEdge {
-    pub item: ItemId,
+pub struct ItemFlowEdge<'id> {
+    pub item: ItemId<'id>,
     pub from: SupplyNodeId,
     pub to: DemandNodeId,
     pub flow_per_min: PosF64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ItemFlowPlan {
-    pub item: ItemId,
-    pub edges: Vec<ItemFlowEdge>,
+pub struct ItemFlowPlan<'id> {
+    pub item: ItemId<'id>,
+    pub edges: Vec<ItemFlowEdge<'id>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LogisticsEdge {
-    pub item: ItemId,
+pub struct LogisticsEdge<'id> {
+    pub item: ItemId<'id>,
     pub from: LogisticsNodeId,
     pub to: LogisticsNodeId,
     pub flow_per_min: PosF64,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct LogisticsPlan {
-    pub nodes: Vec<LogisticsNode>,
-    pub edges: Vec<LogisticsEdge>,
+pub struct LogisticsPlan<'id> {
+    pub nodes: Vec<LogisticsNode<'id>>,
+    pub edges: Vec<LogisticsEdge<'id>>,
 }
 
 /// Remaining slack for each externally supplied item.
 #[derive(Debug, Clone)]
-pub struct ExternalSupplySlack {
+pub struct ExternalSupplySlack<'id> {
     /// Item id from `Catalog.items`.
-    pub item: ItemId,
+    pub item: ItemId<'id>,
     /// Remaining quantity in the item balance constraint.
     pub slack_per_min: f64,
     /// Input external supply configured for this item.
@@ -269,7 +272,7 @@ pub struct ExternalSupplySlack {
 
 /// Result of one optimization stage.
 #[derive(Debug, Clone)]
-pub struct StageSolution {
+pub struct StageSolution<'id> {
     /// Core generation capacity in watts.
     pub p_core_w: u32,
     /// External power consumption in watts.
@@ -290,24 +293,24 @@ pub struct StageSolution {
     pub outpost_values: Vec<OutpostValue>,
     /// Full sale lines with quantities and unit prices.
     /// Used to reconstruct logistics demands and derive top-sales summaries.
-    pub outpost_sales_qty: Vec<OutpostSaleQty>,
+    pub outpost_sales_qty: Vec<OutpostSaleQty<'id>>,
     /// Machine counts by facility.
-    pub machines_by_facility: Vec<FacilityMachineCount>,
+    pub machines_by_facility: Vec<FacilityMachineCount<'id>>,
     /// Top recipes by machine count.
-    pub recipes_used: Vec<RecipeUsage>,
+    pub recipes_used: Vec<RecipeUsage<'id>>,
     /// Thermal bank allocations.
-    pub thermal_banks_used: Vec<ThermalBankUsage>,
+    pub thermal_banks_used: Vec<ThermalBankUsage<'id>>,
     /// Slack information for externally supplied items.
-    pub external_supply_slack: Vec<ExternalSupplySlack>,
+    pub external_supply_slack: Vec<ExternalSupplySlack<'id>>,
 }
 
 /// Combined output for stage 1 and stage 2.
 #[derive(Debug, Clone)]
-pub struct OptimizationResult {
+pub struct OptimizationResult<'id> {
     /// Stage 1: max revenue.
-    pub stage1: StageSolution,
+    pub stage1: StageSolution<'id>,
     /// Stage 2: min machine counts with revenue floor.
-    pub stage2: StageSolution,
+    pub stage2: StageSolution<'id>,
     /// Machine-granularity logistics flow plan derived from stage 2.
-    pub logistics: LogisticsPlan,
+    pub logistics: LogisticsPlan<'id>,
 }

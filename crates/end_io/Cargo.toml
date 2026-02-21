@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 end-model = { path = "../end_model" }
+generativity = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 toml = { workspace = true }

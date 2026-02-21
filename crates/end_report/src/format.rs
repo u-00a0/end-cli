@@ -1,12 +1,12 @@
 use crate::{Error, Lang, Result};
 use end_model::{Catalog, FacilityDef, FacilityId, ItemDef, ItemId, OutpostInput, Stack};
 
-pub(crate) fn format_recipe_label(
+pub(crate) fn format_recipe_label<'id>(
     lang: Lang,
-    catalog: &Catalog,
-    facility_id: FacilityId,
-    ingredients: &[Stack],
-    products: &[Stack],
+    catalog: &Catalog<'id>,
+    facility_id: FacilityId<'id>,
+    ingredients: &[Stack<'id>],
+    products: &[Stack<'id>],
     time_s: u32,
 ) -> Result<String> {
     let facility = facility_display_name(lang, catalog, facility_id)?;
@@ -44,29 +44,35 @@ pub(crate) fn format_recipe_label(
     ))
 }
 
-pub(crate) fn outpost_display_name(lang: Lang, outpost: &OutpostInput) -> &str {
+pub(crate) fn outpost_display_name<'a, 'id>(lang: Lang, outpost: &'a OutpostInput<'id>) -> &'a str {
     match lang {
         Lang::Zh => outpost.zh.as_deref().unwrap_or(outpost.key.as_str()),
         Lang::En => outpost.en.as_deref().unwrap_or(outpost.key.as_str()),
     }
 }
 
-pub(crate) fn item_display_name(lang: Lang, catalog: &Catalog, item: ItemId) -> Result<&str> {
-    let item_def: &ItemDef = catalog.item(item).ok_or(Error::MissingItem(item))?;
+pub(crate) fn item_display_name<'a, 'id>(
+    lang: Lang,
+    catalog: &'a Catalog<'id>,
+    item: ItemId<'id>,
+) -> Result<&'a str> {
+    let item_def: &ItemDef = catalog
+        .item(item)
+        .ok_or(Error::MissingItem(item.as_u32()))?;
     Ok(match lang {
         Lang::Zh => item_def.zh.as_str(),
         Lang::En => item_def.en.as_str(),
     })
 }
 
-pub(crate) fn facility_display_name(
+pub(crate) fn facility_display_name<'a, 'id>(
     lang: Lang,
-    catalog: &Catalog,
-    facility: FacilityId,
-) -> Result<&str> {
+    catalog: &'a Catalog<'id>,
+    facility: FacilityId<'id>,
+) -> Result<&'a str> {
     let facility_def: &FacilityDef = catalog
         .facility(facility)
-        .ok_or(Error::MissingFacility(facility))?;
+        .ok_or(Error::MissingFacility(facility.as_u32()))?;
     Ok(match lang {
         Lang::Zh => facility_def.zh.as_str(),
         Lang::En => facility_def.en.as_str(),

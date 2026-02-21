@@ -4,8 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+generativity = { workspace = true }
 thiserror = { workspace = true }
 vector-map = { workspace = true }
+
+[dev-dependencies]
+trybuild = "1"
 
 [lints]
 workspace = true

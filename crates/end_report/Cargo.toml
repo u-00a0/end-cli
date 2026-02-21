@@ -9,5 +9,8 @@ end-opt = { path = "../end_opt" }
 thiserror = { workspace = true }
 clap = { workspace = true }
 
+[dev-dependencies]
+generativity = { workspace = true }
+
 [lints]
 workspace = true

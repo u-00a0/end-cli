@@ -8,18 +8,18 @@ use end_opt::{LogisticsEdge, LogisticsNode, LogisticsNodeSite, OptimizationResul
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy)]
-struct ReportSaleValue {
+struct ReportSaleValue<'id> {
     outpost_index: OutpostId,
-    item: ItemId,
+    item: ItemId<'id>,
     value_per_min: f64,
 }
 
 /// Render a human-readable optimization report from solved results.
-pub fn build_report(
+pub fn build_report<'id>(
     lang: Lang,
-    catalog: &Catalog,
-    inputs: &AicInputs,
-    result: &OptimizationResult,
+    catalog: &Catalog<'id>,
+    inputs: &AicInputs<'id>,
+    result: &OptimizationResult<'id>,
 ) -> Result<String> {
     let stage1 = &result.stage1;
     let stage2 = &result.stage2;
@@ -230,7 +230,7 @@ pub fn build_report(
         for r in stage2.recipes_used.iter() {
             let recipe = catalog
                 .recipe(r.recipe_index)
-                .ok_or(Error::MissingRecipe(r.recipe_index))?;
+                .ok_or(Error::MissingRecipe(r.recipe_index.as_u32()))?;
             let label = format_recipe_label(
                 lang,
                 catalog,
@@ -357,7 +357,7 @@ pub fn build_report(
     Ok(out)
 }
 
-fn top_sales_by_value(lines: &[end_opt::OutpostSaleQty]) -> Vec<ReportSaleValue> {
+fn top_sales_by_value<'id>(lines: &[end_opt::OutpostSaleQty<'id>]) -> Vec<ReportSaleValue<'id>> {
     let mut sales = lines
         .iter()
         .map(|line| ReportSaleValue {
@@ -370,11 +370,11 @@ fn top_sales_by_value(lines: &[end_opt::OutpostSaleQty]) -> Vec<ReportSaleValue>
     sales
 }
 
-fn render_logistics(
+fn render_logistics<'id>(
     lang: Lang,
-    catalog: &Catalog,
-    inputs: &AicInputs,
-    result: &OptimizationResult,
+    catalog: &Catalog<'id>,
+    inputs: &AicInputs<'id>,
+    result: &OptimizationResult<'id>,
     out: &mut String,
 ) -> Result<()> {
     let node_by_id = result
@@ -383,7 +383,7 @@ fn render_logistics(
         .iter()
         .map(|node| (node.id, node))
         .collect::<BTreeMap<_, _>>();
-    let mut edges_by_item = BTreeMap::<end_model::ItemId, Vec<&LogisticsEdge>>::new();
+    let mut edges_by_item = BTreeMap::<end_model::ItemId<'id>, Vec<&LogisticsEdge<'id>>>::new();
     for edge in &result.logistics.edges {
         edges_by_item.entry(edge.item).or_default().push(edge);
     }
@@ -513,13 +513,13 @@ struct GroupedLogisticsEdge {
     edge_count: usize,
 }
 
-fn group_logistics_edges(
+fn group_logistics_edges<'id>(
     lang: Lang,
-    catalog: &Catalog,
-    inputs: &AicInputs,
-    node_by_id: &BTreeMap<end_opt::LogisticsNodeId, &LogisticsNode>,
-    item: end_model::ItemId,
-    item_edges: &[&LogisticsEdge],
+    catalog: &Catalog<'id>,
+    inputs: &AicInputs<'id>,
+    node_by_id: &BTreeMap<end_opt::LogisticsNodeId, &LogisticsNode<'id>>,
+    item: end_model::ItemId<'id>,
+    item_edges: &[&LogisticsEdge<'id>],
 ) -> Result<Vec<GroupedLogisticsEdge>> {
     let mut grouped = BTreeMap::<(String, String, i64), GroupedLogisticsEdge>::new();
 
@@ -528,14 +528,14 @@ fn group_logistics_edges(
             .get(&edge.from)
             .copied()
             .ok_or(Error::MissingLogisticsNode {
-                item,
+                item: item.as_u32(),
                 node: edge.from,
             })?;
         let to_node = node_by_id
             .get(&edge.to)
             .copied()
             .ok_or(Error::MissingLogisticsNode {
-                item,
+                item: item.as_u32(),
                 node: edge.to,
             })?;
         let from = describe_logistics_site(lang, inputs, catalog, &from_node.site)?;
@@ -578,11 +578,11 @@ fn group_logistics_edges(
     Ok(groups)
 }
 
-fn describe_logistics_site(
+fn describe_logistics_site<'id>(
     lang: Lang,
-    inputs: &AicInputs,
-    catalog: &Catalog,
-    site: &LogisticsNodeSite,
+    inputs: &AicInputs<'id>,
+    catalog: &Catalog<'id>,
+    site: &LogisticsNodeSite<'id>,
 ) -> Result<RenderedEndpoint> {
     let rendered = match site {
         LogisticsNodeSite::ExternalSupply { item } => {
@@ -601,7 +601,7 @@ fn describe_logistics_site(
         LogisticsNodeSite::RecipeGroup { recipe_index } => {
             let recipe = catalog
                 .recipe(*recipe_index)
-                .ok_or(Error::MissingRecipe(*recipe_index))?;
+                .ok_or(Error::MissingRecipe(recipe_index.as_u32()))?;
             let facility = facility_display_name(lang, catalog, recipe.facility)?;
             match lang {
                 Lang::Zh => RenderedEndpoint {

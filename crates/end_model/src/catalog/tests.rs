@@ -1,5 +1,8 @@
 use std::num::NonZeroU32;
 
+use generativity::Guard;
+use generativity::make_guard;
+
 use crate::{DisplayName, Key};
 
 use super::*;
@@ -16,8 +19,15 @@ fn nz(value: u32) -> NonZeroU32 {
     NonZeroU32::new(value).expect("non-zero")
 }
 
-fn sample_builder() -> (CatalogBuilder, ItemId, ItemId, FacilityId) {
-    let mut builder = Catalog::builder();
+fn sample_builder<'id>(
+    guard: Guard<'id>,
+) -> (
+    CatalogBuilder<'id>,
+    ItemId<'id>,
+    ItemId<'id>,
+    FacilityId<'id>,
+) {
+    let mut builder = Catalog::builder(guard);
     let a = builder
         .add_item(ItemDef {
             key: key("A"),
@@ -52,7 +62,8 @@ fn sample_builder() -> (CatalogBuilder, ItemId, ItemId, FacilityId) {
 
 #[test]
 fn push_recipe_rejects_duplicate_items_in_same_list() {
-    let (mut builder, a, b, machine) = sample_builder();
+    make_guard!(guard);
+    let (mut builder, a, b, machine) = sample_builder(guard);
     let err = builder
         .push_recipe(
             machine,
@@ -75,98 +86,9 @@ fn push_recipe_rejects_duplicate_items_in_same_list() {
 }
 
 #[test]
-fn push_recipe_rejects_out_of_catalog_facility_id() {
-    let mut other = Catalog::builder();
-    let _ = other
-        .add_facility(FacilityDef {
-            key: key("X1"),
-            power_w: nz(10),
-            en: name("X1"),
-            zh: name("X1"),
-        })
-        .expect("add facility X1");
-    let foreign_facility = other
-        .add_facility(FacilityDef {
-            key: key("X2"),
-            power_w: nz(20),
-            en: name("X2"),
-            zh: name("X2"),
-        })
-        .expect("add facility X2");
-
-    let (mut builder, a, b, _machine) = sample_builder();
-    let err = builder
-        .push_recipe(
-            foreign_facility,
-            60,
-            vec![Stack { item: a, count: 1 }],
-            vec![Stack { item: b, count: 1 }],
-        )
-        .expect_err("foreign facility id should fail");
-
-    assert!(
-        matches!(
-            err,
-            CatalogBuildError::UnknownRecipeFacilityId(facility_id)
-                if facility_id == foreign_facility.as_u32()
-        ),
-        "unexpected error: {err:?}"
-    );
-}
-
-#[test]
-fn push_recipe_rejects_out_of_catalog_item_id() {
-    let mut other = Catalog::builder();
-    let _ = other
-        .add_item(ItemDef {
-            key: key("X"),
-            en: name("X"),
-            zh: name("X"),
-        })
-        .expect("add item X");
-    let _ = other
-        .add_item(ItemDef {
-            key: key("Y"),
-            en: name("Y"),
-            zh: name("Y"),
-        })
-        .expect("add item Y");
-    let foreign_item = other
-        .add_item(ItemDef {
-            key: key("Z"),
-            en: name("Z"),
-            zh: name("Z"),
-        })
-        .expect("add item Z");
-
-    let (mut builder, _a, b, machine) = sample_builder();
-    let err = builder
-        .push_recipe(
-            machine,
-            60,
-            vec![Stack {
-                item: foreign_item,
-                count: 1,
-            }],
-            vec![Stack { item: b, count: 1 }],
-        )
-        .expect_err("foreign item id should fail");
-
-    assert!(
-        matches!(
-            err,
-            CatalogBuildError::UnknownRecipeItemId {
-                list: "ingredients",
-                item_id
-            } if item_id == foreign_item.as_u32()
-        ),
-        "unexpected error: {err:?}"
-    );
-}
-
-#[test]
 fn add_facility_rejects_duplicate_key() {
-    let mut builder = Catalog::builder();
+    make_guard!(guard);
+    let mut builder = Catalog::builder(guard);
     let _ = builder
         .add_facility(FacilityDef {
             key: key("M2"),
@@ -192,7 +114,8 @@ fn add_facility_rejects_duplicate_key() {
 
 #[test]
 fn add_thermal_bank_rejects_duplicate_machine_key() {
-    let mut builder = Catalog::builder();
+    make_guard!(guard);
+    let mut builder = Catalog::builder(guard);
     let _ = builder
         .add_facility(FacilityDef {
             key: key("M2"),
@@ -217,7 +140,8 @@ fn add_thermal_bank_rejects_duplicate_machine_key() {
 
 #[test]
 fn add_thermal_bank_rejects_multiple_entries() {
-    let mut builder = Catalog::builder();
+    make_guard!(guard);
+    let mut builder = Catalog::builder(guard);
     builder
         .add_thermal_bank(ThermalBankDef {
             key: key("TB1"),
@@ -241,7 +165,8 @@ fn add_thermal_bank_rejects_multiple_entries() {
 
 #[test]
 fn build_rejects_missing_thermal_bank() {
-    let mut builder = Catalog::builder();
+    make_guard!(guard);
+    let mut builder = Catalog::builder(guard);
     let _ = builder
         .add_item(ItemDef {
             key: key("A"),
@@ -268,55 +193,9 @@ fn build_rejects_missing_thermal_bank() {
 }
 
 #[test]
-fn push_power_recipe_rejects_out_of_catalog_item_id() {
-    let mut other = Catalog::builder();
-    let _ = other
-        .add_item(ItemDef {
-            key: key("X"),
-            en: name("X"),
-            zh: name("X"),
-        })
-        .expect("add item X");
-    let _ = other
-        .add_item(ItemDef {
-            key: key("Y"),
-            en: name("Y"),
-            zh: name("Y"),
-        })
-        .expect("add item Y");
-    let foreign_item = other
-        .add_item(ItemDef {
-            key: key("Z"),
-            en: name("Z"),
-            zh: name("Z"),
-        })
-        .expect("add item Z");
-
-    let (mut builder, _, _, _) = sample_builder();
-    let err = builder
-        .push_power_recipe(PowerRecipe {
-            ingredient: Stack {
-                item: foreign_item,
-                count: 1,
-            },
-            power_w: 100,
-            time_s: 10,
-        })
-        .expect_err("foreign ingredient item should fail");
-
-    assert!(
-        matches!(
-            err,
-            CatalogBuildError::UnknownPowerRecipeIngredientItemId(item_id)
-                if item_id == foreign_item.as_u32()
-        ),
-        "unexpected error: {err:?}"
-    );
-}
-
-#[test]
 fn push_power_recipe_rejects_zero_fields() {
-    let (mut builder, a, _, _) = sample_builder();
+    make_guard!(guard);
+    let (mut builder, a, _, _) = sample_builder(guard);
 
     let err_count = builder
         .push_power_recipe(PowerRecipe {

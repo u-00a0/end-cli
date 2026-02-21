@@ -1,4 +1,5 @@
 use end_io::{Error, load_catalog};
+use generativity::make_guard;
 use std::fs;
 use tempfile::TempDir;
 
@@ -44,7 +45,8 @@ fn write_catalog_files(dir: &TempDir, items: &str, facilities: &str, recipes: &s
 fn load_catalog_from_parts(items: &str, facilities: &str, recipes: &str) -> Result<(), Error> {
     let dir = TempDir::new().expect("create temp dir");
     write_catalog_files(&dir, items, facilities, recipes);
-    load_catalog(Some(dir.path())).map(|_| ())
+    make_guard!(guard);
+    load_catalog(Some(dir.path()), guard).map(|_| ())
 }
 
 fn assert_schema_location(
@@ -74,7 +76,8 @@ fn assert_schema_location(
 
 #[test]
 fn load_builtin_catalog_success() {
-    let catalog = load_catalog(None).expect("load builtin catalog");
+    make_guard!(guard);
+    let catalog = load_catalog(None, guard).expect("load builtin catalog");
     assert!(!catalog.items().is_empty(), "builtin catalog has no items");
     assert!(
         !catalog.recipes().is_empty(),

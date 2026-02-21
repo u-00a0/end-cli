@@ -3,6 +3,8 @@ use end_model::{
 };
 use end_opt::run_two_stage;
 use end_report::{Lang, build_report};
+use generativity::Guard;
+use generativity::make_guard;
 use std::num::NonZeroU32;
 
 fn key(value: &str) -> Key {
@@ -17,8 +19,14 @@ fn nz(value: u32) -> NonZeroU32 {
     NonZeroU32::new(value).expect("non-zero")
 }
 
-fn sample_catalog_and_inputs() -> (Catalog, AicInputs, end_opt::OptimizationResult) {
-    let mut b = Catalog::builder();
+fn sample_catalog_and_inputs<'id>(
+    guard: Guard<'id>,
+) -> (
+    Catalog<'id>,
+    AicInputs<'id>,
+    end_opt::OptimizationResult<'id>,
+) {
+    let mut b = Catalog::builder(guard);
     let ore = b
         .add_item(ItemDef {
             key: key("Ore"),
@@ -65,7 +73,8 @@ fn sample_catalog_and_inputs() -> (Catalog, AicInputs, end_opt::OptimizationResu
 
     let catalog = b.build().expect("build catalog");
 
-    let aic = AicInputs::new(
+    let aic = AicInputs::parse(
+        &catalog,
         0,
         vec![(ore, nz(10))].into(),
         vec![OutpostInput {
@@ -85,7 +94,8 @@ fn sample_catalog_and_inputs() -> (Catalog, AicInputs, end_opt::OptimizationResu
 
 #[test]
 fn build_report_contains_key_sections_in_both_languages() {
-    let (catalog, aic, result) = sample_catalog_and_inputs();
+    make_guard!(guard);
+    let (catalog, aic, result) = sample_catalog_and_inputs(guard);
 
     let zh = build_report(Lang::Zh, &catalog, &aic, &result).expect("render zh report");
     assert!(zh.contains("结论"));

@@ -1,7 +1,8 @@
 use end_io::{default_aic_toml, load_aic_from_str, load_catalog};
-use end_model::{AicInputs, Catalog, FacilityId, ItemId, OutpostId, RecipeId};
+use end_model::{AicInputs, Catalog, FacilityId, ItemId, OutpostId};
 use end_opt::{LogisticsNodeSite, OptimizationResult, run_two_stage};
 use end_report::{Lang, build_report};
+use generativity::make_guard;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -25,20 +26,20 @@ pub enum Error {
     Report(#[source] end_report::Error),
 
     #[error("missing item id {0:?}")]
-    MissingItem(ItemId),
+    MissingItem(u32),
 
     #[error("missing facility id {0:?}")]
-    MissingFacility(FacilityId),
+    MissingFacility(u32),
 
     #[error("missing recipe id {0:?}")]
-    MissingRecipe(RecipeId),
+    MissingRecipe(u32),
 
     #[error("missing outpost id {0:?}")]
     MissingOutpost(OutpostId),
 
     #[error("missing logistics node {node:?} for item {item:?}")]
     MissingLogisticsNode {
-        item: ItemId,
+        item: u32,
         node: end_opt::LogisticsNodeId,
     },
 
@@ -55,9 +56,9 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone, Copy)]
-struct ComputedSaleValue {
+struct ComputedSaleValue<'id> {
     outpost_index: OutpostId,
-    item: ItemId,
+    item: ItemId<'id>,
     value_per_min: f64,
 }
 
@@ -199,7 +200,8 @@ struct ApiErrorDto {
 }
 
 pub fn bootstrap(lang: Lang) -> Result<BootstrapPayload> {
-    let catalog = load_catalog(None).map_err(Error::Catalog)?;
+    make_guard!(guard);
+    let catalog = load_catalog(None, guard).map_err(Error::Catalog)?;
     let default_aic_toml = default_aic_toml(&catalog).map_err(Error::DefaultAic)?;
 
     let mut items = catalog
@@ -224,7 +226,8 @@ pub fn bootstrap(lang: Lang) -> Result<BootstrapPayload> {
 }
 
 pub fn solve_from_aic_toml(lang: Lang, aic_toml: &str) -> Result<SolvePayload> {
-    let catalog = load_catalog(None).map_err(Error::Catalog)?;
+    make_guard!(guard);
+    let catalog = load_catalog(None, guard).map_err(Error::Catalog)?;
     let aic = load_aic_from_str(aic_toml, &catalog).map_err(Error::Aic)?;
 
     let solved = run_two_stage(&catalog, &aic).map_err(Error::Optimize)?;
@@ -237,11 +240,11 @@ pub fn solve_from_aic_toml(lang: Lang, aic_toml: &str) -> Result<SolvePayload> {
     })
 }
 
-fn build_summary(
+fn build_summary<'id>(
     lang: Lang,
-    catalog: &Catalog,
-    inputs: &AicInputs,
-    solved: &OptimizationResult,
+    catalog: &Catalog<'id>,
+    inputs: &AicInputs<'id>,
+    solved: &OptimizationResult<'id>,
 ) -> Result<SummaryDto> {
     let stage1 = &solved.stage1;
     let stage2 = &solved.stage2;
@@ -285,7 +288,7 @@ fn build_summary(
         .map(|usage| {
             let facility_def = catalog
                 .facility(usage.facility)
-                .ok_or(Error::MissingFacility(usage.facility))?;
+                .ok_or(Error::MissingFacility(usage.facility.as_u32()))?;
             Ok::<_, Error>(FacilityUsageDto {
                 key: facility_key(catalog, usage.facility)?.to_string(),
                 name: facility_name(lang, catalog, usage.facility)?.to_string(),
@@ -326,7 +329,7 @@ fn build_summary(
     })
 }
 
-fn top_sales_by_value(lines: &[end_opt::OutpostSaleQty]) -> Vec<ComputedSaleValue> {
+fn top_sales_by_value<'id>(lines: &[end_opt::OutpostSaleQty<'id>]) -> Vec<ComputedSaleValue<'id>> {
     let mut sales = lines
         .iter()
         .map(|line| ComputedSaleValue {
@@ -339,21 +342,21 @@ fn top_sales_by_value(lines: &[end_opt::OutpostSaleQty]) -> Vec<ComputedSaleValu
     sales
 }
 
-fn build_logistics_graph(
+fn build_logistics_graph<'id>(
     lang: Lang,
-    catalog: &Catalog,
-    inputs: &AicInputs,
-    solved: &OptimizationResult,
+    catalog: &Catalog<'id>,
+    inputs: &AicInputs<'id>,
+    solved: &OptimizationResult<'id>,
 ) -> Result<LogisticsGraphDto> {
     // 构建配方机器数查找表
-    let recipe_machines: std::collections::BTreeMap<end_model::RecipeId, u32> = solved
+    let recipe_machines: std::collections::BTreeMap<end_model::RecipeId<'id>, u32> = solved
         .stage2
         .recipes_used
         .iter()
         .map(|r| (r.recipe_index, r.machines.get()))
         .collect();
     // 构建热容池数量查找表
-    let thermal_banks: std::collections::BTreeMap<end_model::PowerRecipeId, u32> = solved
+    let thermal_banks: std::collections::BTreeMap<end_model::PowerRecipeId<'id>, u32> = solved
         .stage2
         .thermal_banks_used
         .iter()
@@ -390,7 +393,7 @@ fn build_logistics_graph(
     nodes.sort_by(|lhs, rhs| lhs.id.cmp(&rhs.id));
 
     let mut edges = Vec::<LogisticsEdgeDto>::new();
-    let mut item_summary = BTreeMap::<ItemId, ItemGraphStats>::new();
+    let mut item_summary = BTreeMap::<ItemId<'id>, ItemGraphStats>::new();
 
     for edge in &solved.logistics.edges {
         let item = edge.item;
@@ -399,13 +402,13 @@ fn build_logistics_graph(
 
         if !node_by_id.contains_key(&edge.from) {
             return Err(Error::MissingLogisticsNode {
-                item,
+                item: item.as_u32(),
                 node: edge.from,
             });
         }
         if !node_by_id.contains_key(&edge.to) {
             return Err(Error::MissingLogisticsNode {
-                item,
+                item: item.as_u32(),
                 node: edge.to,
             });
         }
@@ -454,13 +457,13 @@ struct ItemGraphStats {
     total_flow_per_min: f64,
 }
 
-fn describe_logistics_site(
+fn describe_logistics_site<'id>(
     lang: Lang,
-    catalog: &Catalog,
-    inputs: &AicInputs,
-    site: &LogisticsNodeSite,
-    recipe_machines: &std::collections::BTreeMap<end_model::RecipeId, u32>,
-    thermal_banks: &std::collections::BTreeMap<end_model::PowerRecipeId, u32>,
+    catalog: &Catalog<'id>,
+    inputs: &AicInputs<'id>,
+    site: &LogisticsNodeSite<'id>,
+    recipe_machines: &std::collections::BTreeMap<end_model::RecipeId<'id>, u32>,
+    thermal_banks: &std::collections::BTreeMap<end_model::PowerRecipeId<'id>, u32>,
 ) -> Result<(String, String)> {
     match site {
         LogisticsNodeSite::ExternalSupply { item } => Ok((
@@ -473,7 +476,7 @@ fn describe_logistics_site(
         LogisticsNodeSite::RecipeGroup { recipe_index } => {
             let recipe = catalog
                 .recipe(*recipe_index)
-                .ok_or(Error::MissingRecipe(*recipe_index))?;
+                .ok_or(Error::MissingRecipe(recipe_index.as_u32()))?;
             let facility = facility_name(lang, catalog, recipe.facility)?;
             let machines = recipe_machines.get(recipe_index).copied().unwrap_or(1);
             Ok((
@@ -527,45 +530,49 @@ fn describe_logistics_site(
     }
 }
 
-fn outpost_name(lang: Lang, outpost: &end_model::OutpostInput) -> &str {
+fn outpost_name<'a, 'id>(lang: Lang, outpost: &'a end_model::OutpostInput<'id>) -> &'a str {
     match lang {
         Lang::Zh => outpost.zh.as_deref().unwrap_or(outpost.key.as_str()),
         Lang::En => outpost.en.as_deref().unwrap_or(outpost.key.as_str()),
     }
 }
 
-fn item_key(catalog: &Catalog, item: ItemId) -> Result<&str> {
+fn item_key<'a, 'id>(catalog: &'a Catalog<'id>, item: ItemId<'id>) -> Result<&'a str> {
     catalog
         .item(item)
         .map(|v| v.key.as_str())
-        .ok_or(Error::MissingItem(item))
+        .ok_or(Error::MissingItem(item.as_u32()))
 }
 
-fn item_name(lang: Lang, catalog: &Catalog, item: ItemId) -> Result<&str> {
+fn item_name<'a, 'id>(lang: Lang, catalog: &'a Catalog<'id>, item: ItemId<'id>) -> Result<&'a str> {
     catalog
         .item(item)
         .map(|v| match lang {
             Lang::Zh => v.zh.as_str(),
             Lang::En => v.en.as_str(),
         })
-        .ok_or(Error::MissingItem(item))
+        .ok_or(Error::MissingItem(item.as_u32()))
 }
 
-fn facility_key(catalog: &Catalog, facility: FacilityId) -> Result<&str> {
+fn facility_key<'a, 'id>(catalog: &'a Catalog<'id>, facility: FacilityId<'id>) -> Result<&'a str> {
     catalog
         .facility(facility)
         .map(|v| v.key.as_str())
-        .ok_or(Error::MissingFacility(facility))
+        .ok_or(Error::MissingFacility(facility.as_u32()))
 }
 
-fn facility_name(lang: Lang, catalog: &Catalog, facility: FacilityId) -> Result<&str> {
+fn facility_name<'a, 'id>(
+    lang: Lang,
+    catalog: &'a Catalog<'id>,
+    facility: FacilityId<'id>,
+) -> Result<&'a str> {
     catalog
         .facility(facility)
         .map(|v| match lang {
             Lang::Zh => v.zh.as_str(),
             Lang::En => v.en.as_str(),
         })
-        .ok_or(Error::MissingFacility(facility))
+        .ok_or(Error::MissingFacility(facility.as_u32()))
 }
 
 fn lang_tag(lang: Lang) -> &'static str {
@@ -727,6 +734,7 @@ mod tests {
     use super::{bootstrap, solve_from_aic_toml};
     use end_io::{default_aic_toml, load_catalog};
     use end_report::Lang;
+    use generativity::make_guard;
 
     #[test]
     fn bootstrap_returns_catalog_and_default_aic() {
@@ -745,7 +753,8 @@ mod tests {
 
     #[test]
     fn solve_runs_with_builtin_default_aic() {
-        let catalog = load_catalog(None).expect("builtin catalog should load");
+        make_guard!(guard);
+        let catalog = load_catalog(None, guard).expect("builtin catalog should load");
         let aic_toml = default_aic_toml(&catalog).expect("default aic should build");
 
         let payload = solve_from_aic_toml(Lang::Zh, &aic_toml).expect("solve should succeed");

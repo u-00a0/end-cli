@@ -11,7 +11,9 @@ use good_lp::{
 };
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::num::NonZeroU32;
+use std::ops::{Index, IndexMut};
 
 /// Maximum tolerated distance from an integer value for decoded integer variables.
 pub const NEAR_INT_EPS: f64 = 1e-6;
@@ -23,40 +25,84 @@ enum StageObjective {
 }
 
 #[derive(Debug, Clone)]
-struct OutpostVars {
+struct OutpostVars<'id> {
     outpost_index: OutpostId,
     money_cap_per_hour: u32,
-    sell_lines: Vec<(ItemId, u32, Variable)>,
+    sell_lines: Vec<(ItemId<'id>, u32, Variable)>,
 }
 
 #[derive(Debug, Clone)]
-struct RecipeVars {
-    recipe_index: RecipeId,
-    facility: FacilityId,
+struct RecipeVars<'id> {
+    recipe_index: RecipeId<'id>,
+    facility: FacilityId<'id>,
     facility_power_w: u32,
     x: Variable,
     y: Variable,
     throughput_per_min: f64,
-    net: SmallVec<[(ItemId, f64); 4]>,
+    net: SmallVec<[(ItemId<'id>, f64); 4]>,
 }
 
 #[derive(Debug, Clone)]
-struct PowerVars {
-    power_recipe_index: PowerRecipeId,
-    ingredient: ItemId,
+struct PowerVars<'id> {
+    power_recipe_index: PowerRecipeId<'id>,
+    ingredient: ItemId<'id>,
     power_w: u32,
     duration_s: u32,
     z: Variable,
 }
 
+#[derive(Debug, Clone)]
+struct ItemVec<'id, T> {
+    values: Vec<T>,
+    _brand: PhantomData<fn(ItemId<'id>) -> ItemId<'id>>,
+}
+
+impl<'id, T: Clone> ItemVec<'id, T> {
+    fn filled(catalog: &Catalog<'id>, value: T) -> Self {
+        Self {
+            values: vec![value; catalog.items().len()],
+            _brand: PhantomData,
+        }
+    }
+}
+
+impl<'id, T> ItemVec<'id, T> {
+    fn get(&self, item: ItemId<'id>) -> &T {
+        // SAFETY: same-brand `ItemId<'id>` is minted from the source catalog and
+        // `ItemVec<'id, _>` is allocated with that catalog's dense item count.
+        unsafe { self.values.get_unchecked(item.index()) }
+    }
+
+    fn get_mut(&mut self, item: ItemId<'id>) -> &mut T {
+        // SAFETY: same reasoning as `get`.
+        unsafe { self.values.get_unchecked_mut(item.index()) }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &T> {
+        self.values.iter()
+    }
+}
+
+impl<'id, T> Index<ItemId<'id>> for ItemVec<'id, T> {
+    type Output = T;
+
+    fn index(&self, index: ItemId<'id>) -> &Self::Output {
+        self.get(index)
+    }
+}
+
+impl<'id, T> IndexMut<ItemId<'id>> for ItemVec<'id, T> {
+    fn index_mut(&mut self, index: ItemId<'id>) -> &mut Self::Output {
+        self.get_mut(index)
+    }
+}
+
 /// Run the two-stage optimizer:
 /// 1) maximize revenue, 2) minimize machines under a near-optimal revenue floor.
-pub fn run_two_stage(catalog: &Catalog, aic: &AicInputs) -> Result<OptimizationResult> {
-    // TODO this should be parse instead of validate, but it is not possible to encode checked info into types
-    // without branded types. so we leave this as future work.
-    // Once this done we can eliminate panic in item_balance indexing, or even the check at all.
-    validate_aic_item_ids(aic, catalog.items().len())?;
-
+pub fn run_two_stage<'id>(
+    catalog: &Catalog<'id>,
+    aic: &AicInputs<'id>,
+) -> Result<OptimizationResult<'id>> {
     let stage1 = solve_stage(catalog, aic, StageObjective::MaxRevenue)?;
 
     let rel_eps = NEAR_INT_EPS * stage1.revenue_per_min.max(1.0);
@@ -77,11 +123,11 @@ pub fn run_two_stage(catalog: &Catalog, aic: &AicInputs) -> Result<OptimizationR
     })
 }
 
-fn solve_stage(
-    catalog: &Catalog,
-    aic: &AicInputs,
+fn solve_stage<'id>(
+    catalog: &Catalog<'id>,
+    aic: &AicInputs<'id>,
     objective: StageObjective,
-) -> Result<StageSolution> {
+) -> Result<StageSolution<'id>> {
     let mut vars = variables!();
 
     let recipe_vars = catalog
@@ -175,11 +221,10 @@ fn solve_stage(
 
     // Build per-item balances by dispatching each contribution to its item bucket.
     // Seed from external supplies first.
-    let item_count = catalog.items().len();
     let item_balance = aic.supply_per_min().iter().fold(
-        vec![Expression::from(0.0); item_count],
+        ItemVec::filled(catalog, Expression::from(0.0)),
         |mut item_balance, (item, supply)| {
-            item_balance[item.index()] = Expression::from(supply.get() as f64);
+            item_balance[item] = Expression::from(supply.get() as f64);
             item_balance
         },
     );
@@ -188,7 +233,7 @@ fn solve_stage(
         .iter()
         .fold(item_balance, |mut item_balance, rv| {
             rv.net.iter().for_each(|(item, delta)| {
-                item_balance[item.index()] += *delta * rv.x;
+                item_balance[*item] += *delta * rv.x;
             });
             item_balance
         });
@@ -197,7 +242,7 @@ fn solve_stage(
         .iter()
         .fold(item_balance, |mut item_balance, ov| {
             ov.sell_lines.iter().for_each(|(item, _, qty)| {
-                item_balance[item.index()] -= *qty;
+                item_balance[*item] -= *qty;
             });
             item_balance
         });
@@ -206,7 +251,7 @@ fn solve_stage(
         .iter()
         .fold(item_balance, |mut item_balance, pv| {
             let consume_per_min = 60.0 / pv.duration_s as f64;
-            item_balance[pv.ingredient.index()] -= consume_per_min * pv.z;
+            item_balance[pv.ingredient] -= consume_per_min * pv.z;
             item_balance
         });
 
@@ -304,7 +349,7 @@ fn solve_stage(
 
     let (machines_by_facility_map, mut recipes_used) = recipe_vars.iter().try_fold(
         (
-            HashMap::<FacilityId, u32>::new(),
+            HashMap::<FacilityId<'id>, u32>::new(),
             Vec::with_capacity(recipe_vars.len()),
         ),
         |(mut machines_by_facility_map, mut recipes_used), rv| -> Result<_> {
@@ -369,7 +414,7 @@ fn solve_stage(
         .supply_per_min()
         .iter()
         .map(|(item, supply)| {
-            let expr = &item_balance[item.index()];
+            let expr = &item_balance[item];
             ExternalSupplySlack {
                 item,
                 slack_per_min: solution.eval(expr),
@@ -395,39 +440,6 @@ fn solve_stage(
         thermal_banks_used,
         external_supply_slack,
     })
-}
-
-fn validate_aic_item_ids(aic: &AicInputs, item_count: usize) -> Result<()> {
-    let invalid_item: Option<(Option<OutpostId>, ItemId)> = aic
-        .supply_per_min()
-        .iter()
-        .map(|(item, _)| (None, item))
-        .chain(aic.outposts_with_id().flat_map(|(outpost_index, outpost)| {
-            outpost
-                .prices
-                .iter()
-                .map(move |(item, _)| (Some(outpost_index), item))
-        }))
-        .find(|(_, item)| item.index() >= item_count);
-
-    match invalid_item {
-        Some((None, item)) => Err(Error::InvalidInput {
-            message: format!(
-                "supply_per_min contains item id {} out of bounds for catalog with {} items",
-                item.as_u32(),
-                item_count
-            ),
-        }),
-        Some((Some(outpost_index), item)) => Err(Error::InvalidInput {
-            message: format!(
-                "outposts[{}].prices contains item id {} out of bounds for catalog with {} items",
-                outpost_index.as_u32(),
-                item.as_u32(),
-                item_count
-            ),
-        }),
-        None => Ok(()),
-    }
 }
 
 fn near_u32<F>(var_name: F, value: f64) -> Result<u32>
@@ -496,7 +508,11 @@ where
     Ok(nearest as i64)
 }
 
-fn add_recipe_net_delta(net: &mut SmallVec<[(ItemId, f64); 4]>, item: ItemId, delta: f64) {
+fn add_recipe_net_delta<'id>(
+    net: &mut SmallVec<[(ItemId<'id>, f64); 4]>,
+    item: ItemId<'id>,
+    delta: f64,
+) {
     if let Some((_, acc)) = net.iter_mut().find(|(net_item, _)| *net_item == item) {
         *acc += delta;
         return;

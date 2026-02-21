@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use generativity::{Guard, Id};
+
 use crate::Key;
 
 use super::super::CatalogBuildError;
@@ -14,31 +16,41 @@ use super::{
 /// - Assigns catalog-dependent ids (`ItemId`/`FacilityId`) in a consistent order.
 /// - Maintains key->id indices (`item_index`, `facility_index`).
 /// - Enforces catalog-level invariants.
-#[derive(Debug, Default)]
-pub struct CatalogBuilder {
+#[derive(Debug)]
+pub struct CatalogBuilder<'id> {
+    brand: Id<'id>,
     items: Vec<ItemDef>,
     facilities: Vec<FacilityDef>,
-    recipes: Vec<Recipe>,
-    power_recipes: Vec<PowerRecipe>,
-    item_index: HashMap<Key, ItemId>,
-    facility_index: HashMap<Key, FacilityId>,
+    recipes: Vec<Recipe<'id>>,
+    power_recipes: Vec<PowerRecipe<'id>>,
+    item_index: HashMap<Key, ItemId<'id>>,
+    facility_index: HashMap<Key, FacilityId<'id>>,
     thermal_bank: Option<ThermalBankDef>,
 }
 
-impl CatalogBuilder {
+impl<'id> CatalogBuilder<'id> {
     /// Creates an empty builder.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(guard: Guard<'id>) -> Self {
+        Self {
+            brand: guard.into(),
+            items: Vec::new(),
+            facilities: Vec::new(),
+            recipes: Vec::new(),
+            power_recipes: Vec::new(),
+            item_index: HashMap::new(),
+            facility_index: HashMap::new(),
+            thermal_bank: None,
+        }
     }
 
     /// Adds an item definition and returns its newly assigned [`ItemId`].
     ///
     /// Item keys must be unique.
-    pub fn add_item(&mut self, def: ItemDef) -> Result<ItemId, CatalogBuildError> {
+    pub fn add_item(&mut self, def: ItemDef) -> Result<ItemId<'id>, CatalogBuildError> {
         if self.item_index.contains_key(def.key.as_str()) {
             return Err(CatalogBuildError::DuplicateItemKey(def.key));
         }
-        let id = ItemId::from_index(self.items.len());
+        let id = ItemId::from_index(self.items.len(), self.brand);
         self.item_index.insert(def.key.clone(), id);
         self.items.push(def);
         Ok(id)
@@ -47,7 +59,7 @@ impl CatalogBuilder {
     /// Adds a facility definition and returns its newly assigned [`FacilityId`].
     ///
     /// Facility keys must be unique.
-    pub fn add_facility(&mut self, def: FacilityDef) -> Result<FacilityId, CatalogBuildError> {
+    pub fn add_facility(&mut self, def: FacilityDef) -> Result<FacilityId<'id>, CatalogBuildError> {
         if self.facility_index.contains_key(def.key.as_str())
             || self
                 .thermal_bank
@@ -56,7 +68,7 @@ impl CatalogBuilder {
         {
             return Err(CatalogBuildError::DuplicateFacilityKey(def.key));
         }
-        let id = FacilityId::from_index(self.facilities.len());
+        let id = FacilityId::from_index(self.facilities.len(), self.brand);
         self.facility_index.insert(def.key.clone(), id);
         self.facilities.push(def);
         Ok(id)
@@ -85,11 +97,11 @@ impl CatalogBuilder {
     /// - duplicate items are rejected within `ingredients` and `products` respectively.
     pub fn push_recipe(
         &mut self,
-        facility: FacilityId,
+        facility: FacilityId<'id>,
         time_s: u32,
-        ingredients: Vec<Stack>,
-        products: Vec<Stack>,
-    ) -> Result<RecipeId, CatalogBuildError> {
+        ingredients: Vec<Stack<'id>>,
+        products: Vec<Stack<'id>>,
+    ) -> Result<RecipeId<'id>, CatalogBuildError> {
         if self.facilities.get(facility.index()).is_none() {
             return Err(CatalogBuildError::UnknownRecipeFacilityId(
                 facility.as_u32(),
@@ -107,7 +119,7 @@ impl CatalogBuilder {
         self.validate_recipe_stacks("ingredients", &ingredients)?;
         self.validate_recipe_stacks("products", &products)?;
 
-        let id = RecipeId::from_index(self.recipes.len());
+        let id = RecipeId::from_index(self.recipes.len(), self.brand);
         self.recipes.push(Recipe {
             facility,
             time_s,
@@ -126,8 +138,8 @@ impl CatalogBuilder {
     /// - `time_s` must be positive.
     pub fn push_power_recipe(
         &mut self,
-        recipe: PowerRecipe,
-    ) -> Result<PowerRecipeId, CatalogBuildError> {
+        recipe: PowerRecipe<'id>,
+    ) -> Result<PowerRecipeId<'id>, CatalogBuildError> {
         if self.items.get(recipe.ingredient.item.index()).is_none() {
             return Err(CatalogBuildError::UnknownPowerRecipeIngredientItemId(
                 recipe.ingredient.item.as_u32(),
@@ -147,18 +159,18 @@ impl CatalogBuilder {
             return Err(CatalogBuildError::PowerRecipeTimeMustBePositive);
         }
 
-        let id = PowerRecipeId::from_index(self.power_recipes.len());
+        let id = PowerRecipeId::from_index(self.power_recipes.len(), self.brand);
         self.power_recipes.push(recipe);
         Ok(id)
     }
 
     /// Resolves an item key into an [`ItemId`] using the current builder state.
-    pub fn item_id(&self, key: &str) -> Option<ItemId> {
+    pub fn item_id(&self, key: &str) -> Option<ItemId<'id>> {
         self.item_index.get(key).copied()
     }
 
     /// Resolves a facility key into a [`FacilityId`] using the current builder state.
-    pub fn facility_id(&self, key: &str) -> Option<FacilityId> {
+    pub fn facility_id(&self, key: &str) -> Option<FacilityId<'id>> {
         self.facility_index.get(key).copied()
     }
 
@@ -170,11 +182,12 @@ impl CatalogBuilder {
     /// Finalizes the builder and returns a self-consistent [`Catalog`].
     ///
     /// Fails if required invariants are not met (e.g. thermal bank missing).
-    pub fn build(self) -> Result<Catalog, CatalogBuildError> {
+    pub fn build(self) -> Result<Catalog<'id>, CatalogBuildError> {
         let thermal_bank = self
             .thermal_bank
             .ok_or(CatalogBuildError::MissingThermalBank)?;
         Ok(Catalog {
+            brand: self.brand,
             items: self.items,
             facilities: self.facilities,
             recipes: self.recipes,
@@ -188,7 +201,7 @@ impl CatalogBuilder {
     fn validate_recipe_stacks(
         &self,
         list: &'static str,
-        stacks: &[Stack],
+        stacks: &[Stack<'id>],
     ) -> Result<(), CatalogBuildError> {
         let mut seen = HashSet::with_capacity(stacks.len());
         for stack in stacks {

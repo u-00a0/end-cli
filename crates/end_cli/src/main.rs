@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use end_io::{default_aic_toml, load_aic, load_catalog};
 use end_opt::run_two_stage;
 use end_report::{Lang, build_report};
+use generativity::make_guard;
 use std::path::PathBuf;
 
 const AIC_TOML_FILENAME: &str = "aic.toml";
@@ -80,7 +81,8 @@ fn init_aic(force: bool, aic: PathBuf, data_dir: Option<PathBuf>) -> Result<()> 
         );
     }
 
-    let catalog = load_catalog(data_dir.as_deref()).context("loading catalog")?;
+    make_guard!(guard);
+    let catalog = load_catalog(data_dir.as_deref(), guard).context("loading catalog")?;
     let toml = default_aic_toml(&catalog).context("building default aic.toml")?;
 
     std::fs::write(&path, toml).with_context(|| format!("writing {}", path.display()))?;
@@ -89,7 +91,8 @@ fn init_aic(force: bool, aic: PathBuf, data_dir: Option<PathBuf>) -> Result<()> 
 }
 
 fn solve(lang: Lang, data_dir: Option<PathBuf>, aic_path: PathBuf) -> Result<()> {
-    let catalog = load_catalog(data_dir.as_deref()).context("loading catalog")?;
+    make_guard!(guard);
+    let catalog = load_catalog(data_dir.as_deref(), guard).context("loading catalog")?;
 
     if !aic_path.exists() {
         let init_hint = format!("end-cli init --aic {}", aic_path.display());

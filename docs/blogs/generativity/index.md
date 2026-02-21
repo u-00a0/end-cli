@@ -6,4 +6,4 @@
 
 [Ghost Cell 论文](https://plv.mpi-sws.org/rustbelt/ghostcell/)
 
-[Arhan Blog](https://arhan.sh/blog/the-generativity-pattern-in-rust/)
+[Arhan Blog](https://arhan.sh/blog/the-generativity-pattern-in-rust/), [archived](arhan.md)

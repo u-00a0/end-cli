@@ -7,13 +7,13 @@ use std::path::Path;
 /// Resolve a list of stack entries with shared path/field/index context.
 ///
 /// This keeps diagnostics consistent across all list items and callers.
-pub(crate) fn resolve_stack_list(
+pub(crate) fn resolve_stack_list<'id>(
     path: &Path,
     field: &str,
     index: Option<usize>,
     raw: Vec<StackToml>,
-    resolve_item: impl Fn(&str) -> Option<ItemId>,
-) -> Result<Vec<Stack>> {
+    resolve_item: impl Fn(&str) -> Option<ItemId<'id>>,
+) -> Result<Vec<Stack<'id>>> {
     let mut resolved = Vec::with_capacity(raw.len());
 
     for stack in raw {
@@ -24,13 +24,13 @@ pub(crate) fn resolve_stack_list(
 }
 
 /// Parse one stack entry and resolve its `item` key into an internal item id.
-pub(crate) fn resolve_stack(
+pub(crate) fn resolve_stack<'id>(
     path: &Path,
     field: &str,
     index: Option<usize>,
     raw: StackToml,
-    resolve_item: impl Fn(&str) -> Option<ItemId>,
-) -> Result<Stack> {
+    resolve_item: impl Fn(&str) -> Option<ItemId<'id>>,
+) -> Result<Stack<'id>> {
     let item_key = parse_key(path, &format!("{field}.item"), index, raw.item)?;
     let count = parse_positive_u32(path, &format!("{field}.count"), index, raw.count)?;
     let item = resolve_item(item_key.as_str()).ok_or_else(|| Error::UnknownItem {
