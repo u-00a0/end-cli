@@ -19,26 +19,26 @@ fn first_two_item_keys<'a, 'id>(catalog: &'a Catalog<'id>) -> (&'a str, &'a str)
     (&catalog.items()[0].key, &catalog.items()[1].key)
 }
 
-fn assert_schema_location(
+fn assert_toml_parse_with_span(
     err: &Error,
     expected_path_suffix: &str,
-    expected_field: &str,
-    expected_index: Option<usize>,
+    expected_message_fragment: &str,
 ) {
     match err {
-        Error::Schema {
-            path,
-            field,
-            index,
-            message,
-        } => {
+        Error::TomlParse { path, source } => {
             assert!(
                 path.ends_with(expected_path_suffix),
                 "unexpected path: {path:?}"
             );
-            assert_eq!(field, expected_field, "unexpected field");
-            assert_eq!(*index, expected_index, "unexpected index");
-            assert!(!message.is_empty(), "schema message should not be empty");
+            assert!(
+                source.span().is_some(),
+                "TOML error should include byte span"
+            );
+            assert!(
+                source.message().contains(expected_message_fragment),
+                "unexpected TOML message: {}",
+                source.message()
+            );
         }
         _ => panic!("unexpected error: {err:?}"),
     }
@@ -59,7 +59,14 @@ external_power_consumption_w = 0
     )
     .expect_err("unknown item should fail");
     assert!(
-        matches!(err, Error::UnknownItem { ref key, .. } if key == "Unknown Item"),
+        matches!(
+            err,
+            Error::UnknownItem {
+                ref key,
+                ref span,
+                ..
+            } if key == "Unknown Item" && span.is_some()
+        ),
         "unexpected error: {err:?}"
     );
 }
@@ -92,8 +99,9 @@ prices = {{ "{price_item}" = 2 }}
             Error::DuplicateKey {
                 ref kind,
                 ref key,
+                ref span,
                 ..
-            } if kind == "outpost" && key == "Dup"
+            } if *kind == "outpost" && key == "Dup" && span.is_some()
         ),
         "unexpected error: {err:?}"
     );
@@ -114,17 +122,7 @@ external_power_consumption_w = 0
     );
 
     let err = load_aic_from_str(&src, &catalog).expect_err("zero supply should fail");
-    assert!(
-        matches!(
-            err,
-            Error::Schema {
-                ref field,
-                ref message,
-                ..
-            } if field == "supply_per_min.value" && message.contains("must be >= 1")
-        ),
-        "unexpected error: {err:?}"
-    );
+    assert_toml_parse_with_span(&err, "aic.toml", "must be >= 1, got 0");
 }
 
 #[test]
@@ -136,17 +134,7 @@ external_power_consumption_w = -1
 "#;
 
     let err = load_aic_from_str(src, &catalog).expect_err("negative external power should fail");
-    assert!(
-        matches!(
-            err,
-            Error::Schema {
-                ref field,
-                ref message,
-                ..
-            } if field == "external_power_consumption_w" && message.contains("must be >= 0")
-        ),
-        "unexpected error: {err:?}"
-    );
+    assert_toml_parse_with_span(&err, "aic.toml", "must be >= 0, got -1");
 }
 
 #[test]
@@ -166,17 +154,7 @@ prices = {{ "{price_item}" = -1 }}
     );
 
     let err = load_aic_from_str(&src, &catalog).expect_err("negative price should fail");
-    assert!(
-        matches!(
-            err,
-            Error::Schema {
-                ref field,
-                ref message,
-                ..
-            } if field == "outposts.prices.value" && message.contains("must be >= 0")
-        ),
-        "unexpected error: {err:?}"
-    );
+    assert_toml_parse_with_span(&err, "aic.toml", "must be >= 0, got -1");
 }
 
 #[test]
@@ -196,7 +174,11 @@ prices = {{ "{price_item}" = 1 }}
     );
 
     let err = load_aic_from_str(&src, &catalog).expect_err("spaced outpost key should fail");
-    assert_schema_location(&err, "aic.toml", "outposts.key", Some(0));
+    assert_toml_parse_with_span(
+        &err,
+        "aic.toml",
+        "key must not have leading/trailing spaces",
+    );
 }
 
 #[test]

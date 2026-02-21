@@ -1,27 +1,27 @@
 [[items]]
 key = "Aketine"
 en = "Aketine"
-zh = "阿刻汀"
+zh = "酮化灌木"
 
 [[items]]
 key = "Aketine Powder"
 en = "Aketine Powder"
-zh = "阿刻汀粉"
+zh = "酮化灌木粉末"
 
 [[items]]
 key = "Aketine Seed"
 en = "Aketine Seed"
-zh = "阿刻汀种子"
+zh = "酮化树种"
 
 [[items]]
 key = "Amber Rice"
 en = "Amber Rice"
-zh = "琥珀米"
+zh = "金石稻"
 
 [[items]]
 key = "Amber Rice Seed"
 en = "Amber Rice Seed"
-zh = "琥珀米种子"
+zh = "金石稻种子"
 
 [[items]]
 key = "Amethyst Bottle"
@@ -36,22 +36,22 @@ zh = "紫晶质瓶（清水）"
 [[items]]
 key = "Amethyst Bottle (Jincao Solution)"
 en = "Amethyst Bottle (Jincao Solution)"
-zh = "紫晶质瓶（金草溶液）"
+zh = "紫晶质瓶（锦草溶液）"
 
 [[items]]
 key = "Amethyst Bottle (Liquid Xiranite)"
 en = "Amethyst Bottle (Liquid Xiranite)"
-zh = "紫晶质瓶（液态希然石）"
+zh = "紫晶质瓶（液态息壤）"
 
 [[items]]
 key = "Amethyst Bottle (Yazhen Solution)"
 en = "Amethyst Bottle (Yazhen Solution)"
-zh = "紫晶质瓶（雅针溶液）"
+zh = "紫晶质瓶（芽针溶液）"
 
 [[items]]
 key = "Amethyst Component"
 en = "Amethyst Component"
-zh = "紫晶部件"
+zh = "紫晶装备原件"
 
 [[items]]
 key = "Amethyst Fiber"
@@ -71,7 +71,7 @@ zh = "紫晶零件"
 [[items]]
 key = "Amethyst Powder"
 en = "Amethyst Powder"
-zh = "紫晶粉"
+zh = "紫晶粉末"
 
 [[items]]
 key = "Buck Capsule (A)"
@@ -161,47 +161,47 @@ zh = "清水"
 [[items]]
 key = "Cryston Bottle"
 en = "Cryston Bottle"
-zh = "晶通质瓶"
+zh = "高晶质瓶"
 
 [[items]]
 key = "Cryston Bottle (Clean Water)"
 en = "Cryston Bottle (Clean Water)"
-zh = "晶通质瓶（清水）"
+zh = "高晶质瓶（清水）"
 
 [[items]]
 key = "Cryston Bottle (Jincao Solution)"
 en = "Cryston Bottle (Jincao Solution)"
-zh = "晶通质瓶（金草溶液）"
+zh = "高晶质瓶（锦草溶液）"
 
 [[items]]
 key = "Cryston Bottle (Liquid Xiranite)"
 en = "Cryston Bottle (Liquid Xiranite)"
-zh = "晶通质瓶（液态希然石）"
+zh = "高晶质瓶（液态息壤）"
 
 [[items]]
 key = "Cryston Bottle (Yazhen Solution)"
 en = "Cryston Bottle (Yazhen Solution)"
-zh = "晶通质瓶（雅针溶液）"
+zh = "高晶质瓶（芽针溶液）"
 
 [[items]]
 key = "Cryston Component"
 en = "Cryston Component"
-zh = "晶通部件"
+zh = "高晶装备原件"
 
 [[items]]
 key = "Cryston Fiber"
 en = "Cryston Fiber"
-zh = "晶通纤维"
+zh = "高晶纤维"
 
 [[items]]
 key = "Cryston Part"
 en = "Cryston Part"
-zh = "晶通零件"
+zh = "高晶零件"
 
 [[items]]
 key = "Cryston Powder"
 en = "Cryston Powder"
-zh = "晶通粉"
+zh = "高晶粉末"
 
 [[items]]
 key = "Dense Carbon Powder"
@@ -241,22 +241,22 @@ zh = "铁质瓶（清水）"
 [[items]]
 key = "Ferrium Bottle (Jincao Solution)"
 en = "Ferrium Bottle (Jincao Solution)"
-zh = "铁质瓶（金草溶液）"
+zh = "铁质瓶（锦草溶液）"
 
 [[items]]
 key = "Ferrium Bottle (Liquid Xiranite)"
 en = "Ferrium Bottle (Liquid Xiranite)"
-zh = "铁质瓶（液态希然石）"
+zh = "铁质瓶（液态息壤）"
 
 [[items]]
 key = "Ferrium Bottle (Yazhen Solution)"
 en = "Ferrium Bottle (Yazhen Solution)"
-zh = "铁质瓶（雅针溶液）"
+zh = "铁质瓶（芽针溶液）"
 
 [[items]]
 key = "Ferrium Component"
 en = "Ferrium Component"
-zh = "铁制部件"
+zh = "蓝铁装备原件"
 
 [[items]]
 key = "Ferrium Ore"
@@ -276,12 +276,12 @@ zh = "铁粉"
 [[items]]
 key = "Ground Buckflower Powder"
 en = "Ground Buckflower Powder"
-zh = "研磨荞愈花粉"
+zh = "细磨荞花粉末"
 
 [[items]]
 key = "Ground Citrome Powder"
 en = "Ground Citrome Powder"
-zh = "研磨柑实粉"
+zh = "细磨柑实粉末"
 
 [[items]]
 key = "HC Valley Battery"
@@ -331,7 +331,7 @@ zh = "低容五陵电池"
 [[items]]
 key = "Liquid Xiranite"
 en = "Liquid Xiranite"
-zh = "液态希然石"
+zh = "液态息壤"
 
 [[items]]
 key = "Originium Ore"
@@ -361,22 +361,22 @@ zh = "封装晶体外壳"
 [[items]]
 key = "Redjade Ginseng"
 en = "Redjade Ginseng"
-zh = "赤玉人参"
+zh = "琼叶参"
 
 [[items]]
 key = "Redjade Ginseng Seed"
 en = "Redjade Ginseng Seed"
-zh = "赤玉人参种子"
+zh = "琼叶参种子"
 
 [[items]]
 key = "Reed Rye"
 en = "Reed Rye"
-zh = "芦苇黑麦"
+zh = "灰芦麦"
 
 [[items]]
 key = "Reed Rye Seed"
 en = "Reed Rye Seed"
-zh = "芦苇黑麦种子"
+zh = "灰芦麦种子"
 
 [[items]]
 key = "SC Valley Battery"
@@ -401,7 +401,7 @@ zh = "砂叶种子"
 [[items]]
 key = "Stabilized Carbon"
 en = "Stabilized Carbon"
-zh = "稳定碳"
+zh = "稳定碳块"
 
 [[items]]
 key = "Steel"
@@ -421,17 +421,17 @@ zh = "钢质瓶（清水）"
 [[items]]
 key = "Steel Bottle (Jincao Solution)"
 en = "Steel Bottle (Jincao Solution)"
-zh = "钢质瓶（金草溶液）"
+zh = "钢质瓶（锦草溶液）"
 
 [[items]]
 key = "Steel Bottle (Liquid Xiranite)"
 en = "Steel Bottle (Liquid Xiranite)"
-zh = "钢质瓶（液态希然石）"
+zh = "钢质瓶（液态息壤）"
 
 [[items]]
 key = "Steel Bottle (Yazhen Solution)"
 en = "Steel Bottle (Yazhen Solution)"
-zh = "钢质瓶（雅针溶液）"
+zh = "钢质瓶（芽针溶液）"
 
 [[items]]
 key = "Steel Part"
@@ -451,39 +451,39 @@ zh = "酸椒种子"
 [[items]]
 key = "Wood"
 en = "Wood"
-zh = "木材"
+zh = "原木"
 
 [[items]]
 key = "Xiranite"
 en = "Xiranite"
-zh = "希然石"
+zh = "息壤"
 
 [[items]]
 key = "Xiranite Component"
 en = "Xiranite Component"
-zh = "希然石部件"
+zh = "息壤装备原件"
 
 [[items]]
 key = "Yazhen"
 en = "Yazhen"
-zh = "雅针"
+zh = "芽针"
 
 [[items]]
 key = "Yazhen Powder"
 en = "Yazhen Powder"
-zh = "雅针粉"
+zh = "芽针粉"
 
 [[items]]
 key = "Yazhen Seed"
 en = "Yazhen Seed"
-zh = "雅针种子"
+zh = "芽针种子"
 
 [[items]]
 key = "Yazhen Solution"
 en = "Yazhen Solution"
-zh = "雅针溶液"
+zh = "芽针溶液"
 
 [[items]]
 key = "Yazhen Syringe (C)"
 en = "Yazhen Syringe (C)"
-zh = "雅针注射器(C)"
+zh = "芽针针剂"

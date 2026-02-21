@@ -1,12 +1,12 @@
-use crate::schema::{FacilitiesToml, ItemsToml, RecipesToml};
-use crate::validate::{
-    parse_display_name, parse_key, parse_positive_u32, resolve_stack, resolve_stack_list,
-};
+use crate::error::{RecipeSpanContext, map_item_build_error, map_machine_build_error, map_power_recipe_build_error, map_recipe_build_error, map_thermal_facility_build_error};
+use crate::schema::{FacilitiesToml, ItemsToml, RecipesToml, StackToml};
 use crate::{Error, Result};
-use end_model::{Catalog, CatalogBuildError, FacilityDef, ItemDef, PowerRecipe, ThermalBankDef};
+use end_model::{Catalog, FacilityDef, ItemDef, ItemId, PowerRecipe, Stack, ThermalBankDef};
 use generativity::Guard;
 use serde::de::DeserializeOwned;
+use toml::Spanned;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 const BUILTIN_ITEMS: &str = include_str!("items.toml");
 const BUILTIN_FACILITIES: &str = include_str!("facilities.toml");
@@ -15,30 +15,36 @@ const BUILTIN_RECIPES: &str = include_str!("recipes.toml");
 /// Load one data file from `data_dir`, or fall back to built-in TOML contents.
 ///
 /// Built-ins return a synthetic `<builtin>/...` path so error messages keep file context.
+struct LoadedToml<T> {
+    path: PathBuf,
+    src: Arc<str>,
+    doc: T,
+}
+
 fn load_data_file<T: DeserializeOwned>(
     data_dir: Option<&Path>,
     filename: &str,
     builtin: &'static str,
-) -> Result<(PathBuf, T)> {
-    let (path, src) = match data_dir {
+) -> Result<LoadedToml<T>> {
+    let (path, src): (PathBuf, Arc<str>) = match data_dir {
         Some(dir) => {
             let path = dir.join(filename);
-            let src = match std::fs::read_to_string(&path) {
-                Ok(src) => src,
+            let src: Arc<str> = match std::fs::read_to_string(&path) {
+                Ok(src) => src.into(),
                 Err(source) => return Err(Error::Io { path, source }),
             };
             (path, src)
         }
         None => (
             PathBuf::from(format!("<builtin>/{filename}")),
-            builtin.to_string(),
+            Arc::from(builtin),
         ),
     };
-    let doc = match toml::from_str(&src) {
+    let doc = match toml::from_str(src.as_ref()) {
         Ok(doc) => doc,
         Err(source) => return Err(Error::TomlParse { path, source }),
     };
-    Ok((path, doc))
+    Ok(LoadedToml { path, src, doc })
 }
 
 /// Load and validate catalog inputs (`items.toml`, `facilities.toml`, `recipes.toml`).
@@ -46,12 +52,22 @@ fn load_data_file<T: DeserializeOwned>(
 /// When `data_dir` is `None`, built-in TOML data embedded at compile time is used.
 pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<Catalog<'id>> {
     // bring in our data
-    let (items_path, items_doc): (_, ItemsToml) =
-        load_data_file(data_dir, "items.toml", BUILTIN_ITEMS)?;
-    let (fac_path, facilities_doc): (_, FacilitiesToml) =
+    let LoadedToml {
+        path: items_path,
+        src: items_src,
+        doc: items_doc,
+    }: LoadedToml<ItemsToml> = load_data_file(data_dir, "items.toml", BUILTIN_ITEMS)?;
+    let LoadedToml {
+        path: fac_path,
+        src: fac_src,
+        doc: facilities_doc,
+    }: LoadedToml<FacilitiesToml> =
         load_data_file(data_dir, "facilities.toml", BUILTIN_FACILITIES)?;
-    let (recipes_path, recipes_doc): (_, RecipesToml) =
-        load_data_file(data_dir, "recipes.toml", BUILTIN_RECIPES)?;
+    let LoadedToml {
+        path: recipes_path,
+        src: recipes_src,
+        doc: recipes_doc,
+    }: LoadedToml<RecipesToml> = load_data_file(data_dir, "recipes.toml", BUILTIN_RECIPES)?;
     let items = items_doc.items;
     let FacilitiesToml {
         machines,
@@ -67,213 +83,162 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
 
     // add items
     for (i, raw) in items.into_iter().enumerate() {
-        let key = parse_key(&items_path, "items.key", Some(i), raw.key)?;
-        let en = parse_display_name(&items_path, "items.en", Some(i), raw.en)?;
-        let zh = parse_display_name(&items_path, "items.zh", Some(i), raw.zh)?;
+        let span = raw.span();
+        let raw = raw.into_inner();
         builder
-            .add_item(ItemDef { key, en, zh })
-            .map_err(|source| map_item_build_error(&items_path, i, source))?;
+            .add_item(ItemDef {
+                key: raw.key,
+                en: raw.en,
+                zh: raw.zh,
+            })
+            .map_err(|source| {
+                map_item_build_error(&items_path, &items_src, i, Some(span), source)
+            })?;
     }
 
     // add machines
     for (i, machine) in machines.into_iter().enumerate() {
-        let key = parse_key(&fac_path, "machines.key", Some(i), machine.key)?;
-        let power_w = parse_positive_u32(&fac_path, "machines.power_w", Some(i), machine.power_w)?;
-        let en = parse_display_name(&fac_path, "machines.en", Some(i), machine.en)?;
-        let zh = parse_display_name(&fac_path, "machines.zh", Some(i), machine.zh)?;
-
+        let span = machine.span();
+        let machine = machine.into_inner();
         builder
             .add_facility(FacilityDef {
-                key,
-                power_w,
-                en,
-                zh,
+                key: machine.key,
+                power_w: machine.power_w,
+                en: machine.en,
+                zh: machine.zh,
             })
-            .map_err(|source| map_machine_build_error(&fac_path, i, source))?;
+            .map_err(|source| {
+                map_machine_build_error(&fac_path, &fac_src, i, Some(span), source)
+            })?;
     }
 
     // add thermal bank
-    let bank_key = parse_key(&fac_path, "thermal_bank.key", None, thermal_bank.key)?;
-    let bank_en = parse_display_name(&fac_path, "thermal_bank.en", None, thermal_bank.en)?;
-    let bank_zh = parse_display_name(&fac_path, "thermal_bank.zh", None, thermal_bank.zh)?;
+    let thermal_bank_span = thermal_bank.span();
+    let thermal_bank = thermal_bank.into_inner();
     builder
         .add_thermal_bank(ThermalBankDef {
-            key: bank_key,
-            en: bank_en,
-            zh: bank_zh,
+            key: thermal_bank.key,
+            en: thermal_bank.en,
+            zh: thermal_bank.zh,
         })
-        .map_err(|source| map_thermal_facility_build_error(&fac_path, source))?;
+        .map_err(|source| {
+            map_thermal_facility_build_error(&fac_path, &fac_src, Some(thermal_bank_span), source)
+        })?;
 
     // add recipes
     for (i, raw) in recipes.into_iter().enumerate() {
-        let facility_key = parse_key(&recipes_path, "recipes.facility", Some(i), raw.facility)?;
-        let facility = match builder.facility_id(facility_key.as_str()) {
+        let recipe_span = raw.span();
+        let raw = raw.into_inner();
+        let ingredients_span = raw.ingredients.span();
+        let products_span = raw.products.span();
+
+        let facility = match builder.facility_id(raw.facility.as_str()) {
             Some(facility) => facility,
             None => {
                 return Err(Error::UnknownFacility {
-                    path: recipes_path,
-                    key: facility_key.to_string(),
+                    path: recipes_path.clone(),
+                    key: raw.facility.to_string(),
+                    span: Some(recipe_span),
+                    src: Some(Arc::clone(&recipes_src)),
                 });
             }
         };
 
-        let time_s = parse_positive_u32(&recipes_path, "recipes.time_s", Some(i), raw.time_s)?;
-
-        let ingredients = resolve_stack_list(
-            &recipes_path,
-            "recipes.ingredients",
-            Some(i),
-            raw.ingredients,
-            |k| builder.item_id(k),
-        )?;
-        let products = resolve_stack_list(
-            &recipes_path,
-            "recipes.products",
-            Some(i),
-            raw.products,
-            |k| builder.item_id(k),
-        )?;
+        let ingredients = resolve_stack_list(&recipes_path, &recipes_src, raw.ingredients, |k| {
+            builder.item_id(k)
+        })?;
+        let products = resolve_stack_list(&recipes_path, &recipes_src, raw.products, |k| {
+            builder.item_id(k)
+        })?;
 
         builder
-            .push_recipe(facility, time_s.get(), ingredients, products)
-            .map_err(|source| map_recipe_build_error(&recipes_path, i, source))?;
+            .push_recipe(facility, raw.time_s.get(), ingredients, products)
+            .map_err(|source| {
+                map_recipe_build_error(
+                    &recipes_path,
+                    &recipes_src,
+                    i,
+                    RecipeSpanContext {
+                        recipe: Some(recipe_span),
+                        ingredients: Some(ingredients_span),
+                        products: Some(products_span),
+                    },
+                    source,
+                )
+            })?;
     }
 
     // add power recipes
     for (i, raw) in power_recipes.into_iter().enumerate() {
-        let ingredient = resolve_stack(
-            &recipes_path,
-            "power_recipes.ingredient",
-            Some(i),
-            raw.ingredient,
-            |k| builder.item_id(k),
-        )?;
-        let power_w =
-            parse_positive_u32(&recipes_path, "power_recipes.power_w", Some(i), raw.power_w)?;
-        let time_s =
-            parse_positive_u32(&recipes_path, "power_recipes.time_s", Some(i), raw.time_s)?;
+        let recipe_span = raw.span();
+        let raw = raw.into_inner();
+        let ingredient_span = raw.ingredient.span();
+        let ingredient = resolve_stack(&recipes_path, &recipes_src, raw.ingredient, |k| {
+            builder.item_id(k)
+        })?;
         builder
             .push_power_recipe(PowerRecipe {
                 ingredient,
-                power_w: power_w.get(),
-                time_s: time_s.get(),
+                power_w: raw.power_w.get(),
+                time_s: raw.time_s.get(),
             })
-            .map_err(|source| map_power_recipe_build_error(&recipes_path, i, source))?;
+            .map_err(|source| {
+                map_power_recipe_build_error(
+                    &recipes_path,
+                    &recipes_src,
+                    i,
+                    Some(recipe_span),
+                    Some(ingredient_span),
+                    source,
+                )
+            })?;
     }
 
     // build the catalog
     builder.build().map_err(|source| Error::Schema {
         path: Path::new("<memory>/catalog").to_path_buf(),
-        field: "catalog".to_string(),
+        field: "catalog",
         index: None,
+        span: None,
+        src: None,
         message: source.to_string(),
     })
 }
 
-/// Re-map item-related builder errors to precise user-facing schema fields.
-fn map_item_build_error(path: &Path, index: usize, source: CatalogBuildError) -> Error {
-    match source {
-        CatalogBuildError::DuplicateItemKey(key) => Error::DuplicateKey {
-            path: path.to_path_buf(),
-            kind: "item".to_string(),
-            key: key.to_string(),
-        },
-        _ => Error::Schema {
-            path: path.to_path_buf(),
-            field: "items".to_string(),
-            index: Some(index),
-            message: source.to_string(),
-        },
+/// Resolve a list of already-validated stack entries against catalog item ids.
+pub(crate) fn resolve_stack_list<'id>(
+    path: &Path,
+    src: &Arc<str>,
+    raw: Spanned<Vec<Spanned<StackToml>>>,
+    resolve_item: impl Fn(&str) -> Option<ItemId<'id>>,
+) -> Result<Vec<Stack<'id>>> {
+    let raw = raw.into_inner();
+    let mut resolved = Vec::with_capacity(raw.len());
+
+    for stack in raw {
+        resolved.push(resolve_stack(path, src, stack, &resolve_item)?);
     }
+
+    Ok(resolved)
 }
 
-/// Re-map machine-related builder errors to precise user-facing schema fields.
-fn map_machine_build_error(path: &Path, index: usize, source: CatalogBuildError) -> Error {
-    match source {
-        CatalogBuildError::DuplicateFacilityKey(key) => Error::DuplicateKey {
-            path: path.to_path_buf(),
-            kind: "facility".to_string(),
-            key: key.to_string(),
-        },
-        _ => Error::Schema {
-            path: path.to_path_buf(),
-            field: "machines".to_string(),
-            index: Some(index),
-            message: source.to_string(),
-        },
-    }
-}
-
-/// Re-map thermal-bank builder errors to the top-level `thermal_bank` section.
-fn map_thermal_facility_build_error(path: &Path, source: CatalogBuildError) -> Error {
-    match source {
-        CatalogBuildError::DuplicateFacilityKey(key) => Error::DuplicateKey {
-            path: path.to_path_buf(),
-            kind: "facility".to_string(),
-            key: key.to_string(),
-        },
-        _ => Error::Schema {
-            path: path.to_path_buf(),
-            field: "thermal_bank".to_string(),
-            index: None,
-            message: source.to_string(),
-        },
-    }
-}
-
-/// Collapse recipe build errors into the most specific TOML field path possible.
-fn map_recipe_build_error(path: &Path, index: usize, source: CatalogBuildError) -> Error {
-    let field = match source {
-        CatalogBuildError::UnknownRecipeFacilityId(_) => "recipes.facility",
-        CatalogBuildError::RecipeTimeMustBePositive => "recipes.time_s",
-        CatalogBuildError::RecipeIngredientsMustNotBeEmpty
-        | CatalogBuildError::UnknownRecipeItemId {
-            list: "ingredients",
-            ..
-        }
-        | CatalogBuildError::DuplicateRecipeItem {
-            list: "ingredients",
-            ..
-        }
-        | CatalogBuildError::RecipeStackCountMustBePositive {
-            list: "ingredients",
-            ..
-        } => "recipes.ingredients",
-        CatalogBuildError::RecipeProductsMustNotBeEmpty
-        | CatalogBuildError::UnknownRecipeItemId {
-            list: "products", ..
-        }
-        | CatalogBuildError::DuplicateRecipeItem {
-            list: "products", ..
-        }
-        | CatalogBuildError::RecipeStackCountMustBePositive {
-            list: "products", ..
-        } => "recipes.products",
-        _ => "recipes",
-    };
-    Error::Schema {
+/// Resolve one stack entry's `item` key into an internal item id.
+pub(crate) fn resolve_stack<'id>(
+    path: &Path,
+    src: &Arc<str>,
+    raw: Spanned<StackToml>,
+    resolve_item: impl Fn(&str) -> Option<ItemId<'id>>,
+) -> Result<Stack<'id>> {
+    let span = raw.span();
+    let raw = raw.into_inner();
+    let item = resolve_item(raw.item.as_str()).ok_or_else(|| Error::UnknownItem {
         path: path.to_path_buf(),
-        field: field.to_string(),
-        index: Some(index),
-        message: source.to_string(),
-    }
-}
-
-/// Collapse power-recipe build errors into the most specific TOML field path possible.
-fn map_power_recipe_build_error(path: &Path, index: usize, source: CatalogBuildError) -> Error {
-    let field = match source {
-        CatalogBuildError::UnknownPowerRecipeIngredientItemId(_)
-        | CatalogBuildError::PowerRecipeIngredientCountMustBePositive { .. } => {
-            "power_recipes.ingredient"
-        }
-        CatalogBuildError::PowerRecipePowerMustBePositive => "power_recipes.power_w",
-        CatalogBuildError::PowerRecipeTimeMustBePositive => "power_recipes.time_s",
-        _ => "power_recipes",
-    };
-    Error::Schema {
-        path: path.to_path_buf(),
-        field: field.to_string(),
-        index: Some(index),
-        message: source.to_string(),
-    }
+        key: raw.item.to_string(),
+        span: Some(span),
+        src: Some(Arc::clone(src)),
+    })?;
+    Ok(Stack {
+        item,
+        count: raw.count.get(),
+    })
 }

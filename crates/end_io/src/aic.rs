@@ -1,10 +1,10 @@
+use crate::error::map_aic_build_error;
 use crate::schema::AicToml;
-use crate::validate::{
-    parse_key, parse_non_negative_u32, parse_optional_display_name, parse_positive_u32,
-};
 use crate::{Error, Result};
-use end_model::{AicBuildError, AicInputs, Catalog, ItemNonZeroU32Map, ItemU32Map, OutpostInput};
+use end_model::{AicInputs, Catalog, ItemNonZeroU32Map, ItemU32Map, OutpostInput};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 const BUILTIN_AIC_TOML: &str = include_str!("aic.toml");
 const BUILTIN_AIC_PATH: &str = "<builtin>/aic.toml";
@@ -21,7 +21,7 @@ pub fn load_aic<'id>(path: &Path, catalog: &Catalog<'id>) -> Result<AicInputs<'i
         Ok(raw) => raw,
         Err(source) => return Err(Error::TomlParse { path, source }),
     };
-    resolve_aic(path, raw, catalog)
+    resolve_aic(path, Arc::<str>::from(src), raw, catalog)
 }
 
 /// Parse `aic.toml` from in-memory text and resolve references against a catalog.
@@ -31,7 +31,7 @@ pub fn load_aic_from_str<'id>(src: &str, catalog: &Catalog<'id>) -> Result<AicIn
         Ok(raw) => raw,
         Err(source) => return Err(Error::TomlParse { path, source }),
     };
-    resolve_aic(path, raw, catalog)
+    resolve_aic(path, Arc::<str>::from(src), raw, catalog)
 }
 
 /// Serialize [`default_aic`] as pretty TOML.
@@ -42,82 +42,70 @@ pub fn default_aic_toml<'id>(catalog: &Catalog<'id>) -> Result<String> {
         Ok(raw) => raw,
         Err(source) => return Err(Error::TomlParse { path, source }),
     };
-    resolve_aic(path, raw, catalog)?;
+    resolve_aic(path, Arc::<str>::from(BUILTIN_AIC_TOML), raw, catalog)?;
     Ok(BUILTIN_AIC_TOML.to_string())
 }
 
 /// Convert parsed AIC TOML into validated domain inputs and resolve catalog references.
-fn resolve_aic<'id>(path: PathBuf, raw: AicToml, catalog: &Catalog<'id>) -> Result<AicInputs<'id>> {
-    // parse external power consumption
-    let external_power_consumption_w = parse_non_negative_u32(
-        &path,
-        "external_power_consumption_w",
-        None,
-        raw.external_power_consumption_w,
-    )?;
+fn resolve_aic<'id>(
+    path: PathBuf,
+    src: Arc<str>,
+    raw: AicToml,
+    catalog: &Catalog<'id>,
+) -> Result<AicInputs<'id>> {
+    let external_power_consumption_w = raw.external_power_consumption_w;
 
-    // parse supply
-    let mut supply_per_min = ItemNonZeroU32Map::with_capacity(raw.supply_per_min.len());
-    for (item_key_raw, value_raw) in raw.supply_per_min {
-        let item_key = parse_key(&path, "supply_per_min.key", None, item_key_raw)?;
-        let value = parse_positive_u32(&path, "supply_per_min.value", None, value_raw)?;
+    let supply_per_min_span = raw.supply_per_min.span();
+    let raw_supply_per_min = raw.supply_per_min.into_inner();
+    let mut supply_per_min = ItemNonZeroU32Map::with_capacity(raw_supply_per_min.len());
+    for (item_key, value) in raw_supply_per_min {
+        let item_key = item_key.into_inner();
+        let value = value.into_inner();
         let item = catalog
             .item_id(item_key.as_str())
             .ok_or_else(|| Error::UnknownItem {
                 path: path.clone(),
                 key: item_key.to_string(),
+                span: Some(supply_per_min_span.clone()),
+                src: Some(Arc::clone(&src)),
             })?;
         supply_per_min.insert(item, value);
     }
 
-    // parse outposts
     let mut outposts = Vec::with_capacity(raw.outposts.len());
-    for (i, o) in raw.outposts.into_iter().enumerate() {
-        let key = parse_key(&path, "outposts.key", Some(i), o.key)?;
+    let mut outpost_spans = BTreeMap::new();
+    for outpost in raw.outposts {
+        let outpost_span = outpost.span();
+        let outpost = outpost.into_inner();
 
-        let money_cap_per_hour = parse_non_negative_u32(
-            &path,
-            "outposts.money_cap_per_hour",
-            Some(i),
-            o.money_cap_per_hour,
-        )?;
+        outpost_spans.insert(outpost.key.to_string(), outpost_span.clone());
 
-        let en = parse_optional_display_name(&path, "outposts.en", Some(i), o.en)?;
-        let zh = parse_optional_display_name(&path, "outposts.zh", Some(i), o.zh)?;
-
-        let mut prices = ItemU32Map::with_capacity(o.prices.len());
-        for (item_key_raw, price_raw) in o.prices {
-            let item_key = parse_key(&path, "outposts.prices.key", Some(i), item_key_raw)?;
-            let price = parse_non_negative_u32(&path, "outposts.prices.value", Some(i), price_raw)?;
+        let prices_span = outpost.prices.span();
+        let raw_prices = outpost.prices.into_inner();
+        let mut prices = ItemU32Map::with_capacity(raw_prices.len());
+        for (item_key, price) in raw_prices {
+            let item_key = item_key.into_inner();
+            let price = price.into_inner();
             let item = catalog
                 .item_id(item_key.as_str())
                 .ok_or_else(|| Error::UnknownItem {
                     path: path.clone(),
                     key: item_key.to_string(),
+                    span: Some(prices_span.clone()),
+                    src: Some(Arc::clone(&src)),
                 })?;
             prices.insert(item, price);
         }
 
         outposts.push(OutpostInput {
-            key,
-            en,
-            zh,
-            money_cap_per_hour,
+            key: outpost.key,
+            en: outpost.en,
+            zh: outpost.zh,
+            money_cap_per_hour: outpost.money_cap_per_hour,
             prices,
         });
     }
 
     AicInputs::parse(external_power_consumption_w, supply_per_min, outposts)
-        .map_err(|source| map_aic_build_error(path, source))
-}
-
-/// Translate model-level AIC build errors into crate-level loading errors.
-fn map_aic_build_error(path: PathBuf, source: AicBuildError) -> Error {
-    match source {
-        AicBuildError::DuplicateOutpostKey { key } => Error::DuplicateKey {
-            path,
-            kind: "outpost".to_string(),
-            key: key.to_string(),
-        },
-    }
+        .map_err(|source| map_aic_build_error(path, Arc::clone(&src), source, &outpost_spans))
 }

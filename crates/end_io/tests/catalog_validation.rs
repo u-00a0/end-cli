@@ -60,15 +60,43 @@ fn assert_schema_location(
             path,
             field,
             index,
+            span,
             message,
+            ..
         } => {
             assert!(
                 path.ends_with(expected_path_suffix),
                 "unexpected path: {path:?}"
             );
-            assert_eq!(field, expected_field, "unexpected field");
+            assert_eq!(*field, expected_field, "unexpected field");
             assert_eq!(*index, expected_index, "unexpected index");
+            assert!(span.is_some(), "schema error should include byte span");
             assert!(!message.is_empty(), "schema message should not be empty");
+        }
+        _ => panic!("unexpected error: {err:?}"),
+    }
+}
+
+fn assert_toml_parse_with_span(
+    err: &Error,
+    expected_path_suffix: &str,
+    expected_message_fragment: &str,
+) {
+    match err {
+        Error::TomlParse { path, source } => {
+            assert!(
+                path.ends_with(expected_path_suffix),
+                "unexpected path: {path:?}"
+            );
+            assert!(
+                source.span().is_some(),
+                "TOML error should include byte span"
+            );
+            assert!(
+                source.message().contains(expected_message_fragment),
+                "unexpected TOML message: {}",
+                source.message()
+            );
         }
         _ => panic!("unexpected error: {err:?}"),
     }
@@ -130,7 +158,7 @@ products = [{ item = "A", count = 1 }]
                 ref kind,
                 ref key,
                 ..
-            } if kind == "item" && key == "A"
+            } if *kind == "item" && key == "A"
         ),
         "unexpected error: {err:?}"
     );
@@ -243,7 +271,11 @@ zh = "Thermal_Bank_zh"
     )
     .expect_err("spaced key should fail");
 
-    assert_schema_location(&err, "facilities.toml", "machines.key", Some(0));
+    assert_toml_parse_with_span(
+        &err,
+        "facilities.toml",
+        "key must not have leading/trailing spaces",
+    );
 }
 
 #[test]
@@ -265,7 +297,7 @@ zh = "B_zh"
     )
     .expect_err("blank zh text should fail");
 
-    assert_schema_location(&err, "items.toml", "items.zh", Some(0));
+    assert_toml_parse_with_span(&err, "items.toml", "must not be blank");
 }
 
 #[test]
@@ -288,5 +320,5 @@ zh = "Thermal_Bank_zh"
     )
     .expect_err("machine power must be >= 1");
 
-    assert_schema_location(&err, "facilities.toml", "machines.power_w", Some(0));
+    assert_toml_parse_with_span(&err, "facilities.toml", "must be >= 1, got 0");
 }
