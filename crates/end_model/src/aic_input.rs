@@ -3,7 +3,7 @@ use std::iter::FromIterator;
 use std::num::NonZeroU32;
 use vector_map::VecMap;
 
-use crate::{Catalog, DisplayName, ItemId, Key};
+use crate::{DisplayName, ItemId, Key};
 use thiserror::Error;
 
 /// Stable identifier for an outpost in [`AicInputs`].
@@ -199,7 +199,6 @@ pub enum AicBuildError {
 
 impl<'id> AicInputs<'id> {
     pub fn parse(
-        _catalog: &Catalog<'id>,
         external_power_consumption_w: u32,
         supply_per_min: ItemNonZeroU32Map<'id>,
         outposts: Vec<OutpostInput<'id>>,
@@ -335,10 +334,9 @@ mod tests {
     #[test]
     fn aic_parse_rejects_duplicate_outpost_keys() {
         make_guard!(guard);
-        let (catalog, _, b) = sample_catalog(guard);
+        let (_, _, b) = sample_catalog(guard);
         let camp = key("Camp");
         let err = crate::AicInputs::parse(
-            &catalog,
             0,
             vec![(b, NonZeroU32::new(1).expect("non-zero"))].into(),
             vec![

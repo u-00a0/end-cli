@@ -23,10 +23,10 @@ fn load_data_file<T: DeserializeOwned>(
     let (path, src) = match data_dir {
         Some(dir) => {
             let path = dir.join(filename);
-            let src = std::fs::read_to_string(&path).map_err(|source| Error::Io {
-                path: path.clone(),
-                source,
-            })?;
+            let src = match std::fs::read_to_string(&path) {
+                Ok(src) => src,
+                Err(source) => return Err(Error::Io { path, source }),
+            };
             (path, src)
         }
         None => (
@@ -34,10 +34,10 @@ fn load_data_file<T: DeserializeOwned>(
             builtin.to_string(),
         ),
     };
-    let doc = toml::from_str(&src).map_err(|source| Error::TomlParse {
-        path: path.clone(),
-        source,
-    })?;
+    let doc = match toml::from_str(&src) {
+        Ok(doc) => doc,
+        Err(source) => return Err(Error::TomlParse { path, source }),
+    };
     Ok((path, doc))
 }
 
@@ -53,8 +53,14 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
     let (recipes_path, recipes_doc): (_, RecipesToml) =
         load_data_file(data_dir, "recipes.toml", BUILTIN_RECIPES)?;
     let items = items_doc.items;
-    let (machines, thermal_bank) = (facilities_doc.machines, facilities_doc.thermal_bank);
-    let (recipes, power_recipes) = (recipes_doc.recipes, recipes_doc.power_recipes);
+    let FacilitiesToml {
+        machines,
+        thermal_bank,
+    } = facilities_doc;
+    let RecipesToml {
+        recipes,
+        power_recipes,
+    } = recipes_doc;
 
     // create a builder
     let mut builder = Catalog::builder(guard);
@@ -101,13 +107,15 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
     // add recipes
     for (i, raw) in recipes.into_iter().enumerate() {
         let facility_key = parse_key(&recipes_path, "recipes.facility", Some(i), raw.facility)?;
-        let facility =
-            builder
-                .facility_id(facility_key.as_str())
-                .ok_or_else(|| Error::UnknownFacility {
-                    path: recipes_path.clone(),
+        let facility = match builder.facility_id(facility_key.as_str()) {
+            Some(facility) => facility,
+            None => {
+                return Err(Error::UnknownFacility {
+                    path: recipes_path,
                     key: facility_key.to_string(),
-                })?;
+                });
+            }
+        };
 
         let time_s = parse_positive_u32(&recipes_path, "recipes.time_s", Some(i), raw.time_s)?;
 

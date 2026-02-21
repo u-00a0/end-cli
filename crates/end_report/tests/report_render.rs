@@ -74,7 +74,6 @@ fn sample_catalog_and_inputs<'id>(
     let catalog = b.build().expect("build catalog");
 
     let aic = AicInputs::parse(
-        &catalog,
         0,
         vec![(ore, nz(10))].into(),
         vec![OutpostInput {

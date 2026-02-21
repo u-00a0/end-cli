@@ -27,7 +27,10 @@ pub enum Error {
         source: toml::ser::Error,
     },
 
-    #[error("schema error in {path}, field `{field}`, index={index:?}: {message}")]
+    #[error(
+        "schema error in {path}, field `{field}`{index_suffix}: {message}",
+        index_suffix = schema_index_suffix(*.index)
+    )]
     Schema {
         path: PathBuf,
         field: String,
@@ -47,4 +50,10 @@ pub enum Error {
 
     #[error("unknown facility `{key}` in {path}")]
     UnknownFacility { path: PathBuf, key: String },
+}
+
+fn schema_index_suffix(index: Option<usize>) -> String {
+    index
+        .map(|value| format!(", index={value}"))
+        .unwrap_or_default()
 }

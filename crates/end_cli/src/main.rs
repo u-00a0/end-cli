@@ -27,7 +27,7 @@ enum Command {
         #[arg(long, value_name = "FILE", default_value = AIC_TOML_FILENAME)]
         aic: PathBuf,
 
-        /// Directory containing items.toml / facilities.toml / recipes.toml.
+        /// Directory containing items.toml, facilities.toml and recipes.toml.
         /// If omitted, builtin data embedded at compile time is used.
         #[arg(long, value_name = "DIR")]
         data_dir: Option<PathBuf>,
@@ -39,7 +39,7 @@ enum Command {
         #[arg(long, value_enum, default_value_t = Lang::Zh)]
         lang: Lang,
 
-        /// Directory containing items.toml / facilities.toml / recipes.toml.
+        /// Directory containing items.toml, facilities.toml and recipes.toml.
         /// If omitted, builtin data embedded at compile time is used.
         #[arg(long, value_name = "DIR")]
         data_dir: Option<PathBuf>,
@@ -74,6 +74,7 @@ fn init_aic(force: bool, aic: PathBuf, data_dir: Option<PathBuf>) -> Result<()> 
     let path = std::env::current_dir()
         .context("getting current dir")?
         .join(aic);
+
     if path.exists() && !force {
         anyhow::bail!(
             "{} already exists (use --force to overwrite)",
@@ -91,9 +92,6 @@ fn init_aic(force: bool, aic: PathBuf, data_dir: Option<PathBuf>) -> Result<()> 
 }
 
 fn solve(lang: Lang, data_dir: Option<PathBuf>, aic_path: PathBuf) -> Result<()> {
-    make_guard!(guard);
-    let catalog = load_catalog(data_dir.as_deref(), guard).context("loading catalog")?;
-
     if !aic_path.exists() {
         let init_hint = format!("end-cli init --aic {}", aic_path.display());
         anyhow::bail!(
@@ -102,6 +100,9 @@ fn solve(lang: Lang, data_dir: Option<PathBuf>, aic_path: PathBuf) -> Result<()>
             init_hint
         );
     }
+
+    make_guard!(guard);
+    let catalog = load_catalog(data_dir.as_deref(), guard).context("loading catalog")?;
 
     let aic =
         load_aic(&aic_path, &catalog).with_context(|| format!("loading {}", aic_path.display()))?;

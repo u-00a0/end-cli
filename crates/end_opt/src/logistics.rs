@@ -568,8 +568,8 @@ mod tests {
     #[test]
     fn best_fit_fully_satisfies_each_demand() {
         make_guard!(guard);
-        let (catalog, item) = sample_catalog(guard);
-        let outpost_index = sample_outpost_id(&catalog);
+        let (_, item) = sample_catalog(guard);
+        let outpost_index = sample_outpost_id();
         let subproblem = ItemSubproblem::new(
             item,
             vec![
@@ -721,7 +721,6 @@ mod tests {
         let catalog = b.build().expect("build catalog");
 
         let aic = AicInputs::parse(
-            &catalog,
             0,
             vec![(ore, nz(20))].into(),
             vec![OutpostInput {
@@ -806,9 +805,8 @@ mod tests {
         (b.build().expect("build catalog"), item)
     }
 
-    fn sample_outpost_id<'id>(catalog: &Catalog<'id>) -> end_model::OutpostId {
+    fn sample_outpost_id() -> end_model::OutpostId {
         let aic = AicInputs::parse(
-            catalog,
             0,
             Default::default(),
             vec![OutpostInput {

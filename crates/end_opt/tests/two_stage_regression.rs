@@ -80,7 +80,6 @@ fn sample_catalog_and_aic<'id>(
     let (catalog, ore, ingot) = sample_catalog(guard, with_recipes);
 
     let aic = AicInputs::parse(
-        &catalog,
         0,
         vec![(ore, nz(10))].into(),
         vec![OutpostInput {
@@ -101,7 +100,6 @@ fn run_two_stage_allows_empty_recipes_with_direct_external_sales() {
     make_guard!(guard);
     let (catalog, ore, _ingot) = sample_catalog(guard, false);
     let aic = AicInputs::parse(
-        &catalog,
         0,
         vec![(ore, nz(10))].into(),
         vec![OutpostInput {

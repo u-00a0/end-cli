@@ -12,24 +12,25 @@ const MEMORY_AIC_PATH: &str = "<memory>/aic.toml";
 
 /// Load `aic.toml` from disk and resolve key-based references against a catalog.
 pub fn load_aic<'id>(path: &Path, catalog: &Catalog<'id>) -> Result<AicInputs<'id>> {
-    let src = std::fs::read_to_string(path).map_err(|source| Error::Io {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    let raw: AicToml = toml::from_str(src.as_str()).map_err(|source| Error::TomlParse {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    resolve_aic(path.to_path_buf(), raw, catalog)
+    let path = path.to_path_buf();
+    let src = match std::fs::read_to_string(&path) {
+        Ok(src) => src,
+        Err(source) => return Err(Error::Io { path, source }),
+    };
+    let raw: AicToml = match toml::from_str(src.as_str()) {
+        Ok(raw) => raw,
+        Err(source) => return Err(Error::TomlParse { path, source }),
+    };
+    resolve_aic(path, raw, catalog)
 }
 
 /// Parse `aic.toml` from in-memory text and resolve references against a catalog.
 pub fn load_aic_from_str<'id>(src: &str, catalog: &Catalog<'id>) -> Result<AicInputs<'id>> {
     let path = PathBuf::from(MEMORY_AIC_PATH);
-    let raw: AicToml = toml::from_str(src).map_err(|source| Error::TomlParse {
-        path: path.clone(),
-        source,
-    })?;
+    let raw: AicToml = match toml::from_str(src) {
+        Ok(raw) => raw,
+        Err(source) => return Err(Error::TomlParse { path, source }),
+    };
     resolve_aic(path, raw, catalog)
 }
 
@@ -37,10 +38,10 @@ pub fn load_aic_from_str<'id>(src: &str, catalog: &Catalog<'id>) -> Result<AicIn
 pub fn default_aic_toml<'id>(catalog: &Catalog<'id>) -> Result<String> {
     // validate first. because user can specify `init --data-dir`, we want to make sure the built-in AIC is valid against the potentially customized catalog.
     let path = PathBuf::from(BUILTIN_AIC_PATH);
-    let raw: AicToml = toml::from_str(BUILTIN_AIC_TOML).map_err(|source| Error::TomlParse {
-        path: path.clone(),
-        source,
-    })?;
+    let raw: AicToml = match toml::from_str(BUILTIN_AIC_TOML) {
+        Ok(raw) => raw,
+        Err(source) => return Err(Error::TomlParse { path, source }),
+    };
     resolve_aic(path, raw, catalog)?;
     Ok(BUILTIN_AIC_TOML.to_string())
 }
@@ -106,20 +107,15 @@ fn resolve_aic<'id>(path: PathBuf, raw: AicToml, catalog: &Catalog<'id>) -> Resu
         });
     }
 
-    AicInputs::parse(
-        catalog,
-        external_power_consumption_w,
-        supply_per_min,
-        outposts,
-    )
-    .map_err(|source| map_aic_build_error(&path, source))
+    AicInputs::parse(external_power_consumption_w, supply_per_min, outposts)
+        .map_err(|source| map_aic_build_error(path, source))
 }
 
 /// Translate model-level AIC build errors into crate-level loading errors.
-fn map_aic_build_error(path: &Path, source: AicBuildError) -> Error {
+fn map_aic_build_error(path: PathBuf, source: AicBuildError) -> Error {
     match source {
         AicBuildError::DuplicateOutpostKey { key } => Error::DuplicateKey {
-            path: path.to_path_buf(),
+            path,
             kind: "outpost".to_string(),
             key: key.to_string(),
         },
