@@ -10,6 +10,10 @@ describe('aic toml conversions', () => {
         { itemKey: 'IronOre', value: 120 },
         { itemKey: 'CopperOre', value: 80 }
       ],
+      consumption: [
+        { itemKey: 'IronOre', value: 15 },
+        { itemKey: 'Water', value: 8 }
+      ],
       outposts: [
         {
           key: 'Refugee_Camp',
@@ -29,6 +33,7 @@ describe('aic toml conversions', () => {
 
     expect(parsed.externalPowerConsumptionW).toBe(322);
     expect(parsed.supply).toHaveLength(2);
+    expect(parsed.consumption).toHaveLength(2);
     expect(parsed.outposts).toHaveLength(1);
     expect(parsed.outposts[0]?.key).toBe('Refugee_Camp');
     expect(parsed.outposts[0]?.prices).toHaveLength(2);
@@ -38,6 +43,10 @@ describe('aic toml conversions', () => {
     const toml = `external_power_consumption_w = 10
 [supply_per_min]
 "IronOre" = 5
+"" = 99
+
+[external_consumption_per_min]
+"IronOre" = 2
 "" = 99
 
 [[outposts]]
@@ -50,6 +59,7 @@ money_cap_per_hour = 100
     const parsed = parseAicToml(toml);
 
     expect(parsed.supply).toHaveLength(1);
+    expect(parsed.consumption).toHaveLength(1);
     expect(parsed.outposts).toHaveLength(0);
   });
 });

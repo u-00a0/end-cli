@@ -34,11 +34,19 @@ function parseStoredDraft(text: string): AicDraft | null {
 
     const parsed = root as Record<string, unknown>;
     const supplyRows = Array.isArray(parsed.supply) ? parsed.supply : [];
+    const consumptionRows = Array.isArray(parsed.consumption) ? parsed.consumption : [];
     const outpostRows = Array.isArray(parsed.outposts) ? parsed.outposts : [];
 
     return {
       externalPowerConsumptionW: asInt(parsed.externalPowerConsumptionW),
       supply: supplyRows.map((row) => {
+        const record = asRecord(row);
+        return {
+          itemKey: asString(record.itemKey),
+          value: asInt(record.value)
+        };
+      }),
+      consumption: consumptionRows.map((row) => {
         const record = asRecord(row);
         return {
           itemKey: asString(record.itemKey),

@@ -62,6 +62,7 @@ export interface SummaryDto {
 
 export type LogisticsNodeKind =
   | 'external_supply'
+  | 'external_consumption'
   | 'recipe_group'
   | 'outpost_sale'
   | 'thermal_bank_group';
@@ -120,6 +121,11 @@ export interface DraftSupplyRow {
   value: number;
 }
 
+export interface DraftConsumptionRow {
+  itemKey: string;
+  value: number;
+}
+
 export interface DraftPriceRow {
   itemKey: string;
   price: number;
@@ -136,11 +142,13 @@ export interface OutpostDraft {
 export interface AicDraft {
   externalPowerConsumptionW: number;
   supply: DraftSupplyRow[];
+  consumption: DraftConsumptionRow[];
   outposts: OutpostDraft[];
 }
 
 export const EMPTY_DRAFT: AicDraft = {
   externalPowerConsumptionW: 0,
   supply: [],
+  consumption: [],
   outposts: []
 };

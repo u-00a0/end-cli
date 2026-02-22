@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use std::process::Command;
 use tempfile::tempdir;
 
@@ -21,7 +23,7 @@ fn init_creates_aic_toml() {
         "aic.toml was not created"
     );
     assert!(
-        String::from_utf8_lossy(&output.stderr).contains("wrote"),
+        String::from_utf8_lossy(&output.stderr).contains("Wrote"),
         "stderr did not include write confirmation: {}",
         String::from_utf8_lossy(&output.stderr)
     );

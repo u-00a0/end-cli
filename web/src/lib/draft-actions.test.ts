@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addConsumptionRow,
   addOutpost,
   addPriceRow,
   addSupplyRow,
   normalizeSelectedOutpostIndex,
+  removeConsumptionRow,
   removeOutpost,
   removePriceRow,
   removeSupplyRow,
+  setConsumptionValue,
   setExternalPower,
   setOutpostField,
   setPriceValue,
@@ -17,6 +20,7 @@ import type { AicDraft } from './types';
 const EMPTY_DRAFT: AicDraft = {
   externalPowerConsumptionW: 0,
   supply: [],
+  consumption: [],
   outposts: []
 };
 
@@ -25,9 +29,12 @@ describe('draft actions', () => {
     let draft = setExternalPower(EMPTY_DRAFT, -12.3);
     draft = addSupplyRow(draft, 'IronOre');
     draft = setSupplyValue(draft, 0, 4.8);
+    draft = addConsumptionRow(draft, 'Water');
+    draft = setConsumptionValue(draft, 0, 6.7);
 
     expect(draft.externalPowerConsumptionW).toBe(0);
     expect(draft.supply[0]?.value).toBe(5);
+    expect(draft.consumption[0]?.value).toBe(7);
   });
 
   it('adds and removes outposts while maintaining selected index', () => {
@@ -63,6 +70,15 @@ describe('draft actions', () => {
     const after = removeSupplyRow(draft, 0);
     expect(after.supply).toHaveLength(1);
     expect(after.supply[0]?.itemKey).toBe('B');
+  });
+
+  it('removes consumption rows by index', () => {
+    let draft = addConsumptionRow(EMPTY_DRAFT, 'A');
+    draft = addConsumptionRow(draft, 'B');
+
+    const after = removeConsumptionRow(draft, 0);
+    expect(after.consumption).toHaveLength(1);
+    expect(after.consumption[0]?.itemKey).toBe('B');
   });
 
   it('normalizes selected outpost index for empty and invalid states', () => {

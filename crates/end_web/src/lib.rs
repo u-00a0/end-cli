@@ -16,6 +16,8 @@ pub use lang::Lang;
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::{Lang, bootstrap, solve_from_aic_toml};
     use end_io::{default_aic_toml, load_catalog};
     use generativity::make_guard;
@@ -28,6 +30,12 @@ mod tests {
                 .default_aic_toml
                 .contains("external_power_consumption_w"),
             "default aic should include external power field"
+        );
+        assert!(
+            payload
+                .default_aic_toml
+                .contains("external_consumption_per_min"),
+            "default aic should include external consumption field"
         );
         assert!(
             !payload.catalog.items.is_empty(),
@@ -50,6 +58,14 @@ mod tests {
             !payload.logistics_graph.nodes.is_empty(),
             "default scenario should include logistics nodes"
         );
+        assert!(
+            payload
+                .logistics_graph
+                .nodes
+                .iter()
+                .any(|node| node.kind.as_ref() == "external_consumption"),
+            "default scenario should include external consumption nodes"
+        );
     }
 
     #[test]
@@ -58,7 +74,7 @@ mod tests {
             .expect_err("invalid toml should fail");
         let msg = err.to_string();
         assert!(
-            msg.contains("aic parse failed"),
+            msg.contains("Aic parse failed"),
             "error message should mention aic parse"
         );
     }

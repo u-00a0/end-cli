@@ -107,11 +107,11 @@
 <section class="graph-panel">
   <div class="sub-header">
     <div>
-      <h2>{t("物流图", "Logistics Graph")}</h2>
+      <h2>{t("物流图", "Flow Map")}</h2>
       <p class="subtitle">
         {t(
-          "用于定位产销链路和流量集中区域。",
-          "Inspect flow concentration and route direction.",
+          "节点是机器和输入输出，线条表示物品流动。",
+          "Nodes represent machines and inputs/outputs, and lines indicate item flow. ",
         )}
       </p>
     </div>
@@ -135,7 +135,10 @@
 
   {#if !result}
     <p class="hint">
-      {t("求解后这里显示物流网络。", "Logistics network appears after solving.")}
+      {t(
+        "先在左侧改一条参数并触发求解，随后这里会显示物流网络。",
+        "Edit a parameter on the left to solve first, then the logistics network will appear here.",
+      )}
     </p>
   {:else}
     <div class="flow-wrap" bind:this={flowElement}>

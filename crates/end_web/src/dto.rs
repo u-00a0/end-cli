@@ -5,22 +5,22 @@ use crate::Result;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BootstrapPayload {
-    pub default_aic_toml: String,
+    pub default_aic_toml: Box<str>,
     pub catalog: CatalogDto,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogDto {
-    pub items: Vec<CatalogItemDto>,
+    pub items: Box<[CatalogItemDto]>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogItemDto {
-    pub key: String,
-    pub en: String,
-    pub zh: String,
+    pub key: Box<str>,
+    pub en: Box<str>,
+    pub zh: Box<str>,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,17 +43,17 @@ pub struct SummaryDto {
     pub power_gen_w: i64,
     pub power_use_w: i64,
     pub power_margin_w: i64,
-    pub outposts: Vec<OutpostValueDto>,
-    pub top_sales: Vec<SaleValueDto>,
-    pub facilities: Vec<FacilityUsageDto>,
-    pub external_supply_slack: Vec<ExternalSupplySlackDto>,
+    pub outposts: Box<[OutpostValueDto]>,
+    pub top_sales: Box<[SaleValueDto]>,
+    pub facilities: Box<[FacilityUsageDto]>,
+    pub external_supply_slack: Box<[ExternalSupplySlackDto]>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OutpostValueDto {
-    pub key: String,
-    pub name: String,
+    pub key: Box<str>,
+    pub name: Box<str>,
     pub value_per_min: f64,
     pub cap_per_min: f64,
     pub ratio: f64,
@@ -62,18 +62,18 @@ pub struct OutpostValueDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaleValueDto {
-    pub outpost_key: String,
-    pub outpost_name: String,
-    pub item_key: String,
-    pub item_name: String,
+    pub outpost_key: Box<str>,
+    pub outpost_name: Box<str>,
+    pub item_key: Box<str>,
+    pub item_name: Box<str>,
     pub value_per_min: f64,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FacilityUsageDto {
-    pub key: String,
-    pub name: String,
+    pub key: Box<str>,
+    pub name: Box<str>,
     pub machines: u32,
     pub power_w: u32,
     pub total_power_w: u32,
@@ -82,8 +82,8 @@ pub struct FacilityUsageDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalSupplySlackDto {
-    pub item_key: String,
-    pub item_name: String,
+    pub item_key: Box<str>,
+    pub item_name: Box<str>,
     pub supply_per_min: f64,
     pub slack_per_min: f64,
 }
@@ -91,16 +91,16 @@ pub struct ExternalSupplySlackDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LogisticsGraphDto {
-    pub items: Vec<LogisticsItemSummaryDto>,
-    pub nodes: Vec<LogisticsNodeDto>,
-    pub edges: Vec<LogisticsEdgeDto>,
+    pub items: Box<[LogisticsItemSummaryDto]>,
+    pub nodes: Box<[LogisticsNodeDto]>,
+    pub edges: Box<[LogisticsEdgeDto]>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LogisticsItemSummaryDto {
-    pub item_key: String,
-    pub item_name: String,
+    pub item_key: Box<str>,
+    pub item_name: Box<str>,
     pub edge_count: usize,
     pub node_count: usize,
     pub total_flow_per_min: f64,
@@ -109,19 +109,19 @@ pub struct LogisticsItemSummaryDto {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LogisticsNodeDto {
-    pub id: String,
-    pub kind: String,
-    pub label: String,
+    pub id: Box<str>,
+    pub kind: Box<str>,
+    pub label: Box<str>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LogisticsEdgeDto {
-    pub id: String,
-    pub item_key: String,
-    pub item_name: String,
-    pub source: String,
-    pub target: String,
+    pub id: Box<str>,
+    pub item_key: Box<str>,
+    pub item_name: Box<str>,
+    pub source: Box<str>,
+    pub target: Box<str>,
     pub flow_per_min: f64,
 }
 
@@ -134,7 +134,7 @@ pub(crate) enum ApiEnvelope<T> {
 
 #[derive(Debug, Serialize)]
 pub(crate) struct ApiErrorDto {
-    message: String,
+    message: Box<str>,
 }
 
 pub(crate) fn envelope_json<T: Serialize>(result: Result<T>) -> String {
@@ -142,7 +142,7 @@ pub(crate) fn envelope_json<T: Serialize>(result: Result<T>) -> String {
         Ok(data) => ApiEnvelope::Ok { data },
         Err(err) => ApiEnvelope::Err {
             error: ApiErrorDto {
-                message: err.to_string(),
+                message: err.to_string().into_boxed_str(),
             },
         },
     };

@@ -83,11 +83,11 @@ fn init_aic(force: bool, aic: PathBuf, data_dir: Option<PathBuf>) -> Result<()> 
     }
 
     make_guard!(guard);
-    let catalog = load_catalog(data_dir.as_deref(), guard).context("loading catalog")?;
-    let toml = default_aic_toml(&catalog).context("building default aic.toml")?;
+    let catalog = load_catalog(data_dir.as_deref(), guard).context("Loading catalog")?;
+    let toml = default_aic_toml(&catalog).context("Building default aic.toml")?;
 
-    std::fs::write(&path, toml).with_context(|| format!("writing {}", path.display()))?;
-    eprintln!("wrote {}", path.display());
+    std::fs::write(&path, toml).with_context(|| format!("Writing {}", path.display()))?;
+    eprintln!("Wrote {}", path.display());
     Ok(())
 }
 
@@ -102,13 +102,13 @@ fn solve(lang: Lang, data_dir: Option<PathBuf>, aic_path: PathBuf) -> Result<()>
     }
 
     make_guard!(guard);
-    let catalog = load_catalog(data_dir.as_deref(), guard).context("loading catalog")?;
+    let catalog = load_catalog(data_dir.as_deref(), guard).context("Loading catalog")?;
 
     let aic =
-        load_aic(&aic_path, &catalog).with_context(|| format!("loading {}", aic_path.display()))?;
+        load_aic(&aic_path, &catalog).with_context(|| format!("Loading {}", aic_path.display()))?;
 
-    let solution = run_two_stage(&catalog, &aic).context("running optimization")?;
-    let report = build_report(lang, &catalog, &aic, &solution).context("building report")?;
+    let solution = run_two_stage(&catalog, &aic).context("Running optimization")?;
+    let report = build_report(lang, &catalog, &aic, &solution).context("Building report")?;
 
     println!("{}", report);
     Ok(())

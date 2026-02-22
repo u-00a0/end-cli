@@ -196,12 +196,12 @@
 <div class="panel-head">
   <div>
     <div class="panel-title-row">
-      <h2>{t("求解结果", "Solver Output")}</h2>
+      <h2>{t("方案评估", "Plan Summary")}</h2>
     </div>
     <p class="subtitle">
       {t(
-        "追踪收益、电力和产线规模变化。",
-        "Track revenue, power balance, and line size.",
+        "每次编辑后自动刷新收益、电力平衡和产线规模。",
+        "After each edit, this panel auto-updates revenue, power balance, and line size.",
       )}
     </p>
   </div>
@@ -252,8 +252,8 @@
 {:else if !result}
   <p class="hint">
     {t(
-      "编辑参数后会自动求解。",
-      "Results are solved automatically after edits.",
+      "先在左侧修改任意参数，这里会自动更新结果。",
+      "Edit any parameter on the left, and results will update here automatically.",
     )}
   </p>
 {:else}

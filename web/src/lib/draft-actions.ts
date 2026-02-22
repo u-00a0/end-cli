@@ -59,6 +59,34 @@ export function setSupplyValue(draft: AicDraft, index: number, value: number): A
   };
 }
 
+export function setConsumptionKey(draft: AicDraft, index: number, value: string): AicDraft {
+  return {
+    ...draft,
+    consumption: draft.consumption.map((row, rowIndex) =>
+      rowIndex === index
+        ? {
+            ...row,
+            itemKey: value
+          }
+        : row
+    )
+  };
+}
+
+export function setConsumptionValue(draft: AicDraft, index: number, value: number): AicDraft {
+  return {
+    ...draft,
+    consumption: draft.consumption.map((row, rowIndex) =>
+      rowIndex === index
+        ? {
+            ...row,
+            value: asNonNegativeInt(value)
+          }
+        : row
+    )
+  };
+}
+
 export function addSupplyRow(draft: AicDraft, firstItemKey: string): AicDraft {
   return {
     ...draft,
@@ -66,10 +94,24 @@ export function addSupplyRow(draft: AicDraft, firstItemKey: string): AicDraft {
   };
 }
 
+export function addConsumptionRow(draft: AicDraft, firstItemKey: string): AicDraft {
+  return {
+    ...draft,
+    consumption: [...draft.consumption, { itemKey: firstItemKey, value: 1 }]
+  };
+}
+
 export function removeSupplyRow(draft: AicDraft, index: number): AicDraft {
   return {
     ...draft,
     supply: draft.supply.filter((_, rowIndex) => rowIndex !== index)
+  };
+}
+
+export function removeConsumptionRow(draft: AicDraft, index: number): AicDraft {
+  return {
+    ...draft,
+    consumption: draft.consumption.filter((_, rowIndex) => rowIndex !== index)
   };
 }
 

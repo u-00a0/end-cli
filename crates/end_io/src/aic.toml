@@ -14,6 +14,11 @@ external_power_consumption_w = 300
 "Ferrium Ore" = 160
 "Amethyst Ore" = 160
 
+# Scenario-side external item consumption per minute.
+# e.g. Consumables
+[external_consumption_per_min]
+"Industrial Explosive" = 10
+
 [[outposts]]
 # Unique outpost identifier.
 key = "Refugee Camp"

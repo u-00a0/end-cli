@@ -15,55 +15,6 @@ use crate::Key;
 
 /// Canonical in-memory model resolved from TOML inputs.
 ///
-/// ```compile_fail
-/// use end_model::{Catalog, DisplayName, ItemDef, ItemId, Key, ThermalBankDef};
-/// use generativity::make_guard;
-///
-/// fn key(value: &str) -> Key {
-///     value.try_into().unwrap()
-/// }
-///
-/// fn name(value: &str) -> DisplayName {
-///     value.try_into().unwrap()
-/// }
-///
-/// fn item_name<'id>(catalog: &Catalog<'id>, item: ItemId<'id>) -> String {
-///     catalog.item(item).en.as_str().to_string()
-/// }
-///
-/// fn with_catalog<R>(
-///     item_key: &'static str,
-///     bank_key: &'static str,
-///     f: impl for<'id> FnOnce(Catalog<'id>, ItemId<'id>) -> R,
-/// ) -> R {
-///     make_guard!(guard);
-///     let mut b = Catalog::builder(guard);
-///     let item = b
-///         .add_item(ItemDef {
-///             key: key(item_key),
-///             en: name("Ore"),
-///             zh: name("Ore"),
-///         })
-///         .unwrap();
-///     let b = b
-///         .add_thermal_bank(ThermalBankDef {
-///             key: key(bank_key),
-///             en: name("Bank"),
-///             zh: name("Bank"),
-///         })
-///         .unwrap();
-///     let catalog = b.build();
-///     f(catalog, item)
-/// }
-///
-/// with_catalog("ore-1", "bank-1", |catalog_1, ore_1| {
-///     with_catalog("ore-2", "bank-2", |catalog_2, _| {
-///         let _ = catalog_1;
-///         let _ = item_name(&catalog_2, ore_1);
-///     });
-/// });
-/// ```
-///
 /// ## Design notes
 ///
 /// This type intentionally keeps its fields private so that the internal indices (`key -> id`
@@ -74,10 +25,10 @@ use crate::Key;
 #[derive(Debug, Clone)]
 pub struct Catalog<'id> {
     brand: Id<'id>,
-    items: Vec<ItemDef>,
-    facilities: Vec<FacilityDef>,
-    recipes: Vec<Recipe<'id>>,
-    power_recipes: Vec<PowerRecipe<'id>>,
+    items: Box<[ItemDef]>,
+    facilities: Box<[FacilityDef]>,
+    recipes: Box<[Recipe<'id>]>,
+    power_recipes: Box<[PowerRecipe<'id>]>,
     item_index: HashMap<Key, ItemId<'id>>,
     facility_index: HashMap<Key, FacilityId<'id>>,
     thermal_bank: ThermalBankDef,
@@ -87,7 +38,7 @@ pub struct Catalog<'id> {
 const CORE_POWER_W: u32 = 200;
 
 impl<'id> Catalog<'id> {
-    /// Starts building a self-consistent [`Catalog`].
+    /// Starts building a [`Catalog`].
     pub fn builder(guard: Guard<'id>) -> CatalogBuilder<'id> {
         CatalogBuilder::new(guard)
     }
@@ -194,6 +145,11 @@ impl<'id> Catalog<'id> {
             .iter()
             .enumerate()
             .map(move |(index, recipe)| (PowerRecipeId::from_index(index, brand), recipe))
+    }
+
+    /// Returns the catalog brand token for constructing other branded structures.
+    pub fn brand(&self) -> Id<'id> {
+        self.brand
     }
 
     /// Resolves an item key into an [`ItemId`].

@@ -112,6 +112,17 @@ const linearChainFixture: LogisticsGraphDto = {
   ]
 };
 
+const externalConsumptionFixture: LogisticsGraphDto = {
+  items: [{ itemKey: 'Ore', itemName: 'Ore', edgeCount: 1, nodeCount: 2, totalFlowPerMin: 2 }],
+  nodes: [
+    { id: 's1', kind: 'external_supply', label: 'Supply' },
+    { id: 'c1', kind: 'external_consumption', label: 'External Consumption' }
+  ],
+  edges: [
+    { id: 'e1', itemKey: 'Ore', itemName: 'Ore', source: 's1', target: 'c1', flowPerMin: 2 }
+  ]
+};
+
 describe('buildFlowGraph', () => {
   it('returns all nodes and edges', () => {
     const flow = buildFlowGraph(graphFixture);
@@ -173,6 +184,14 @@ describe('buildFlowGraph', () => {
     const saleNode = flow.nodes.find((node) => node.id === 'sale1');
     expect(saleNode).toBeDefined();
     expect(saleNode?.type).toBe('output');
+  });
+
+  it('sets external_consumption nodes as type output (only input handle)', () => {
+    const flow = buildFlowGraph(externalConsumptionFixture);
+
+    const consumptionNode = flow.nodes.find((node) => node.id === 'c1');
+    expect(consumptionNode).toBeDefined();
+    expect(consumptionNode?.type).toBe('output');
   });
 
   it('keeps recipe_machine nodes with both handles', () => {

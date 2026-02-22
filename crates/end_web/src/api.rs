@@ -28,9 +28,9 @@ pub fn bootstrap(lang: Lang) -> Result<BootstrapPayload> {
         .items()
         .iter()
         .map(|item| CatalogItemDto {
-            key: item.key.as_str().to_string(),
-            en: item.en.as_str().to_string(),
-            zh: item.zh.as_str().to_string(),
+            key: item.key.as_str().into(),
+            en: item.en.as_str().into(),
+            zh: item.zh.as_str().into(),
         })
         .collect::<Vec<_>>();
     items.sort_by(|lhs, rhs| lhs.key.cmp(&rhs.key));
@@ -40,8 +40,10 @@ pub fn bootstrap(lang: Lang) -> Result<BootstrapPayload> {
     let _ = lang;
 
     Ok(BootstrapPayload {
-        default_aic_toml,
-        catalog: CatalogDto { items },
+        default_aic_toml: default_aic_toml.into_boxed_str(),
+        catalog: CatalogDto {
+            items: items.into_boxed_slice(),
+        },
     })
 }
 
@@ -87,8 +89,8 @@ fn build_summary<'id>(
                 .outpost(value.outpost_index)
                 .ok_or(Error::MissingOutpost(value.outpost_index))?;
             Ok::<_, Error>(OutpostValueDto {
-                key: outpost.key.as_str().to_string(),
-                name: outpost_name(lang, outpost).to_string(),
+                key: outpost.key.as_str().into(),
+                name: outpost_name(lang, outpost).into(),
                 value_per_min: value.value_per_min,
                 cap_per_min: value.cap_per_min,
                 ratio: value.ratio,
@@ -103,10 +105,10 @@ fn build_summary<'id>(
                 .outpost(sale.outpost_index)
                 .ok_or(Error::MissingOutpost(sale.outpost_index))?;
             Ok::<_, Error>(SaleValueDto {
-                outpost_key: outpost.key.as_str().to_string(),
-                outpost_name: outpost_name(lang, outpost).to_string(),
-                item_key: item_key(catalog, sale.item)?.to_string(),
-                item_name: item_name(lang, catalog, sale.item)?.to_string(),
+                outpost_key: outpost.key.as_str().into(),
+                outpost_name: outpost_name(lang, outpost).into(),
+                item_key: item_key(catalog, sale.item)?.into(),
+                item_name: item_name(lang, catalog, sale.item)?.into(),
                 value_per_min: sale.value_per_min,
             })
         })
@@ -118,8 +120,8 @@ fn build_summary<'id>(
         .map(|usage| {
             let facility_def = catalog.facility(usage.facility);
             Ok::<_, Error>(FacilityUsageDto {
-                key: facility_key(catalog, usage.facility)?.to_string(),
-                name: facility_name(lang, catalog, usage.facility)?.to_string(),
+                key: facility_key(catalog, usage.facility)?.into(),
+                name: facility_name(lang, catalog, usage.facility)?.into(),
                 machines: usage.machines,
                 power_w: facility_def.power_w.get(),
                 total_power_w: facility_def.power_w.get() * usage.machines,
@@ -132,8 +134,8 @@ fn build_summary<'id>(
         .iter()
         .map(|row| {
             Ok::<_, Error>(ExternalSupplySlackDto {
-                item_key: item_key(catalog, row.item)?.to_string(),
-                item_name: item_name(lang, catalog, row.item)?.to_string(),
+                item_key: item_key(catalog, row.item)?.into(),
+                item_name: item_name(lang, catalog, row.item)?.into(),
                 supply_per_min: row.supply_per_min,
                 slack_per_min: row.slack_per_min,
             })
@@ -150,10 +152,10 @@ fn build_summary<'id>(
         power_gen_w: stage2.power_gen_w,
         power_use_w: stage2.power_use_w,
         power_margin_w: stage2.power_margin_w,
-        outposts,
-        top_sales,
-        facilities,
-        external_supply_slack,
+        outposts: outposts.into_boxed_slice(),
+        top_sales: top_sales.into_boxed_slice(),
+        facilities: facilities.into_boxed_slice(),
+        external_supply_slack: external_supply_slack.into_boxed_slice(),
     })
 }
 
@@ -225,8 +227,8 @@ fn build_logistics_graph<'id>(
 
     for edge in &solved.logistics.edges {
         let item = edge.item;
-        let item_key = item_key(catalog, item)?.to_string();
-        let item_name = item_name(lang, catalog, item)?.to_string();
+        let item_key: Box<str> = item_key(catalog, item)?.into();
+        let item_name: Box<str> = item_name(lang, catalog, item)?.into();
 
         if !node_by_id.contains_key(&edge.from) {
             return Err(Error::MissingLogisticsNode {
@@ -242,7 +244,7 @@ fn build_logistics_graph<'id>(
         }
 
         edges.push(LogisticsEdgeDto {
-            id: format!("{}:{}:{}", item_key, edge.from.as_u32(), edge.to.as_u32()),
+            id: format!("{}:{}:{}", item_key, edge.from.as_u32(), edge.to.as_u32()).into_boxed_str(),
             item_key,
             item_name,
             source: logistics_node_id(edge.from),
@@ -261,8 +263,8 @@ fn build_logistics_graph<'id>(
         .into_iter()
         .map(|(item, stats)| {
             Ok::<_, Error>(LogisticsItemSummaryDto {
-                item_key: item_key(catalog, item)?.to_string(),
-                item_name: item_name(lang, catalog, item)?.to_string(),
+                item_key: item_key(catalog, item)?.into(),
+                item_name: item_name(lang, catalog, item)?.into(),
                 edge_count: stats.edge_count,
                 node_count: stats.node_ids.len(),
                 total_flow_per_min: stats.total_flow_per_min,
@@ -272,9 +274,9 @@ fn build_logistics_graph<'id>(
     items.sort_by(|lhs, rhs| lhs.item_key.cmp(&rhs.item_key));
 
     Ok(LogisticsGraphDto {
-        items,
-        nodes,
-        edges,
+        items: items.into_boxed_slice(),
+        nodes: nodes.into_boxed_slice(),
+        edges: edges.into_boxed_slice(),
     })
 }
 
@@ -292,13 +294,23 @@ fn describe_logistics_site<'id>(
     site: &LogisticsNodeSite<'id>,
     recipe_machines: &BTreeMap<RecipeId<'id>, u32>,
     thermal_banks: &BTreeMap<PowerRecipeId<'id>, u32>,
-) -> Result<(String, String)> {
+) -> Result<(Box<str>, Box<str>)> {
     match site {
         LogisticsNodeSite::ExternalSupply { item } => Ok((
-            "external_supply".to_string(),
+            "external_supply".into(),
             match lang {
-                Lang::Zh => format!("外部供给 ({})", item_name(lang, catalog, *item)?),
-                Lang::En => format!("External supply ({})", item_name(lang, catalog, *item)?),
+                Lang::Zh => format!("外部供给 ({})", item_name(lang, catalog, *item)?).into_boxed_str(),
+                Lang::En => format!("External supply ({})", item_name(lang, catalog, *item)?).into_boxed_str(),
+            },
+        )),
+        LogisticsNodeSite::ExternalConsumption { item } => Ok((
+            "external_consumption".into(),
+            match lang {
+                Lang::Zh => format!("外部消耗 ({})", item_name(lang, catalog, *item)?).into_boxed_str(),
+                Lang::En => format!(
+                    "External consumption ({})",
+                    item_name(lang, catalog, *item)?
+                ).into_boxed_str(),
             },
         )),
         LogisticsNodeSite::RecipeGroup { recipe_index } => {
@@ -306,10 +318,10 @@ fn describe_logistics_site<'id>(
             let facility = facility_name(lang, catalog, recipe.facility)?;
             let machines = recipe_machines.get(recipe_index).copied().unwrap_or(1);
             Ok((
-                "recipe_group".to_string(),
+                "recipe_group".into(),
                 match lang {
-                    Lang::Zh => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32()),
-                    Lang::En => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32()),
+                    Lang::Zh => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32()).into_boxed_str(),
+                    Lang::En => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32()).into_boxed_str(),
                 },
             ))
         }
@@ -321,18 +333,18 @@ fn describe_logistics_site<'id>(
                 .outpost(*outpost_index)
                 .ok_or(Error::MissingOutpost(*outpost_index))?;
             Ok((
-                "outpost_sale".to_string(),
+                "outpost_sale".into(),
                 match lang {
                     Lang::Zh => format!(
                         "{} 出售 ({})",
                         outpost_name(lang, outpost),
                         item_name(lang, catalog, *item)?
-                    ),
+                    ).into_boxed_str(),
                     Lang::En => format!(
                         "{} sale ({})",
                         outpost_name(lang, outpost),
                         item_name(lang, catalog, *item)?
-                    ),
+                    ).into_boxed_str(),
                 },
             ))
         }
@@ -342,14 +354,14 @@ fn describe_logistics_site<'id>(
         } => {
             let banks = thermal_banks.get(power_recipe_index).copied().unwrap_or(1);
             Ok((
-                "thermal_bank_group".to_string(),
+                "thermal_bank_group".into(),
                 match lang {
-                    Lang::Zh => format!("热容池组 x{} (p{})", banks, power_recipe_index.as_u32()),
+                    Lang::Zh => format!("热容池组 x{} (p{})", banks, power_recipe_index.as_u32()).into_boxed_str(),
                     Lang::En => format!(
                         "Thermal bank group x{} (p{})",
                         banks,
                         power_recipe_index.as_u32()
-                    ),
+                    ).into_boxed_str(),
                 },
             ))
         }
@@ -391,6 +403,6 @@ fn facility_name<'a, 'id>(
     })
 }
 
-fn logistics_node_id(node: end_opt::LogisticsNodeId) -> String {
-    format!("n{}", node.as_u32())
+fn logistics_node_id(node: end_opt::LogisticsNodeId) -> Box<str> {
+    format!("n{}", node.as_u32()).into_boxed_str()
 }

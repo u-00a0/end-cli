@@ -30,11 +30,11 @@
 <section class="editor-shell">
   <div class="panel-head">
     <div>
-      <h2>{t("配置编辑器", "Configuration Editor")}</h2>
+      <h2>{t("求解输入", "Solver Inputs")}</h2>
       <p class="subtitle">
         {t(
-          "输入参数决定自动求解目标空间。",
-          "Input values define the optimization space.",
+          "设置供给、外部消耗、据点收购价和电力预算，右侧会自动计算收益方案。",
+          "Set supply, external consumption, outpost prices, and power budget. The right side auto-solves revenue plans.",
         )}
       </p>
     </div>
@@ -78,7 +78,7 @@
   </div>
 
   <div class="field-row">
-    <label for="external-power">{t("额外耗电 (W)", "External Power (W)")}</label
+    <label for="external-power">{t("基地内外额外耗电 (W)", "External Power (W)")}</label
     >
     <input
       id="external-power"
@@ -150,7 +150,63 @@
 
   <article class="sub-panel">
     <div class="sub-header">
-      <h3>{t("据点", "Outposts")}</h3>
+      <h3>{t("外部消耗 / min", "External Consumption / min")}</h3>
+      <button
+        class="tiny"
+        onclick={actions.consumption.add}
+        aria-label={t("添加消耗条目", "Add consumption row")}
+        title={t("添加消耗条目", "Add consumption row")}
+      >
+        <span class="material-symbols-outlined icon" aria-hidden="true"
+          >add</span
+        >
+      </button>
+    </div>
+
+    {#if draft.consumption.length === 0}
+      <p class="hint">{t("暂无消耗条目。", "No consumption rows yet.")}</p>
+    {/if}
+
+    {#each draft.consumption as row, rowIndex}
+      <div class="row-grid">
+        <SelectField
+          value={row.itemKey}
+          options={catalogOptions}
+          ariaLabel={t("选择消耗物品", "Select consumption item")}
+          searchPlaceholder={t("搜索物品...", "Search items...")}
+          emptyText={t("无匹配物品", "No matching items")}
+          onChange={(nextValue) =>
+            actions.consumption.setKey(rowIndex, nextValue)}
+        />
+
+        <input
+          type="number"
+          min="0"
+          value={row.value}
+          oninput={(event) =>
+            actions.consumption.setValue(
+              rowIndex,
+              Number((event.currentTarget as HTMLInputElement).value),
+            )}
+        />
+
+        <button
+          class="danger tiny row-action"
+          onclick={() => actions.consumption.remove(rowIndex)}
+          aria-label={t("删除消耗条目", "Remove consumption row")}
+          title={t("删除消耗条目", "Remove consumption row")}
+        >
+          <span class="material-symbols-outlined icon" aria-hidden="true"
+            >close</span
+          >
+        </button>
+      </div>
+    {/each}
+  </article>
+
+  <article class="sub-panel">
+    <div class="sub-header">
+      <h3>{t("据点与收购价", "Outposts & Buy Prices")}</h3>
       <button
         class="tiny"
         onclick={actions.outposts.add}
@@ -268,7 +324,7 @@
             </div>
 
             <div class="sub-header mini">
-              <h5>{t("收购价", "Price Table")}</h5>
+              <h5>{t("收购价", "Buy Prices")}</h5>
               <button
                 class="tiny"
                 onclick={() => actions.prices.add(selectedOutpostIndex)}

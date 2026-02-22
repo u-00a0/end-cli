@@ -140,7 +140,7 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
             None => {
                 return Err(Error::UnknownFacility {
                     path: recipes_path.clone(),
-                    key: raw.facility.to_string(),
+                    key: raw.facility.to_string().into_boxed_str(),
                     span: Some(recipe_span),
                     src: Some(Arc::clone(&recipes_src)),
                 });
@@ -205,9 +205,9 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
 pub(crate) fn resolve_stack_list<'id>(
     path: &Path,
     src: &Arc<str>,
-    raw: Spanned<Vec<Spanned<StackToml>>>,
+    raw: Spanned<Box<[Spanned<StackToml>]>>,
     resolve_item: impl Fn(&str) -> Option<ItemId<'id>>,
-) -> Result<Vec<Stack<'id>>> {
+) -> Result<Box<[Stack<'id>]>> {
     let raw = raw.into_inner();
     let mut resolved = Vec::with_capacity(raw.len());
 
@@ -215,7 +215,7 @@ pub(crate) fn resolve_stack_list<'id>(
         resolved.push(resolve_stack(path, src, stack, &resolve_item)?);
     }
 
-    Ok(resolved)
+    Ok(resolved.into_boxed_slice())
 }
 
 /// Resolve one stack entry's `item` key into an internal item id.
@@ -229,7 +229,7 @@ pub(crate) fn resolve_stack<'id>(
     let raw = raw.into_inner();
     let item = resolve_item(raw.item.as_str()).ok_or_else(|| Error::UnknownItem {
         path: path.to_path_buf(),
-        key: raw.item.to_string(),
+        key: raw.item.to_string().into_boxed_str(),
         span: Some(span),
         src: Some(Arc::clone(src)),
     })?;

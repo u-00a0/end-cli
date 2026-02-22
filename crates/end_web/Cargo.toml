@@ -15,5 +15,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 
-[lints]
-workspace = true
+[lints.clippy]
+indexing_slicing = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+undocumented_unsafe_blocks = "warn"

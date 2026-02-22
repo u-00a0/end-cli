@@ -86,7 +86,7 @@ impl<'id> CatalogBuilder<'id> {
 
     pub fn build(self) -> Catalog<'id> {
         Catalog {
-            items: self.items,
+            items: self.items.into_boxed_slice(),
             item_index: self.item_index,
         }
     }
@@ -94,7 +94,7 @@ impl<'id> CatalogBuilder<'id> {
 
 #[derive(Debug, Clone)]
 pub struct Catalog<'id> {
-    items: Vec<String>,
+    items: Box<[String]>,
     item_index: HashMap<String, ItemId<'id>>,
 }
 
@@ -146,14 +146,14 @@ impl<'id> AicInputs<'id> {
 
 #[derive(Debug, Clone)]
 pub struct ItemVec<'id, T> {
-    values: Vec<T>,
+    values: Box<[T]>,
     _brand: PhantomData<fn(ItemId<'id>) -> ItemId<'id>>,
 }
 
 impl<'id, T: Clone> ItemVec<'id, T> {
     pub fn filled(catalog: &Catalog<'id>, value: T) -> Self {
         Self {
-            values: vec![value; catalog.item_count()],
+            values: vec![value; catalog.item_count()].into_boxed_slice(),
             _brand: PhantomData,
         }
     }
@@ -171,7 +171,7 @@ impl<'id, T> ItemVec<'id, T> {
     }
 
     pub fn as_slice(&self) -> &[T] {
-        &self.values
+        &*self.values
     }
 }
 

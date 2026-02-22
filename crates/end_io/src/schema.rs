@@ -9,7 +9,7 @@ use toml::Spanned;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ItemsToml {
-    pub(crate) items: Vec<Spanned<ItemToml>>,
+    pub(crate) items: Box<[Spanned<ItemToml>]>,
 }
 
 /// One item entry from `items.toml`.
@@ -29,7 +29,7 @@ pub(crate) struct ItemToml {
 #[serde(deny_unknown_fields)]
 pub(crate) struct FacilitiesToml {
     #[serde(default)]
-    pub(crate) machines: Vec<Spanned<MachineToml>>,
+    pub(crate) machines: Box<[Spanned<MachineToml>]>,
     pub(crate) thermal_bank: Spanned<ThermalBankToml>,
 }
 
@@ -63,9 +63,9 @@ pub(crate) struct ThermalBankToml {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct RecipesToml {
-    pub(crate) recipes: Vec<Spanned<RecipeToml>>,
+    pub(crate) recipes: Box<[Spanned<RecipeToml>]>,
     #[serde(default)]
-    pub(crate) power_recipes: Vec<Spanned<PowerRecipeToml>>,
+    pub(crate) power_recipes: Box<[Spanned<PowerRecipeToml>]>,
 }
 
 /// Raw `{ item, count }` pair shared by recipe and AIC inputs.
@@ -86,8 +86,8 @@ pub(crate) struct RecipeToml {
     pub(crate) facility: Key,
     #[serde(deserialize_with = "deserialize_positive_u32")]
     pub(crate) time_s: NonZeroU32,
-    pub(crate) ingredients: Spanned<Vec<Spanned<StackToml>>>,
-    pub(crate) products: Spanned<Vec<Spanned<StackToml>>>,
+    pub(crate) ingredients: Spanned<Box<[Spanned<StackToml>]>>,
+    pub(crate) products: Spanned<Box<[Spanned<StackToml>]>>,
 }
 
 /// One power recipe entry from `recipes.toml`.
@@ -107,10 +107,12 @@ pub(crate) struct PowerRecipeToml {
 pub(crate) struct AicToml {
     #[serde(deserialize_with = "deserialize_non_negative_u32")]
     pub(crate) external_power_consumption_w: u32,
-    #[serde(default = "default_empty_spanned_supply_per_min_map")]
+    #[serde(default = "default_empty_spanned_item_positive_u32_map")]
     pub(crate) supply_per_min: Spanned<BTreeMap<KeyToml, PositiveU32Toml>>,
+    #[serde(default = "default_empty_spanned_item_positive_u32_map")]
+    pub(crate) external_consumption_per_min: Spanned<BTreeMap<KeyToml, PositiveU32Toml>>,
     #[serde(default)]
-    pub(crate) outposts: Vec<Spanned<OutpostToml>>,
+    pub(crate) outposts: Box<[Spanned<OutpostToml>]>,
 }
 
 /// One outpost entry from `aic.toml`.
@@ -249,6 +251,6 @@ fn parse_non_negative_u32(value: i64) -> Result<u32, String> {
     u32::try_from(value).map_err(|_| format!("out of range for u32: {value}"))
 }
 
-fn default_empty_spanned_supply_per_min_map() -> Spanned<BTreeMap<KeyToml, PositiveU32Toml>> {
+fn default_empty_spanned_item_positive_u32_map() -> Spanned<BTreeMap<KeyToml, PositiveU32Toml>> {
     Spanned::new(0..0, BTreeMap::new())
 }

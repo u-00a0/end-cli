@@ -12,7 +12,7 @@ impl Lang {
             "zh" => Ok(Self::Zh),
             "en" => Ok(Self::En),
             value => Err(Error::UnknownLang {
-                value: value.to_string(),
+                value: value.to_string().into_boxed_str(),
             }),
         }
     }

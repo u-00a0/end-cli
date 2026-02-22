@@ -179,8 +179,8 @@ pub struct Stack<'id> {
 pub struct Recipe<'id> {
     pub facility: FacilityId<'id>,
     pub time_s: u32,
-    pub ingredients: Vec<Stack<'id>>,
-    pub products: Vec<Stack<'id>>,
+    pub ingredients: Box<[Stack<'id>]>,
+    pub products: Box<[Stack<'id>]>,
 }
 
 /// Thermal-bank power recipe definition.

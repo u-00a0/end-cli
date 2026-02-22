@@ -8,6 +8,8 @@
 - 热容池该喂哪种电池、要开几台
 - 卖给哪个据点哪些货，收益最高
 
+![demo](docs/demo.png)
+
 ## 安装 CLI 版本
 
 ### 方式一：下载 GitHub Releases 二进制文件
@@ -32,7 +34,7 @@ cargo install --git https://github.com/sssxks/end-cli end-cli
 end-cli init
 ```
 
-2. 编辑当前目录下的 `aic.toml`（外部供给、据点价格、据点上限、外部耗电）。
+2. 编辑当前目录下的 `aic.toml`（外部供给、外部消耗、据点价格、据点上限、外部耗电）。
 
 3. 运行求解:
 
@@ -66,6 +68,9 @@ external_power_consumption_w = 300
 "Ferrium Ore" = 160
 "Amethyst Ore" = 160
 
+[external_consumption_per_min]
+"Originium Ore" = 20
+
 [[outposts]]
 key = "Refugee Camp"
 money_cap_per_hour = 17316
@@ -78,6 +83,7 @@ Origocrust = 1
 
 - `external_power_consumption_w`: 非生产机器占用的额外电力
 - `supply_per_min`: 每种原料的每分钟外部供给
+- `external_consumption_per_min`: 场景每分钟的固定外部消耗（例如被任务从仓库提取）
 - `outposts[].money_cap_per_hour`: 据点每小时交易额上限
 - `outposts[].prices`: 各商品在该据点的收购价
 
@@ -104,7 +110,7 @@ end-cli solve --help
 
 ## 它到底在优化什么
 
-程序使用两阶段 MILP（混合整数线性规划）模型，详细公式见 [model_v1.md](docs/model_v1.md):
+程序使用两阶段 MILP（混合整数线性规划）模型，详细公式见 [model_v1.md](docs/blogs/model_v1.md):
 
 1. Stage 1: 最大化每分钟总收入
 2. Stage 2: 在 Stage 1 的最优收入附近，最小化机器总数（生产机器 + 热容池）

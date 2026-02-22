@@ -11,5 +11,9 @@ vector-map = { workspace = true }
 [dev-dependencies]
 trybuild = "1"
 
-[lints]
-workspace = true
+[lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+indexing_slicing = "warn"
+undocumented_unsafe_blocks = "warn"

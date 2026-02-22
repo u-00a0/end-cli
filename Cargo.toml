@@ -23,15 +23,6 @@ thiserror = "2"
 toml = "1"
 vector-map = "1"
 
-[workspace.lints.clippy]
-# unwrap_used = "deny"
-# expect_used = "deny"
-# panic = "deny"
-# dbg_macro = "warn"
-# cargo = "warn"
-# pedantic = "warn"
-indexing_slicing = "warn"
-
 # for PR #43 adds wasm32-unknown-emscripten support
 [patch.crates-io]
 highs-sys = { git = "https://github.com/rust-or/highs-sys" }

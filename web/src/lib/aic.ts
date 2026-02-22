@@ -1,8 +1,12 @@
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { asInt, asRecord, asString } from './coercions';
-import type { AicDraft, DraftPriceRow, DraftSupplyRow, OutpostDraft } from './types';
+import type {
+  AicDraft,
+  DraftPriceRow,
+  OutpostDraft
+} from './types';
 
-function parseSupply(map: Record<string, unknown>): DraftSupplyRow[] {
+function parseItemFlowRows(map: Record<string, unknown>): { itemKey: string; value: number }[] {
   return Object.entries(map)
     .map(([itemKey, value]) => ({
       itemKey,
@@ -39,6 +43,9 @@ function cleanDraft(draft: AicDraft): AicDraft {
     supply: draft.supply
       .filter((row) => row.itemKey.trim().length > 0)
       .map((row) => ({ itemKey: row.itemKey.trim(), value: asInt(row.value) })),
+    consumption: draft.consumption
+      .filter((row) => row.itemKey.trim().length > 0)
+      .map((row) => ({ itemKey: row.itemKey.trim(), value: asInt(row.value) })),
     outposts: draft.outposts
       .filter((outpost) => outpost.key.trim().length > 0)
       .map((outpost) => ({
@@ -57,7 +64,8 @@ export function parseAicToml(tomlText: string): AicDraft {
   const parsed = parseToml(tomlText) as Record<string, unknown>;
   return cleanDraft({
     externalPowerConsumptionW: asInt(parsed.external_power_consumption_w),
-    supply: parseSupply(asRecord(parsed.supply_per_min)),
+    supply: parseItemFlowRows(asRecord(parsed.supply_per_min)),
+    consumption: parseItemFlowRows(asRecord(parsed.external_consumption_per_min)),
     outposts: Array.isArray(parsed.outposts) ? parsed.outposts.map(parseOutpost) : []
   });
 }
@@ -67,6 +75,11 @@ export function buildAicToml(draft: AicDraft): string {
 
   const supplyPerMin = Object.fromEntries(
     cleaned.supply
+      .filter((row) => row.value > 0)
+      .map((row) => [row.itemKey, asInt(row.value)])
+  );
+  const externalConsumptionPerMin = Object.fromEntries(
+    cleaned.consumption
       .filter((row) => row.value > 0)
       .map((row) => [row.itemKey, asInt(row.value)])
   );
@@ -93,6 +106,7 @@ export function buildAicToml(draft: AicDraft): string {
   return stringifyToml({
     external_power_consumption_w: asInt(cleaned.externalPowerConsumptionW),
     supply_per_min: supplyPerMin,
+    external_consumption_per_min: externalConsumptionPerMin,
     outposts
   });
 }

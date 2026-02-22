@@ -3,34 +3,34 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("catalog load failed: {0}")]
+    #[error("Catalog load failed: {0}")]
     Catalog(#[source] end_io::Error),
 
-    #[error("default aic generation failed: {0}")]
+    #[error("Default aic generation failed: {0}")]
     DefaultAic(#[source] end_io::Error),
 
-    #[error("aic parse failed: {0}")]
+    #[error("Aic parse failed: {0}")]
     Aic(#[source] end_io::Error),
 
-    #[error("optimization failed: {0}")]
+    #[error("Optimization failed: {0}")]
     Optimize(#[source] end_opt::Error),
 
-    #[error("missing outpost id {0:?}")]
+    #[error("Missing outpost id {0:?}")]
     MissingOutpost(OutpostId),
 
-    #[error("missing logistics node {node:?} for item {item:?}")]
+    #[error("Missing logistics node {node:?} for item {item:?}")]
     MissingLogisticsNode {
         item: u32,
         node: end_opt::LogisticsNodeId,
     },
 
-    #[error("unknown lang `{value}` (expected `zh` or `en`)")]
-    UnknownLang { value: String },
+    #[error("Unknown lang `{value}` (expected `zh` or `en`)")]
+    UnknownLang { value: Box<str> },
 
-    #[error("null pointer for argument `{name}`")]
+    #[error("Null pointer for argument `{name}`")]
     NullPointer { name: &'static str },
 
-    #[error("argument `{name}` is not valid UTF-8")]
+    #[error("Argument `{name}` is not valid UTF-8")]
     InvalidUtf8 { name: &'static str },
 }
 

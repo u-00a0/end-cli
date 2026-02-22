@@ -1,7 +1,9 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use end_model::{
     AicInputs, Catalog, DisplayName, FacilityDef, ItemDef, Key, OutpostInput, Stack, ThermalBankDef,
 };
-use end_opt::{NEAR_INT_EPS, run_two_stage};
+use end_opt::{Error, NEAR_INT_EPS, run_two_stage};
 use generativity::Guard;
 use generativity::make_guard;
 use std::num::NonZeroU32;
@@ -61,11 +63,13 @@ fn sample_catalog<'id>(
             vec![Stack {
                 item: ore,
                 count: nz(1),
-            }],
+            }]
+            .into(),
             vec![Stack {
                 item: ingot,
                 count: nz(1),
-            }],
+            }]
+            .into(),
         )
         .expect("push recipe");
     }
@@ -83,6 +87,7 @@ fn sample_catalog_and_aic<'id>(
     let aic = AicInputs::parse(
         0,
         vec![(ore, nz(10))].into(),
+        Default::default(),
         vec![OutpostInput {
             key: key("Camp"),
             en: Some(name("Camp")),
@@ -103,6 +108,7 @@ fn run_two_stage_allows_empty_recipes_with_direct_external_sales() {
     let aic = AicInputs::parse(
         0,
         vec![(ore, nz(10))].into(),
+        Default::default(),
         vec![OutpostInput {
             key: key("Camp"),
             en: Some(name("Camp")),
@@ -193,4 +199,23 @@ fn stage2_respects_revenue_floor_and_basic_invariants() {
             "recipes_used must be sorted descending by machines"
         );
     }
+}
+
+#[test]
+fn run_two_stage_rejects_infeasible_external_consumption() {
+    make_guard!(guard);
+    let (catalog, ore, _ingot) = sample_catalog(guard, false);
+    let aic = AicInputs::parse(
+        0,
+        vec![(ore, nz(10))].into(),
+        vec![(ore, nz(11))].into(),
+        Vec::new(),
+    )
+    .expect("valid aic inputs");
+
+    let err = run_two_stage(&catalog, &aic).expect_err("infeasible scenario should fail");
+    assert!(
+        matches!(err, Error::Solver { .. }),
+        "unexpected error: {err:?}"
+    );
 }

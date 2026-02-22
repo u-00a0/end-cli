@@ -1,5 +1,6 @@
 mod aic_input;
 mod catalog;
+mod item_vec;
 mod text;
 
 pub use aic_input::{
@@ -9,4 +10,5 @@ pub use catalog::{
     Catalog, CatalogBuildError, CatalogBuilder, FacilityDef, FacilityId, ItemDef, ItemId,
     PowerRecipe, PowerRecipeId, Recipe, RecipeId, Stack, ThermalBankDef,
 };
+pub use item_vec::ItemVec;
 pub use text::{DisplayName, DisplayNameValidationError, Key, KeyValidationError};

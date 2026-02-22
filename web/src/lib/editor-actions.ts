@@ -13,6 +13,12 @@ export interface EditorActions {
     setKey: (index: number, key: string) => void;
     setValue: (index: number, value: number) => void;
   };
+  consumption: {
+    add: () => void;
+    remove: (index: number) => void;
+    setKey: (index: number, key: string) => void;
+    setValue: (index: number, value: number) => void;
+  };
   outposts: {
     add: () => void;
     remove: (index: number) => void;

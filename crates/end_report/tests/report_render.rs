@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use end_model::{
     AicInputs, Catalog, DisplayName, FacilityDef, ItemDef, Key, OutpostInput, Stack, ThermalBankDef,
 };
@@ -64,11 +66,13 @@ fn sample_catalog_and_inputs<'id>(
         vec![Stack {
             item: ore,
             count: nz(1),
-        }],
+        }]
+        .into(),
         vec![Stack {
             item: ingot,
             count: nz(1),
-        }],
+        }]
+        .into(),
     )
     .expect("push recipe");
 
@@ -77,6 +81,7 @@ fn sample_catalog_and_inputs<'id>(
     let aic = AicInputs::parse(
         0,
         vec![(ore, nz(10))].into(),
+        vec![(ore, nz(1))].into(),
         vec![OutpostInput {
             key: key("Camp"),
             en: Some(name("Camp")),
@@ -103,6 +108,7 @@ fn build_report_contains_key_sections_in_both_languages() {
     assert!(zh.contains("电力"));
     assert!(zh.contains("产线"));
     assert!(zh.contains("物流"));
+    assert!(zh.contains("外部消耗"));
 
     let en = build_report(Lang::En, &catalog, &aic, &result).expect("render en report");
     assert!(en.contains("Conclusion"));
@@ -110,4 +116,5 @@ fn build_report_contains_key_sections_in_both_languages() {
     assert!(en.contains("Power"));
     assert!(en.contains("Production"));
     assert!(en.contains("Logistics"));
+    assert!(en.contains("External consumption"));
 }

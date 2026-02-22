@@ -10,6 +10,7 @@
 
 ### 2.1 物料与配方
 - $s_i \ge 0$：每分钟外部供给
+- $c_i \ge 0$：每分钟外部消耗（如送货委托从仓库提取）
 - $a_{r,i}$：配方净变化
   - $a_{r,i} > 0$ 产出，$a_{r,i} < 0$ 消耗
 
@@ -68,12 +69,12 @@ $$
 
 - 对所有 $i \in I \setminus B$：
 $$
-s_i \;+\; \sum_{r \in R} a_{r,i}\, x_r \;-\; \sum_{o \in O} q_{o,i} \;\ge\; 0
+s_i \;+\; \sum_{r \in R} a_{r,i}\, x_r \;-\; c_i \;-\; \sum_{o \in O} q_{o,i} \;\ge\; 0
 $$
 
 - 对所有 $b \in B$：
 $$
-s_b \;+\; \sum_{r \in R} a_{r,b}\, x_r \;-\; \sum_{o \in O} q_{o,b} \;-\; \frac{60}{D_b}\, Z_b \;\ge\; 0
+s_b \;+\; \sum_{r \in R} a_{r,b}\, x_r \;-\; c_b \;-\; \sum_{o \in O} q_{o,b} \;-\; \frac{60}{D_b}\, Z_b \;\ge\; 0
 $$
 
 ### 5.2 outpost 每小时交易额上限

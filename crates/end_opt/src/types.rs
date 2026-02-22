@@ -130,6 +130,9 @@ pub enum DemandSite<'id> {
         recipe_index: RecipeId<'id>,
         item: ItemId<'id>,
     },
+    ExternalConsumption {
+        item: ItemId<'id>,
+    },
     OutpostSale {
         outpost_index: OutpostId,
         item: ItemId<'id>,
@@ -157,22 +160,22 @@ pub struct DemandNode<'id> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ItemSubproblem<'id> {
     item: ItemId<'id>,
-    supplies: Vec<SupplyNode<'id>>,
-    demands: Vec<DemandNode<'id>>,
+    supplies: Box<[SupplyNode<'id>]>,
+    demands: Box<[DemandNode<'id>]>,
 }
 
 impl<'id> ItemSubproblem<'id> {
     pub(crate) fn new(
         item: ItemId<'id>,
-        supplies: Vec<SupplyNode<'id>>,
-        demands: Vec<DemandNode<'id>>,
+        supplies: Box<[SupplyNode<'id>]>,
+        demands: Box<[DemandNode<'id>]>,
     ) -> Result<Self> {
         if demands.is_empty() {
             return Err(Error::InvalidInput {
                 message: format!(
                     "item {} subproblem requires at least one demand node",
                     item.as_u32()
-                ),
+                ).into_boxed_str(),
             });
         }
         let total_supply = supplies
@@ -212,6 +215,9 @@ pub enum LogisticsNodeSite<'id> {
     ExternalSupply {
         item: ItemId<'id>,
     },
+    ExternalConsumption {
+        item: ItemId<'id>,
+    },
     RecipeGroup {
         recipe_index: RecipeId<'id>,
     },
@@ -242,7 +248,7 @@ pub struct ItemFlowEdge<'id> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ItemFlowPlan<'id> {
     pub item: ItemId<'id>,
-    pub edges: Vec<ItemFlowEdge<'id>>,
+    pub edges: Box<[ItemFlowEdge<'id>]>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -255,8 +261,8 @@ pub struct LogisticsEdge<'id> {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LogisticsPlan<'id> {
-    pub nodes: Vec<LogisticsNode<'id>>,
-    pub edges: Vec<LogisticsEdge<'id>>,
+    pub nodes: Box<[LogisticsNode<'id>]>,
+    pub edges: Box<[LogisticsEdge<'id>]>,
 }
 
 /// Remaining slack for each externally supplied item.
@@ -290,18 +296,18 @@ pub struct StageSolution<'id> {
     /// `power_gen_w - power_use_w`.
     pub power_margin_w: i64,
     /// Per-outpost value realization.
-    pub outpost_values: Vec<OutpostValue>,
+    pub outpost_values: Box<[OutpostValue]>,
     /// Full sale lines with quantities and unit prices.
     /// Used to reconstruct logistics demands and derive top-sales summaries.
-    pub outpost_sales_qty: Vec<OutpostSaleQty<'id>>,
+    pub outpost_sales_qty: Box<[OutpostSaleQty<'id>]>,
     /// Machine counts by facility.
-    pub machines_by_facility: Vec<FacilityMachineCount<'id>>,
+    pub machines_by_facility: Box<[FacilityMachineCount<'id>]>,
     /// Top recipes by machine count.
-    pub recipes_used: Vec<RecipeUsage<'id>>,
+    pub recipes_used: Box<[RecipeUsage<'id>]>,
     /// Thermal bank allocations.
-    pub thermal_banks_used: Vec<ThermalBankUsage<'id>>,
+    pub thermal_banks_used: Box<[ThermalBankUsage<'id>]>,
     /// Slack information for externally supplied items.
-    pub external_supply_slack: Vec<ExternalSupplySlack<'id>>,
+    pub external_supply_slack: Box<[ExternalSupplySlack<'id>]>,
 }
 
 /// Combined output for stage 1 and stage 2.

@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use end_io::{Error, load_catalog};
 use generativity::make_guard;
 use std::fs;
@@ -158,7 +160,7 @@ products = [{ item = "A", count = 1 }]
                 ref kind,
                 ref key,
                 ..
-            } if *kind == "item" && key == "A"
+            } if *kind == "item" && &**key == "A"
         ),
         "unexpected error: {err:?}"
     );
@@ -182,7 +184,7 @@ products = [{ item = "B", count = 1 }]
     assert!(
         matches!(
             err,
-            Error::UnknownFacility { ref key, .. } if key == "Thermal Bank"
+            Error::UnknownFacility { ref key, .. } if &**key == "Thermal Bank"
         ),
         "unexpected error: {err:?}"
     );
@@ -224,7 +226,7 @@ products = [{ item = "B", count = 1 }]
     assert!(
         matches!(
             err,
-            Error::UnknownFacility { ref key, .. } if key == "Unknown Facility"
+            Error::UnknownFacility { ref key, .. } if &**key == "Unknown Facility"
         ),
         "unexpected error: {err:?}"
     );
@@ -246,7 +248,7 @@ products = [{ item = "B", count = 1 }]
     .expect_err("unknown item in recipe should fail");
 
     assert!(
-        matches!(err, Error::UnknownItem { ref key, .. } if key == "NoSuchItem"),
+        matches!(err, Error::UnknownItem { ref key, .. } if &**key == "NoSuchItem"),
         "unexpected error: {err:?}"
     );
 }
@@ -274,7 +276,7 @@ zh = "Thermal_Bank_zh"
     assert_toml_parse_with_span(
         &err,
         "facilities.toml",
-        "key must not have leading/trailing spaces",
+        "Key must not have leading/trailing spaces",
     );
 }
 

@@ -5,15 +5,15 @@ use crate::types::{
     ExternalSupplySlack, FacilityMachineCount, OptimizationResult, OutpostSaleQty, OutpostValue,
     PosF64, RecipeUsage, StageSolution, ThermalBankUsage,
 };
-use end_model::{AicInputs, Catalog, FacilityId, ItemId, OutpostId, PowerRecipeId, RecipeId};
+use end_model::{
+    AicInputs, Catalog, FacilityId, ItemId, ItemVec, OutpostId, PowerRecipeId, RecipeId,
+};
 use good_lp::{
     Expression, Solution, SolverModel, Variable, constraint, default_solver, variable, variables,
 };
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::num::NonZeroU32;
-use std::ops::{Index, IndexMut};
 
 /// Maximum tolerated distance from an integer value for decoded integer variables.
 pub const NEAR_INT_EPS: f64 = 1e-6;
@@ -49,52 +49,6 @@ struct PowerVars<'id> {
     power_w: u32,
     duration_s: u32,
     z: Variable,
-}
-
-#[derive(Debug, Clone)]
-struct ItemVec<'id, T> {
-    values: Vec<T>,
-    _brand: PhantomData<fn(ItemId<'id>) -> ItemId<'id>>,
-}
-
-impl<'id, T: Clone> ItemVec<'id, T> {
-    fn filled(catalog: &Catalog<'id>, value: T) -> Self {
-        Self {
-            values: vec![value; catalog.items().len()],
-            _brand: PhantomData,
-        }
-    }
-}
-
-impl<'id, T> ItemVec<'id, T> {
-    fn get(&self, item: ItemId<'id>) -> &T {
-        // SAFETY: same-brand `ItemId<'id>` is minted from the source catalog and
-        // `ItemVec<'id, _>` is allocated with that catalog's dense item count.
-        unsafe { self.values.get_unchecked(item.index()) }
-    }
-
-    fn get_mut(&mut self, item: ItemId<'id>) -> &mut T {
-        // SAFETY: same reasoning as `get`.
-        unsafe { self.values.get_unchecked_mut(item.index()) }
-    }
-
-    fn iter(&self) -> impl Iterator<Item = &T> {
-        self.values.iter()
-    }
-}
-
-impl<'id, T> Index<ItemId<'id>> for ItemVec<'id, T> {
-    type Output = T;
-
-    fn index(&self, index: ItemId<'id>) -> &Self::Output {
-        self.get(index)
-    }
-}
-
-impl<'id, T> IndexMut<ItemId<'id>> for ItemVec<'id, T> {
-    fn index_mut(&mut self, index: ItemId<'id>) -> &mut Self::Output {
-        self.get_mut(index)
-    }
 }
 
 /// Run the two-stage optimizer:
@@ -230,6 +184,14 @@ fn solve_stage<'id>(
         },
     );
 
+    let item_balance = aic.external_consumption_per_min().iter().fold(
+        item_balance,
+        |mut item_balance, (item, consume)| {
+            item_balance[item] -= consume.get() as f64;
+            item_balance
+        },
+    );
+
     let item_balance = recipe_vars
         .iter()
         .fold(item_balance, |mut item_balance, rv| {
@@ -291,16 +253,16 @@ fn solve_stage<'id>(
 
     let revenue_per_min = solution.eval(&revenue);
     let total_machines = near_u32(
-        || "total_machines".to_string(),
+        || "total_machines".into(),
         solution.eval(&total_machines),
     )?;
     let total_thermal_banks = near_u32(
-        || "total_thermal_banks".to_string(),
+        || "total_thermal_banks".into(),
         solution.eval(&total_thermal_banks),
     )?;
 
-    let power_gen_w = near_i64(|| "power_gen_w".to_string(), solution.eval(&power_gen))?;
-    let power_use_w = near_i64(|| "power_use_w".to_string(), solution.eval(&power_use))?;
+    let power_gen_w = near_i64(|| "power_gen_w".into(), solution.eval(&power_gen))?;
+    let power_use_w = near_i64(|| "power_use_w".into(), solution.eval(&power_use))?;
     let power_margin_w = power_gen_w - power_use_w;
 
     let mut outpost_sales_qty = Vec::with_capacity(
@@ -323,7 +285,7 @@ fn solve_stage<'id>(
                         "outpost_sales_qty[outpost={},item={}]",
                         ov.outpost_index.as_u32(),
                         item.as_u32()
-                    ),
+                    ).into_boxed_str(),
                     value: qty_value,
                 })?;
                 let value = *price as f64 * qty_value;
@@ -355,7 +317,7 @@ fn solve_stage<'id>(
         ),
         |(mut machines_by_facility_map, mut recipes_used), rv| -> Result<_> {
             let machines = near_u32(
-                || format!("recipes[{}].machines", rv.recipe_index.as_u32()),
+                || format!("recipes[{}].machines", rv.recipe_index.as_u32()).into_boxed_str(),
                 solution.value(rv.y),
             )?;
             let executions_per_min = solution.value(rv.x);
@@ -382,7 +344,7 @@ fn solve_stage<'id>(
     let mut thermal_banks_used = Vec::with_capacity(power_vars.len());
     for pv in &power_vars {
         let banks = near_u32(
-            || format!("power_recipes[{}].banks", pv.power_recipe_index.as_u32()),
+            || format!("power_recipes[{}].banks", pv.power_recipe_index.as_u32()).into_boxed_str(),
             solution.value(pv.z),
         )?;
         if banks == 0 {
@@ -393,7 +355,7 @@ fn solve_stage<'id>(
             message: format!(
                 "power_recipes[{}].banks decoded as zero unexpectedly",
                 pv.power_recipe_index.as_u32()
-            ),
+            ).into_boxed_str(),
         })?;
         thermal_banks_used.push(ThermalBankUsage {
             power_recipe_index: pv.power_recipe_index,
@@ -428,18 +390,18 @@ fn solve_stage<'id>(
         power_gen_w,
         power_use_w,
         power_margin_w,
-        outpost_values,
-        outpost_sales_qty,
-        machines_by_facility,
-        recipes_used,
-        thermal_banks_used,
-        external_supply_slack,
+        outpost_values: outpost_values.into_boxed_slice(),
+        outpost_sales_qty: outpost_sales_qty.into_boxed_slice(),
+        machines_by_facility: machines_by_facility.into_boxed_slice(),
+        recipes_used: recipes_used.into_boxed_slice(),
+        thermal_banks_used: thermal_banks_used.into_boxed_slice(),
+        external_supply_slack: external_supply_slack.into_boxed_slice(),
     })
 }
 
 fn near_u32<F>(var_name: F, value: f64) -> Result<u32>
 where
-    F: FnOnce() -> String,
+    F: FnOnce() -> Box<str>,
 {
     if !value.is_finite() {
         return Err(Error::OutOfRange {
@@ -472,7 +434,7 @@ where
 
 fn near_i64<F>(var_name: F, value: f64) -> Result<i64>
 where
-    F: FnOnce() -> String,
+    F: FnOnce() -> Box<str>,
 {
     if !value.is_finite() {
         return Err(Error::OutOfRange {

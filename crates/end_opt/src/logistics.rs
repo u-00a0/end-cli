@@ -34,6 +34,21 @@ pub fn build_item_subproblems<'id>(
         )?;
     }
 
+    let mut external_consumption = inputs
+        .external_consumption_per_min()
+        .iter()
+        .collect::<Vec<_>>();
+    external_consumption.sort_by_key(|(item, _)| item.as_u32());
+    for (item, consumption) in external_consumption {
+        push_demand(
+            &mut per_item,
+            item,
+            DemandSite::ExternalConsumption { item },
+            consumption.get() as f64,
+            "external_consumption",
+        )?;
+    }
+
     let mut recipe_usage = stage.recipes_used.clone();
     recipe_usage.sort_by_key(|run| run.recipe_index.as_u32());
 
@@ -53,7 +68,7 @@ pub fn build_item_subproblems<'id>(
                     run.recipe_index.as_u32(),
                     run.executions_per_min,
                     machine_capacity,
-                ),
+                ).into_boxed_str(),
             });
         }
 
@@ -130,7 +145,8 @@ pub fn build_item_subproblems<'id>(
                     site,
                     capacity_per_min,
                 })
-                .collect::<Vec<_>>();
+                .collect::<Vec<_>>()
+                .into_boxed_slice();
             let demands = bucket
                 .demands
                 .into_iter()
@@ -140,7 +156,8 @@ pub fn build_item_subproblems<'id>(
                     site,
                     demand_per_min,
                 })
-                .collect::<Vec<_>>();
+                .collect::<Vec<_>>()
+                .into_boxed_slice();
 
             ItemSubproblem::new(item, supplies, demands)
         })
@@ -198,7 +215,7 @@ pub fn solve_item_best_fit<'id>(subproblem: &ItemSubproblem<'id>) -> Result<Item
                         "selected supply index {} out of bounds for item {}",
                         supply_index,
                         subproblem.item().as_u32()
-                    ),
+                    ).into_boxed_str(),
                 })?;
             let supply_id = supply.id;
             let available = supply.remaining;
@@ -241,7 +258,7 @@ pub fn solve_item_best_fit<'id>(subproblem: &ItemSubproblem<'id>) -> Result<Item
                     subproblem.item().as_u32(),
                     from.as_u32(),
                     to.as_u32()
-                ),
+                ).into_boxed_str(),
                 value: flow_per_min,
             })?;
             Ok(ItemFlowEdge {
@@ -251,7 +268,8 @@ pub fn solve_item_best_fit<'id>(subproblem: &ItemSubproblem<'id>) -> Result<Item
                 flow_per_min,
             })
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()?
+        .into_boxed_slice();
 
     Ok(ItemFlowPlan {
         item: subproblem.item(),
@@ -307,7 +325,7 @@ pub fn build_logistics_plan<'id>(
                     item.as_u32(),
                     from.as_u32(),
                     to.as_u32()
-                ),
+                ).into_boxed_str(),
                 value: flow_per_min,
             })?;
             Ok(LogisticsEdge {
@@ -317,14 +335,21 @@ pub fn build_logistics_plan<'id>(
                 flow_per_min,
             })
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()?
+        .into_boxed_slice();
 
-    Ok(LogisticsPlan { nodes, edges })
+    Ok(LogisticsPlan {
+        nodes: nodes.into_boxed_slice(),
+        edges,
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum LogisticsNodeKey<'id> {
     ExternalSupply {
+        item: ItemId<'id>,
+    },
+    ExternalConsumption {
         item: ItemId<'id>,
     },
     RecipeGroup {
@@ -373,6 +398,7 @@ fn demand_site_key<'id>(site: &DemandSite<'id>) -> LogisticsNodeKey<'id> {
             recipe_index,
             item: _,
         } => LogisticsNodeKey::RecipeGroup { recipe_index },
+        DemandSite::ExternalConsumption { item } => LogisticsNodeKey::ExternalConsumption { item },
         DemandSite::OutpostSale {
             outpost_index,
             item,
@@ -393,6 +419,9 @@ fn demand_site_key<'id>(site: &DemandSite<'id>) -> LogisticsNodeKey<'id> {
 fn key_to_site<'id>(key: LogisticsNodeKey<'id>) -> LogisticsNodeSite<'id> {
     match key {
         LogisticsNodeKey::ExternalSupply { item } => LogisticsNodeSite::ExternalSupply { item },
+        LogisticsNodeKey::ExternalConsumption { item } => {
+            LogisticsNodeSite::ExternalConsumption { item }
+        }
         LogisticsNodeKey::RecipeGroup { recipe_index } => {
             LogisticsNodeSite::RecipeGroup { recipe_index }
         }
@@ -465,7 +494,7 @@ fn pos_with_eps(value: f64, context: &'static str) -> Result<Option<PosF64>> {
         return Ok(None);
     }
     let pos = PosF64::new(value).ok_or(Error::InvalidPositiveFlow {
-        context: context.to_string(),
+        context: context.to_string().into_boxed_str(),
         value,
     })?;
     Ok(Some(pos))
@@ -535,6 +564,8 @@ fn find_largest_non_empty_supply(remaining_supply: &[SupplyState]) -> Option<usi
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
     use super::{build_logistics_plan, solve_item_best_fit};
     use crate::LOGISTICS_EPS;
     use crate::run_two_stage;
@@ -580,7 +611,8 @@ mod tests {
                     site: SupplySite::ExternalSupply { item },
                     capacity_per_min: PosF64::new(5.0).expect("positive"),
                 },
-            ],
+            ]
+            .into_boxed_slice(),
             vec![
                 DemandNode {
                     id: DemandNodeId::from_index(0),
@@ -606,7 +638,8 @@ mod tests {
                     },
                     demand_per_min: PosF64::new(4.0).expect("positive"),
                 },
-            ],
+            ]
+            .into_boxed_slice(),
         )
         .expect("feasible subproblem");
 
@@ -695,11 +728,13 @@ mod tests {
                 vec![Stack {
                     item: ore,
                     count: nz(1),
-                }],
+                }]
+                .into(),
                 vec![Stack {
                     item: ingot,
                     count: nz(1),
-                }],
+                }]
+                .into(),
             )
             .expect("push smelting recipe");
         b.push_recipe(
@@ -708,11 +743,13 @@ mod tests {
             vec![Stack {
                 item: ingot,
                 count: nz(2),
-            }],
+            }]
+            .into(),
             vec![Stack {
                 item: gear,
                 count: nz(1),
-            }],
+            }]
+            .into(),
         )
         .expect("push gear recipe");
 
@@ -721,6 +758,7 @@ mod tests {
         let aic = AicInputs::parse(
             0,
             vec![(ore, nz(20))].into(),
+            Default::default(),
             vec![OutpostInput {
                 key: key("Camp"),
                 en: Some(name("Camp")),
@@ -783,6 +821,53 @@ mod tests {
         );
     }
 
+    #[test]
+    fn logistics_plan_contains_external_consumption_demands() {
+        make_guard!(guard);
+        let (catalog, item) = sample_catalog(guard);
+        let aic = AicInputs::parse(
+            0,
+            vec![(item, nz(10))].into(),
+            vec![(item, nz(4))].into(),
+            vec![OutpostInput {
+                key: key("sink"),
+                en: Some(name("sink")),
+                zh: Some(name("sink")),
+                money_cap_per_hour: 0,
+                prices: vec![(item, 1)].into(),
+            }],
+        )
+        .expect("valid aic");
+
+        let solved = run_two_stage(&catalog, &aic).expect("solve scenario");
+        let external_consumption_node =
+            solved
+                .logistics
+                .nodes
+                .iter()
+                .find_map(|node| match node.site {
+                    LogisticsNodeSite::ExternalConsumption { item: node_item }
+                        if node_item == item =>
+                    {
+                        Some(node.id)
+                    }
+                    _ => None,
+                });
+        let Some(external_consumption_node) = external_consumption_node else {
+            panic!("external consumption node should exist");
+        };
+
+        let has_incoming = solved
+            .logistics
+            .edges
+            .iter()
+            .any(|edge| edge.to == external_consumption_node && edge.item == item);
+        assert!(
+            has_incoming,
+            "external consumption node should have incoming item flow"
+        );
+    }
+
     fn sample_catalog<'id>(
         guard: generativity::Guard<'id>,
     ) -> (Catalog<'id>, end_model::ItemId<'id>) {
@@ -807,6 +892,7 @@ mod tests {
     fn sample_outpost_id() -> end_model::OutpostId {
         let aic = AicInputs::parse(
             0,
+            Default::default(),
             Default::default(),
             vec![OutpostInput {
                 key: key("camp"),

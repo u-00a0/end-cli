@@ -157,8 +157,8 @@ impl<'id, State: ThermalBankState> CatalogBuilder<'id, State> {
         &mut self,
         facility: FacilityId<'id>,
         time_s: NonZeroU32,
-        ingredients: Vec<Stack<'id>>,
-        products: Vec<Stack<'id>>,
+        ingredients: Box<[Stack<'id>]>,
+        products: Box<[Stack<'id>]>,
     ) -> Result<RecipeId<'id>, CatalogBuildError> {
         if ingredients.is_empty() {
             return Err(CatalogBuildError::RecipeIngredientsMustNotBeEmpty);
@@ -238,10 +238,10 @@ impl<'id> CatalogBuilder<'id, ThermalBankReady> {
         } = self;
         Catalog {
             brand,
-            items,
-            facilities,
-            recipes,
-            power_recipes,
+            items: items.into_boxed_slice(),
+            facilities: facilities.into_boxed_slice(),
+            recipes: recipes.into_boxed_slice(),
+            power_recipes: power_recipes.into_boxed_slice(),
             item_index,
             facility_index,
             thermal_bank: thermal_bank.into_inner(),

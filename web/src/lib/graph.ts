@@ -26,6 +26,7 @@ interface SCCResult {
 
 const kindColor: Record<string, string> = {
   external_supply: '#2f8f83',
+  external_consumption: '#c65a3a',
   recipe_group: '#2a678a',
   outpost_sale: '#b16d00',
   thermal_bank_group: '#8b305e'
@@ -461,7 +462,7 @@ export function buildFlowGraph(
       const isInSCC = sccComponent !== undefined && sccComponent.length >= SCC_MIN_SIZE;
 
       // 输出节点（outpost_sale）只有输入 handle（左边）
-      const isOutputNode = node.kind === 'outpost_sale';
+      const isOutputNode = node.kind === 'outpost_sale' || node.kind === 'external_consumption';
 
       // SCC 节点使用特殊边框样式
       const borderStyle = isInSCC

@@ -71,19 +71,19 @@ impl fmt::Display for Key {
 
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum KeyValidationError {
-    #[error("key must not be blank")]
+    #[error("Key must not be blank")]
     Blank,
-    #[error("key must not have leading/trailing spaces")]
+    #[error("Key must not have leading/trailing spaces")]
     LeadingOrTrailingSpaces,
 }
 
 /// Non-empty localized display name used by model entities.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct DisplayName(String);
+pub struct DisplayName(Box<str>);
 
 impl DisplayName {
     pub fn as_str(&self) -> &str {
-        self.0.as_str()
+        self.0.as_ref()
     }
 }
 
@@ -94,7 +94,7 @@ impl TryFrom<String> for DisplayName {
         if value.trim().is_empty() {
             return Err(DisplayNameValidationError::Blank);
         }
-        Ok(Self(value))
+        Ok(Self(value.into_boxed_str()))
     }
 }
 
@@ -102,7 +102,10 @@ impl TryFrom<&str> for DisplayName {
     type Error = DisplayNameValidationError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::try_from(value.to_string())
+        if value.trim().is_empty() {
+            return Err(DisplayNameValidationError::Blank);
+        }
+        Ok(Self(value.into()))
     }
 }
 
@@ -128,12 +131,13 @@ impl fmt::Display for DisplayName {
 
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum DisplayNameValidationError {
-    #[error("must not be blank")]
+    #[error("Display name must not be blank")]
     Blank,
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::{DisplayName, DisplayNameValidationError, Key, KeyValidationError};
 
     #[test]

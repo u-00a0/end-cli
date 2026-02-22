@@ -102,7 +102,7 @@ impl<'id> IntoIterator for ItemU32Map<'id> {
 /// Sparse map keyed by [`ItemId`] with non-zero values and unique keys guaranteed by representation.
 ///
 /// This currently uses a vector-backed map (`VecMap`) and is intended for small collections
-/// such as scenario external supply tables.
+/// such as scenario external supply/consumption tables.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ItemNonZeroU32Map<'id>(VecMap<ItemId<'id>, NonZeroU32>);
 
@@ -188,12 +188,13 @@ pub struct OutpostInput<'id> {
 pub struct AicInputs<'id> {
     external_power_consumption_w: u32,
     supply_per_min: ItemNonZeroU32Map<'id>,
-    outposts: Vec<OutpostInput<'id>>,
+    external_consumption_per_min: ItemNonZeroU32Map<'id>,
+    outposts: Box<[OutpostInput<'id>]>,
 }
 
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum AicBuildError {
-    #[error("duplicate outpost key: {key}")]
+    #[error("Duplicate outpost key: {key}")]
     DuplicateOutpostKey { key: Key },
 }
 
@@ -201,6 +202,7 @@ impl<'id> AicInputs<'id> {
     pub fn parse(
         external_power_consumption_w: u32,
         supply_per_min: ItemNonZeroU32Map<'id>,
+        external_consumption_per_min: ItemNonZeroU32Map<'id>,
         outposts: Vec<OutpostInput<'id>>,
     ) -> Result<Self, AicBuildError> {
         let mut seen = HashSet::with_capacity(outposts.len());
@@ -215,7 +217,8 @@ impl<'id> AicInputs<'id> {
         Ok(Self {
             external_power_consumption_w,
             supply_per_min,
-            outposts,
+            external_consumption_per_min,
+            outposts: outposts.into_boxed_slice(),
         })
     }
 
@@ -225,6 +228,10 @@ impl<'id> AicInputs<'id> {
 
     pub fn supply_per_min(&self) -> &ItemNonZeroU32Map<'id> {
         &self.supply_per_min
+    }
+
+    pub fn external_consumption_per_min(&self) -> &ItemNonZeroU32Map<'id> {
+        &self.external_consumption_per_min
     }
 
     pub fn outposts(&self) -> &[OutpostInput<'id>] {
@@ -247,6 +254,7 @@ impl<'id> AicInputs<'id> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use generativity::make_guard;
 
     use crate::{
@@ -339,6 +347,7 @@ mod tests {
         let err = crate::AicInputs::parse(
             0,
             vec![(b, NonZeroU32::new(1).expect("non-zero"))].into(),
+            Default::default(),
             vec![
                 OutpostInput {
                     key: camp.clone(),

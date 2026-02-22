@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 use std::num::NonZeroU32;
 
 use generativity::Guard;
@@ -77,11 +78,13 @@ fn push_recipe_rejects_duplicate_items_in_same_list() {
                     item: a,
                     count: nz(2),
                 },
-            ],
+            ]
+            .into(),
             vec![Stack {
                 item: b,
                 count: nz(1),
-            }],
+            }]
+            .into(),
         )
         .expect_err("duplicate ingredients should fail");
 

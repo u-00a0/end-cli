@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use end_io::{Error, default_aic_toml, load_aic, load_catalog};
 use end_model::{AicInputs, Catalog};
 use generativity::make_guard;
@@ -65,7 +67,34 @@ external_power_consumption_w = 0
                 ref key,
                 ref span,
                 ..
-            } if key == "Unknown Item" && span.is_some()
+            } if &**key == "Unknown Item" && span.is_some()
+        ),
+        "unexpected error: {err:?}"
+    );
+}
+
+#[test]
+fn load_aic_rejects_unknown_external_consumption_item() {
+    make_guard!(guard);
+    let catalog = load_catalog(None, guard).expect("load builtin catalog");
+    let err = load_aic_from_str(
+        r#"
+external_power_consumption_w = 0
+
+[external_consumption_per_min]
+"Unknown Item" = 1
+"#,
+        &catalog,
+    )
+    .expect_err("unknown item should fail");
+    assert!(
+        matches!(
+            err,
+            Error::UnknownItem {
+                ref key,
+                ref span,
+                ..
+            } if &**key == "Unknown Item" && span.is_some()
         ),
         "unexpected error: {err:?}"
     );
@@ -101,7 +130,7 @@ prices = {{ "{price_item}" = 2 }}
                 ref key,
                 ref span,
                 ..
-            } if *kind == "outpost" && key == "Dup" && span.is_some()
+            } if *kind == "outpost" && &**key == "Dup" && span.is_some()
         ),
         "unexpected error: {err:?}"
     );
@@ -122,6 +151,24 @@ external_power_consumption_w = 0
     );
 
     let err = load_aic_from_str(&src, &catalog).expect_err("zero supply should fail");
+    assert_toml_parse_with_span(&err, "aic.toml", "must be >= 1, got 0");
+}
+
+#[test]
+fn load_aic_rejects_zero_external_consumption_value() {
+    make_guard!(guard);
+    let catalog = load_catalog(None, guard).expect("load builtin catalog");
+    let (consume_item, _) = first_two_item_keys(&catalog);
+    let src = format!(
+        r#"
+external_power_consumption_w = 0
+
+[external_consumption_per_min]
+"{consume_item}" = 0
+"#
+    );
+
+    let err = load_aic_from_str(&src, &catalog).expect_err("zero consumption should fail");
     assert_toml_parse_with_span(&err, "aic.toml", "must be >= 1, got 0");
 }
 
@@ -177,7 +224,7 @@ prices = {{ "{price_item}" = 1 }}
     assert_toml_parse_with_span(
         &err,
         "aic.toml",
-        "key must not have leading/trailing spaces",
+        "Key must not have leading/trailing spaces",
     );
 }
 
@@ -193,6 +240,9 @@ external_power_consumption_w = 0
 [supply_per_min]
 "{supply_item}" = 1
 
+[external_consumption_per_min]
+"{supply_item}" = 1
+
 [[outposts]]
 key = "Camp"
 money_cap_per_hour = 60
@@ -202,6 +252,7 @@ prices = {{ "{price_item}" = 1 }}
 
     let aic = load_aic_from_str(&src, &catalog).expect("valid aic should load");
     assert_eq!(aic.external_power_consumption_w(), 0);
+    assert_eq!(aic.external_consumption_per_min().len(), 1);
     assert_eq!(aic.outposts().len(), 1);
 }
 
@@ -215,5 +266,9 @@ fn default_aic_toml_roundtrip_is_loadable() {
     assert!(
         !loaded.outposts().is_empty(),
         "default aic should have outposts"
+    );
+    assert!(
+        !loaded.external_consumption_per_min().is_empty(),
+        "default aic should have external consumption rows"
     );
 }

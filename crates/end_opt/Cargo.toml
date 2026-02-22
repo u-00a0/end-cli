@@ -12,5 +12,11 @@ thiserror = { workspace = true }
 [dev-dependencies]
 generativity = { workspace = true }
 
-[lints]
-workspace = true
+[lints.rust]
+unsafe_code = "warn"
+
+[lints.clippy]
+indexing_slicing = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"

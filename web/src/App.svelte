@@ -6,13 +6,17 @@
   import "./styles/app-shell.css";
   import { buildAicToml, parseAicToml } from "./lib/aic";
   import {
+    addConsumptionRow,
     addOutpost,
     addPriceRow,
     addSupplyRow,
     normalizeSelectedOutpostIndex,
+    removeConsumptionRow,
     removeOutpost,
     removePriceRow,
     removeSupplyRow,
+    setConsumptionKey,
+    setConsumptionValue,
     setExternalPower,
     setOutpostField,
     setPriceKey,
@@ -269,7 +273,8 @@
       if (
         !hasRestoredDraftFromStorage &&
         draft.outposts.length === 0 &&
-        draft.supply.length === 0
+        draft.supply.length === 0 &&
+        draft.consumption.length === 0
       ) {
         applyToml(defaultToml);
       }
@@ -356,6 +361,20 @@
       },
       setValue: (index, value) => {
         draft = setSupplyValue(draft, index, value);
+      },
+    },
+    consumption: {
+      add: () => {
+        draft = addConsumptionRow(draft, catalogItems[0]?.key ?? "");
+      },
+      remove: (index) => {
+        draft = removeConsumptionRow(draft, index);
+      },
+      setKey: (index, key) => {
+        draft = setConsumptionKey(draft, index, key);
+      },
+      setValue: (index, value) => {
+        draft = setConsumptionValue(draft, index, value);
       },
     },
     outposts: {
@@ -512,21 +531,21 @@
         class:active={activeTab === "editor"}
         onclick={() => (activeTab = "editor")}
       >
-        {t("编辑器", "Editor")}
+        {t("输入", "Inputs")}
       </button>
       <button
         type="button"
         class:active={activeTab === "result"}
         onclick={() => (activeTab = "result")}
       >
-        {t("结果", "Result")}
+        {t("评估", "Summary")}
       </button>
       <button
         type="button"
         class:active={activeTab === "graph"}
         onclick={() => (activeTab = "graph")}
       >
-        {t("图谱", "Graph")}
+        {t("物流", "Flow")}
       </button>
     </nav>
   {/if}

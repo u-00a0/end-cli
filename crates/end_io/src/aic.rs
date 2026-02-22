@@ -65,11 +65,29 @@ fn resolve_aic<'id>(
             .item_id(item_key.as_str())
             .ok_or_else(|| Error::UnknownItem {
                 path: path.clone(),
-                key: item_key.to_string(),
+                key: item_key.to_string().into_boxed_str(),
                 span: Some(supply_per_min_span.clone()),
                 src: Some(Arc::clone(&src)),
             })?;
         supply_per_min.insert(item, value);
+    }
+
+    let external_consumption_per_min_span = raw.external_consumption_per_min.span();
+    let raw_external_consumption_per_min = raw.external_consumption_per_min.into_inner();
+    let mut external_consumption_per_min =
+        ItemNonZeroU32Map::with_capacity(raw_external_consumption_per_min.len());
+    for (item_key, value) in raw_external_consumption_per_min {
+        let item_key = item_key.into_inner();
+        let value = value.into_inner();
+        let item = catalog
+            .item_id(item_key.as_str())
+            .ok_or_else(|| Error::UnknownItem {
+                path: path.clone(),
+                key: item_key.to_string().into_boxed_str(),
+                span: Some(external_consumption_per_min_span.clone()),
+                src: Some(Arc::clone(&src)),
+            })?;
+        external_consumption_per_min.insert(item, value);
     }
 
     let mut outposts = Vec::with_capacity(raw.outposts.len());
@@ -90,7 +108,7 @@ fn resolve_aic<'id>(
                 .item_id(item_key.as_str())
                 .ok_or_else(|| Error::UnknownItem {
                     path: path.clone(),
-                    key: item_key.to_string(),
+                    key: item_key.to_string().into_boxed_str(),
                     span: Some(prices_span.clone()),
                     src: Some(Arc::clone(&src)),
                 })?;
@@ -106,6 +124,11 @@ fn resolve_aic<'id>(
         });
     }
 
-    AicInputs::parse(external_power_consumption_w, supply_per_min, outposts)
-        .map_err(|source| map_aic_build_error(path, Arc::clone(&src), source, &outpost_spans))
+    AicInputs::parse(
+        external_power_consumption_w,
+        supply_per_min,
+        external_consumption_per_min,
+        outposts,
+    )
+    .map_err(|source| map_aic_build_error(path, Arc::clone(&src), source, &outpost_spans))
 }

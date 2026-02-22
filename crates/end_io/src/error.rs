@@ -11,14 +11,14 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors raised while loading/validating TOML inputs.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("failed to read file at path `{path}`")]
+    #[error("Failed to read file at path `{path}`")]
     Io {
         path: PathBuf,
         #[source]
         source: std::io::Error,
     },
 
-    #[error("failed to parse TOML file at path `{path}`")]
+    #[error("Failed to parse TOML file at path `{path}`")]
     TomlParse {
         path: PathBuf,
         #[source]
@@ -43,13 +43,13 @@ pub enum Error {
         span: Option<std::ops::Range<usize>>,
         /// Source text used to render line/column excerpts from span offsets.
         src: Option<Arc<str>>,
-        message: String,
+        message: Box<str>,
     },
 
     #[error(
         "{}",
         render_span_error(
-            format!("duplicate {kind} key `{key}` in {}", path.display()),
+            format!("Duplicate {kind} key `{key}` in {}", path.display()),
             span.as_ref(),
             src.as_deref()
         )
@@ -57,7 +57,7 @@ pub enum Error {
     DuplicateKey {
         path: PathBuf,
         kind: &'static str,
-        key: String,
+        key: Box<str>,
         span: Option<std::ops::Range<usize>>,
         /// Source text used to render line/column excerpts from span offsets.
         src: Option<Arc<str>>,
@@ -66,14 +66,14 @@ pub enum Error {
     #[error(
         "{}",
         render_span_error(
-            format!("unknown item `{key}` in {}", path.display()),
+            format!("Unknown item `{key}` in {}", path.display()),
             span.as_ref(),
             src.as_deref()
         )
     )]
     UnknownItem {
         path: PathBuf,
-        key: String,
+        key: Box<str>,
         span: Option<std::ops::Range<usize>>,
         /// Source text used to render line/column excerpts from span offsets.
         src: Option<Arc<str>>,
@@ -82,14 +82,14 @@ pub enum Error {
     #[error(
         "{}",
         render_span_error(
-            format!("unknown facility `{key}` in {}", path.display()),
+            format!("Unknown facility `{key}` in {}", path.display()),
             span.as_ref(),
             src.as_deref()
         )
     )]
     UnknownFacility {
         path: PathBuf,
-        key: String,
+        key: Box<str>,
         span: Option<std::ops::Range<usize>>,
         /// Source text used to render line/column excerpts from span offsets.
         src: Option<Arc<str>>,
@@ -125,7 +125,7 @@ fn render_schema_error(
     message: &str,
 ) -> String {
     let base = format!(
-        "schema error in {}, field `{field}`{}: {message}",
+        "Schema error in {}, field `{field}`{}: {message}",
         path.display(),
         schema_index_suffix(index)
     );
@@ -152,7 +152,7 @@ fn render_span_error(
 struct SpanExcerpt {
     line_number: usize,
     column_number: usize,
-    line_text: String,
+    line_text: Box<str>,
     caret_offset: usize,
     caret_len: usize,
 }
@@ -177,10 +177,7 @@ impl SpanExcerpt {
 
         let line_number = src[..start].bytes().filter(|byte| *byte == b'\n').count() + 1;
         let column_number = src[line_start..start].chars().count() + 1;
-        let mut line_text = src[line_start..line_end].to_string();
-        if line_text.ends_with('\r') {
-            line_text.pop();
-        }
+        let line_text: Box<str> = src[line_start..line_end].trim_end_matches('\r').into();
 
         let line_highlight_end = if end <= start {
             if start < line_end {
@@ -245,7 +242,7 @@ pub fn map_item_build_error(
         CatalogBuildError::DuplicateItemKey(key) => Error::DuplicateKey {
             path: path.to_path_buf(),
             kind: "item",
-            key: key.to_string(),
+            key: key.to_string().into_boxed_str(),
             span,
             src: Some(Arc::clone(src)),
         },
@@ -255,7 +252,7 @@ pub fn map_item_build_error(
             index: Some(index),
             span,
             src: Some(Arc::clone(src)),
-            message: source.to_string(),
+            message: source.to_string().into_boxed_str(),
         },
     }
 }
@@ -272,7 +269,7 @@ pub fn map_machine_build_error(
         CatalogBuildError::DuplicateFacilityKey(key) => Error::DuplicateKey {
             path: path.to_path_buf(),
             kind: "facility",
-            key: key.to_string(),
+            key: key.to_string().into_boxed_str(),
             span,
             src: Some(Arc::clone(src)),
         },
@@ -282,7 +279,7 @@ pub fn map_machine_build_error(
             index: Some(index),
             span,
             src: Some(Arc::clone(src)),
-            message: source.to_string(),
+            message: source.to_string().into_boxed_str(),
         },
     }
 }
@@ -298,7 +295,7 @@ pub fn map_thermal_facility_build_error(
         CatalogBuildError::DuplicateFacilityKey(key) => Error::DuplicateKey {
             path: path.to_path_buf(),
             kind: "facility",
-            key: key.to_string(),
+            key: key.to_string().into_boxed_str(),
             span,
             src: Some(Arc::clone(src)),
         },
@@ -308,7 +305,7 @@ pub fn map_thermal_facility_build_error(
             index: None,
             span,
             src: Some(Arc::clone(src)),
-            message: source.to_string(),
+            message: source.to_string().into_boxed_str(),
         },
     }
 }
@@ -341,7 +338,7 @@ pub fn map_recipe_build_error(
         index: Some(index),
         span,
         src: Some(Arc::clone(src)),
-        message: source.to_string(),
+        message: source.to_string().into_boxed_str(),
     }
 }
 
@@ -362,7 +359,7 @@ pub fn map_power_recipe_build_error(
         index: Some(index),
         span,
         src: Some(Arc::clone(src)),
-        message: source.to_string(),
+        message: source.to_string().into_boxed_str(),
     }
 }
 
@@ -377,7 +374,7 @@ pub fn map_aic_build_error(
         AicBuildError::DuplicateOutpostKey { key } => Error::DuplicateKey {
             path,
             kind: "outpost",
-            key: key.to_string(),
+            key: key.to_string().into_boxed_str(),
             span: outpost_spans.get(key.as_str()).cloned(),
             src: Some(src),
         },
@@ -386,6 +383,8 @@ pub fn map_aic_build_error(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::render_span_error;
 
     #[test]
