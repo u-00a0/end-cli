@@ -98,6 +98,37 @@ fn push_recipe_rejects_duplicate_items_in_same_list() {
 }
 
 #[test]
+fn push_recipe_allows_empty_ingredients_with_non_empty_products() {
+    make_guard!(guard);
+    let (builder, _a, b, machine) = sample_builder(guard);
+    let mut builder = builder
+        .add_thermal_bank(ThermalBankDef {
+            key: key("Thermal Bank"),
+            en: name("Thermal Bank"),
+            zh: name("Thermal Bank"),
+        })
+        .expect("add thermal bank");
+
+    let recipe_id = builder
+        .push_recipe(
+            machine,
+            nz(1),
+            Vec::new().into_boxed_slice(),
+            vec![Stack {
+                item: b,
+                count: nz(1),
+            }]
+            .into(),
+        )
+        .expect("source recipe should be accepted");
+
+    let catalog = builder.build();
+    let recipe = catalog.recipe(recipe_id);
+    assert!(recipe.ingredients.is_empty(), "ingredients should be empty");
+    assert_eq!(recipe.products.len(), 1, "products should stay non-empty");
+}
+
+#[test]
 fn add_facility_rejects_duplicate_key() {
     make_guard!(guard);
     let mut builder = Catalog::builder(guard);

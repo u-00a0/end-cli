@@ -279,22 +279,8 @@ pub struct ExternalSupplySlack<'id> {
 /// Result of one optimization stage.
 #[derive(Debug, Clone)]
 pub struct StageSolution<'id> {
-    /// Core generation capacity in watts.
-    pub p_core_w: u32,
-    /// External power consumption in watts.
-    pub p_ext_w: u32,
     /// Total revenue objective value.
     pub revenue_per_min: f64,
-    /// Sum of all production machines.
-    pub total_machines: u32,
-    /// Sum of all thermal banks.
-    pub total_thermal_banks: u32,
-    /// Total power generation.
-    pub power_gen_w: i64,
-    /// Total power usage.
-    pub power_use_w: i64,
-    /// `power_gen_w - power_use_w`.
-    pub power_margin_w: i64,
     /// Per-outpost value realization.
     pub outpost_values: Box<[OutpostValue]>,
     /// Full sale lines with quantities and unit prices.
@@ -308,6 +294,20 @@ pub struct StageSolution<'id> {
     pub thermal_banks_used: Box<[ThermalBankUsage<'id>]>,
     /// Slack information for externally supplied items.
     pub external_supply_slack: Box<[ExternalSupplySlack<'id>]>,
+    /// Core generation capacity in watts.
+    pub p_core_w: u32,
+    /// External power consumption in watts.
+    pub p_ext_w: u32,
+    /// Sum of all production machines.
+    pub total_machines: u32,
+    /// Sum of all thermal banks.
+    pub total_thermal_banks: u32,
+    /// Total power generation.
+    pub power_gen_w: u32,
+    /// Total power usage.
+    pub power_use_w: u32,
+    /// `power_gen_w - power_use_w`.
+    pub power_margin_w: u32,
 }
 
 /// Combined output for stage 1 and stage 2.

@@ -1,0 +1,9 @@
+[package]
+name = "aic-two-brand-lab"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+generativity = "1"

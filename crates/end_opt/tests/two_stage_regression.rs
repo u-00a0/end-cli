@@ -174,11 +174,6 @@ fn stage2_respects_revenue_floor_and_basic_invariants() {
         floor
     );
     assert!(
-        result.stage2.power_margin_w >= 0,
-        "power margin must be non-negative"
-    );
-
-    assert!(
         !result.stage2.outpost_sales_qty.is_empty(),
         "stage2 should include sale quantity lines"
     );

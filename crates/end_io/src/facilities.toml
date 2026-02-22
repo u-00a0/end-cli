@@ -76,6 +76,12 @@ power_w = 5
 en = "Shredding Unit"
 zh = "粉碎机"
 
+[[machines]]
+key = "Fluid Pump"
+power_w = 10
+en = "Fluid Pump"
+zh = "水泵"
+
 [thermal_bank]
 key = "Thermal Bank"
 en = "Thermal Bank"

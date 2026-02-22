@@ -149,7 +149,7 @@ impl<'id, State: ThermalBankState> CatalogBuilder<'id, State> {
     /// This validates recipe-local invariants and cross-references against the current
     /// builder state:
     /// - `time_s` is positive by type (`NonZeroU32`).
-    /// - `ingredients` / `products` must be non-empty.
+    /// - `products` must be non-empty.
     /// - each referenced item must exist.
     /// - each stack count is positive by type (`NonZeroU32`).
     /// - duplicate items are rejected within `ingredients` and `products` respectively.
@@ -160,9 +160,6 @@ impl<'id, State: ThermalBankState> CatalogBuilder<'id, State> {
         ingredients: Box<[Stack<'id>]>,
         products: Box<[Stack<'id>]>,
     ) -> Result<RecipeId<'id>, CatalogBuildError> {
-        if ingredients.is_empty() {
-            return Err(CatalogBuildError::RecipeIngredientsMustNotBeEmpty);
-        }
         if products.is_empty() {
             return Err(CatalogBuildError::RecipeProductsMustNotBeEmpty);
         }

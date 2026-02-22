@@ -261,8 +261,8 @@ fn solve_stage<'id>(
         solution.eval(&total_thermal_banks),
     )?;
 
-    let power_gen_w = near_i64(|| "power_gen_w".into(), solution.eval(&power_gen))?;
-    let power_use_w = near_i64(|| "power_use_w".into(), solution.eval(&power_use))?;
+    let power_gen_w = near_u32(|| "power_gen_w".into(), solution.eval(&power_gen))?;
+    let power_use_w = near_u32(|| "power_use_w".into(), solution.eval(&power_use))?;
     let power_margin_w = power_gen_w - power_use_w;
 
     let mut outpost_sales_qty = Vec::with_capacity(
@@ -430,39 +430,6 @@ where
     }
 
     Ok(nearest as u32)
-}
-
-fn near_i64<F>(var_name: F, value: f64) -> Result<i64>
-where
-    F: FnOnce() -> Box<str>,
-{
-    if !value.is_finite() {
-        return Err(Error::OutOfRange {
-            var_name: var_name(),
-            value,
-        });
-    }
-
-    let nearest = value.round();
-    let delta = (value - nearest).abs();
-    if delta > NEAR_INT_EPS {
-        return Err(Error::NotNearInt {
-            var_name: var_name(),
-            value,
-            nearest,
-            delta,
-            eps: NEAR_INT_EPS,
-        });
-    }
-
-    if nearest < i64::MIN as f64 || nearest > i64::MAX as f64 {
-        return Err(Error::OutOfRange {
-            var_name: var_name(),
-            value,
-        });
-    }
-
-    Ok(nearest as i64)
 }
 
 fn add_recipe_net_delta<'id>(

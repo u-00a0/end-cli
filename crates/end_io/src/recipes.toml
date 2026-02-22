@@ -1702,6 +1702,14 @@ count = 1
 item = "Yazhen Powder"
 count = 2
 
+[[recipes]]
+facility = "Fluid Pump"
+time_s = 1
+
+[[recipes.products]]
+item = "Clean Water"
+count = 1
+
 [[power_recipes]]
 power_w = 1100
 time_s = 40
