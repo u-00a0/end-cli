@@ -43,11 +43,13 @@ impl Slice {
 }
 
 unsafe fn read_lang(lang: *const c_void) -> Result<Lang> {
+    // SAFETY: `lang` is required by this function's contract to point to a valid `Slice`.
     let lang = unsafe { Slice::from_raw(lang, "lang")? };
     Lang::parse(lang.as_str("lang")?)
 }
 
 unsafe fn read_aic_toml<'a>(aic_toml: *const c_void) -> Result<&'a str> {
+    // SAFETY: `aic_toml` is required by this function's contract to point to a valid `Slice`.
     let aic_toml = unsafe { Slice::from_raw(aic_toml, "aic_toml")? };
     aic_toml.as_str("aic_toml")
 }
@@ -79,6 +81,7 @@ pub unsafe extern "C" fn end_web_free_slice(slice: *mut c_void) {
 /// # Safety
 /// `lang` must be a valid pointer to a Slice.
 pub unsafe extern "C" fn end_web_bootstrap(lang: *const c_void) -> *mut c_void {
+    // SAFETY: FFI caller must pass a valid `lang` pointer according to this function's safety contract.
     let result = unsafe { read_lang(lang) }.and_then(bootstrap);
     Slice::from_string(envelope_json::<BootstrapPayload>(result))
 }
@@ -93,7 +96,9 @@ pub unsafe extern "C" fn end_web_solve_from_aic_toml(
     aic_toml: *const c_void,
 ) -> *mut c_void {
     let result = (|| {
+        // SAFETY: FFI caller must pass a valid `lang` pointer according to this function's safety contract.
         let lang = unsafe { read_lang(lang)? };
+        // SAFETY: FFI caller must pass a valid `aic_toml` pointer according to this function's safety contract.
         let aic_toml = unsafe { read_aic_toml(aic_toml)? };
         solve_from_aic_toml(lang, aic_toml)
     })();

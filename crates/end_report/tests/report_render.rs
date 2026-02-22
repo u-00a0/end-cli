@@ -28,7 +28,7 @@ fn sample_catalog_and_inputs<'cid, 'sid, 'rid>(
 ) -> (
     Catalog<'cid>,
     AicInputs<'cid, 'sid>,
-    end_opt::OptimizationResult<'cid, 'sid, 'rid>,
+    end_model::OptimizationResult<'cid, 'sid, 'rid>,
 ) {
     let mut b = Catalog::builder(guard);
     let ore = b

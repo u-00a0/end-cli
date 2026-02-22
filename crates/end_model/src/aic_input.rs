@@ -3,8 +3,8 @@ use std::iter::FromIterator;
 use std::num::NonZeroU32;
 use vector_map::VecMap;
 
-use generativity::{Guard, Id};
 use crate::{DisplayName, ItemId, Key};
+use generativity::{Guard, Id};
 use thiserror::Error;
 
 /// Stable identifier for an outpost in [`AicInputs`].

@@ -5,11 +5,11 @@ edition = "2024"
 
 [dependencies]
 end-model = { path = "../end_model" }
-end-opt = { path = "../end_opt" }
 thiserror = { workspace = true }
 clap = { workspace = true }
 
 [dev-dependencies]
+end-opt = { path = "../end_opt" }
 generativity = { workspace = true }
 
 [lints.rust]

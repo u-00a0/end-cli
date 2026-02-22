@@ -1,4 +1,4 @@
-use end_opt::{LogisticsNodeId, OptimizationResult};
+use end_model::{LogisticsNodeId, OptimizationResult};
 
 fn use_result_node<'cid, 'sid, 'rid>(
     _result: &OptimizationResult<'cid, 'sid, 'rid>,

@@ -2,10 +2,12 @@ use crate::consts::LOGISTICS_EPS;
 use crate::error::{Error, Result};
 use crate::types::{
     DemandNode, DemandNodeId, DemandSite, ItemFlowEdge, ItemFlowPlan, ItemSubproblem,
-    LogisticsEdge, LogisticsNode, LogisticsNodeId, LogisticsNodeSite, LogisticsPlan, PosF64,
-    StageSolution, SupplyNode, SupplyNodeId, SupplySite,
+    ItemSubproblemBuildError, SupplyNode, SupplyNodeId, SupplySite,
 };
-use end_model::{AicInputs, Catalog, ItemId, Recipe};
+use end_model::{
+    AicInputs, Catalog, ItemId, LogisticsEdge, LogisticsNode, LogisticsNodeId, LogisticsNodeSite,
+    LogisticsPlan, PosF64, Recipe, StageSolution,
+};
 use generativity::{Guard, Id};
 use std::collections::{BTreeMap, btree_map::Entry};
 
@@ -162,7 +164,26 @@ pub fn build_item_subproblems<'cid, 'sid, 'rid>(
                 .collect::<Vec<_>>()
                 .into_boxed_slice();
 
-            ItemSubproblem::new(item, supplies, demands)
+            ItemSubproblem::new(item, supplies, demands, LOGISTICS_EPS).map_err(|build_error| {
+                match build_error {
+                    ItemSubproblemBuildError::EmptyDemands { item } => Error::InvalidInput {
+                        message: format!(
+                            "item {} subproblem requires at least one demand node",
+                            item
+                        )
+                        .into_boxed_str(),
+                    },
+                    ItemSubproblemBuildError::Infeasible {
+                        item,
+                        total_supply_per_min,
+                        total_demand_per_min,
+                    } => Error::LogisticsInfeasible {
+                        item,
+                        total_supply_per_min,
+                        total_demand_per_min,
+                    },
+                }
+            })
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -304,24 +325,55 @@ pub fn build_logistics_plan<'cid, 'sid, 'rid>(
         BTreeMap::<(ItemId<'cid>, LogisticsNodeId<'rid>, LogisticsNodeId<'rid>), f64>::new();
 
     for (subproblem, item_plan) in subproblems.iter().zip(&per_item) {
-        let mut supply_nodes = DenseNodeMap::new(subproblem.supplies().len(), rid);
-        let mut demand_nodes = DenseNodeMap::new(subproblem.demands().len(), rid);
+        let item_u32 = subproblem.item().as_u32();
+        let mut supply_nodes = DenseNodeMap::new(subproblem.supplies().len());
+        let mut demand_nodes = DenseNodeMap::new(subproblem.demands().len());
 
         for supply in subproblem.supplies() {
             let key = supply_site_key(&supply.site);
             let node_id = allocate_logistics_node(&mut node_index, &mut nodes, key, rid);
-            supply_nodes.insert(supply.id.as_u32(), node_id);
+            supply_nodes.insert(
+                supply.id.as_u32(),
+                node_id,
+                &format!(
+                    "build_logistics_plan item={} supply_nodes.insert supply_id={}",
+                    item_u32,
+                    supply.id.as_u32()
+                ),
+            )?;
         }
 
         for demand in subproblem.demands() {
             let key = demand_site_key(&demand.site);
             let node_id = allocate_logistics_node(&mut node_index, &mut nodes, key, rid);
-            demand_nodes.insert(demand.id.as_u32(), node_id);
+            demand_nodes.insert(
+                demand.id.as_u32(),
+                node_id,
+                &format!(
+                    "build_logistics_plan item={} demand_nodes.insert demand_id={}",
+                    item_u32,
+                    demand.id.as_u32()
+                ),
+            )?;
         }
 
         for edge in &item_plan.edges {
-            let from = supply_nodes.get(edge.from.as_u32());
-            let to = demand_nodes.get(edge.to.as_u32());
+            let from = supply_nodes.get(
+                edge.from.as_u32(),
+                &format!(
+                    "build_logistics_plan item={} supply_nodes.get from_supply_id={}",
+                    item_u32,
+                    edge.from.as_u32()
+                ),
+            )?;
+            let to = demand_nodes.get(
+                edge.to.as_u32(),
+                &format!(
+                    "build_logistics_plan item={} demand_nodes.get to_demand_id={}",
+                    item_u32,
+                    edge.to.as_u32()
+                ),
+            )?;
             *edge_flow.entry((edge.item, from, to)).or_insert(0.0) += edge.flow_per_min.get();
         }
     }
@@ -514,36 +566,60 @@ fn pos_with_eps(value: f64, context: &'static str) -> Result<Option<PosF64>> {
 
 #[derive(Debug, Clone)]
 struct DenseNodeMap<'rid> {
-    values: Vec<LogisticsNodeId<'rid>>,
+    values: Vec<Option<LogisticsNodeId<'rid>>>,
 }
 
 impl<'rid> DenseNodeMap<'rid> {
-    fn new(len: usize, rid: Id<'rid>) -> Self {
+    fn new(len: usize) -> Self {
         Self {
-            values: vec![LogisticsNodeId::from_index(0, rid); len],
+            values: vec![None; len],
         }
     }
 
-    fn insert(&mut self, dense_index: u32, node_id: LogisticsNodeId<'rid>) {
+    fn insert(
+        &mut self,
+        dense_index: u32,
+        node_id: LogisticsNodeId<'rid>,
+        context: &str,
+    ) -> Result<()> {
         let index = dense_index as usize;
-        debug_assert!(
-            index < self.values.len(),
-            "dense node index {} out of bounds {}",
-            index,
-            self.values.len()
-        );
-        unsafe { *self.values.get_unchecked_mut(index) = node_id };
+        let Some(slot) = self.values.get_mut(index) else {
+            return Err(Error::InvalidInput {
+                message: format!(
+                    "{}: dense_index={} len={} (out of bounds)",
+                    context,
+                    dense_index,
+                    self.values.len(),
+                )
+                .into_boxed_str(),
+            });
+        };
+        *slot = Some(node_id);
+        Ok(())
     }
 
-    fn get(&self, dense_index: u32) -> LogisticsNodeId<'rid> {
+    fn get(&self, dense_index: u32, context: &str) -> Result<LogisticsNodeId<'rid>> {
         let index = dense_index as usize;
-        debug_assert!(
-            index < self.values.len(),
-            "dense node index {} out of bounds {}",
-            index,
-            self.values.len()
-        );
-        unsafe { *self.values.get_unchecked(index) }
+        let Some(value) = self.values.get(index) else {
+            return Err(Error::InvalidInput {
+                message: format!(
+                    "{}: dense_index={} len={} (out of bounds)",
+                    context,
+                    dense_index,
+                    self.values.len(),
+                )
+                .into_boxed_str(),
+            });
+        };
+        value.ok_or(Error::InvalidInput {
+            message: format!(
+                "{}: dense_index={} len={} (not initialized)",
+                context,
+                dense_index,
+                self.values.len(),
+            )
+            .into_boxed_str(),
+        })
     }
 }
 
@@ -592,12 +668,11 @@ mod tests {
     use crate::LOGISTICS_EPS;
     use crate::run_two_stage;
     use crate::types::{
-        DemandNode, DemandNodeId, DemandSite, ItemSubproblem, LogisticsNodeSite, PosF64,
-        SupplyNode, SupplyNodeId, SupplySite,
+        DemandNode, DemandNodeId, DemandSite, ItemSubproblem, SupplyNode, SupplyNodeId, SupplySite,
     };
     use end_model::{
-        AicInputs, Catalog, DisplayName, FacilityDef, ItemDef, Key, OutpostInput, Stack,
-        ThermalBankDef,
+        AicInputs, Catalog, DisplayName, FacilityDef, ItemDef, Key, LogisticsNodeSite,
+        OutpostInput, PosF64, Stack, ThermalBankDef,
     };
     use generativity::make_guard;
     use std::collections::{BTreeMap, BTreeSet};
@@ -682,6 +757,7 @@ mod tests {
                 },
             ]
             .into_boxed_slice(),
+            LOGISTICS_EPS,
         )
         .expect("feasible subproblem");
 
@@ -819,7 +895,7 @@ mod tests {
         make_guard!(plan_guard);
         let plan_a = build_logistics_plan(&catalog, &aic, &solved.stage2, plan_guard)
             .expect("logistics plan should build");
-        let canonical_edges = |plan: &crate::types::LogisticsPlan<'_, '_, '_>| {
+        let canonical_edges = |plan: &end_model::LogisticsPlan<'_, '_, '_>| {
             plan.edges
                 .iter()
                 .map(|edge| {

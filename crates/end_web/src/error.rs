@@ -18,10 +18,7 @@ pub enum Error {
     MissingOutpost(u32),
 
     #[error("Missing logistics node {node:?} for item {item:?}")]
-    MissingLogisticsNode {
-        item: u32,
-        node: u32,
-    },
+    MissingLogisticsNode { item: u32, node: u32 },
 
     #[error("Unknown lang `{value}` (expected `zh` or `en`)")]
     UnknownLang { value: Box<str> },

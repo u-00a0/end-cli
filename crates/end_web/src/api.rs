@@ -1,8 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use end_io::{default_aic_toml, load_aic_from_str, load_catalog};
-use end_model::{AicInputs, Catalog, FacilityId, ItemId, OutpostId, PowerRecipeId, RecipeId};
-use end_opt::{LogisticsNodeSite, OptimizationResult, OutpostSaleQty, run_two_stage};
+use end_model::{
+    AicInputs, Catalog, FacilityId, ItemId, LogisticsNodeId, LogisticsNodeSite, OptimizationResult,
+    OutpostId, OutpostSaleQty, PowerRecipeId, RecipeId,
+};
+use end_opt::run_two_stage;
 use generativity::make_guard;
 
 use crate::dto::{
@@ -248,7 +251,8 @@ fn build_logistics_graph<'cid, 'sid, 'rid>(
         }
 
         edges.push(LogisticsEdgeDto {
-            id: format!("{}:{}:{}", item_key, edge.from.as_u32(), edge.to.as_u32()).into_boxed_str(),
+            id: format!("{}:{}:{}", item_key, edge.from.as_u32(), edge.to.as_u32())
+                .into_boxed_str(),
             item_key,
             item_name,
             source: logistics_node_id(edge.from),
@@ -303,18 +307,24 @@ fn describe_logistics_site<'cid, 'sid>(
         LogisticsNodeSite::ExternalSupply { item } => Ok((
             "external_supply".into(),
             match lang {
-                Lang::Zh => format!("外部供给 ({})", item_name(lang, catalog, *item)?).into_boxed_str(),
-                Lang::En => format!("External supply ({})", item_name(lang, catalog, *item)?).into_boxed_str(),
+                Lang::Zh => {
+                    format!("外部供给 ({})", item_name(lang, catalog, *item)?).into_boxed_str()
+                }
+                Lang::En => format!("External supply ({})", item_name(lang, catalog, *item)?)
+                    .into_boxed_str(),
             },
         )),
         LogisticsNodeSite::ExternalConsumption { item } => Ok((
             "external_consumption".into(),
             match lang {
-                Lang::Zh => format!("外部消耗 ({})", item_name(lang, catalog, *item)?).into_boxed_str(),
+                Lang::Zh => {
+                    format!("外部消耗 ({})", item_name(lang, catalog, *item)?).into_boxed_str()
+                }
                 Lang::En => format!(
                     "External consumption ({})",
                     item_name(lang, catalog, *item)?
-                ).into_boxed_str(),
+                )
+                .into_boxed_str(),
             },
         )),
         LogisticsNodeSite::RecipeGroup { recipe_index } => {
@@ -324,8 +334,10 @@ fn describe_logistics_site<'cid, 'sid>(
             Ok((
                 "recipe_group".into(),
                 match lang {
-                    Lang::Zh => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32()).into_boxed_str(),
-                    Lang::En => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32()).into_boxed_str(),
+                    Lang::Zh => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32())
+                        .into_boxed_str(),
+                    Lang::En => format!("{} x{} (r{})", facility, machines, recipe_index.as_u32())
+                        .into_boxed_str(),
                 },
             ))
         }
@@ -343,12 +355,14 @@ fn describe_logistics_site<'cid, 'sid>(
                         "{} 出售 ({})",
                         outpost_name(lang, outpost),
                         item_name(lang, catalog, *item)?
-                    ).into_boxed_str(),
+                    )
+                    .into_boxed_str(),
                     Lang::En => format!(
                         "{} sale ({})",
                         outpost_name(lang, outpost),
                         item_name(lang, catalog, *item)?
-                    ).into_boxed_str(),
+                    )
+                    .into_boxed_str(),
                 },
             ))
         }
@@ -360,12 +374,14 @@ fn describe_logistics_site<'cid, 'sid>(
             Ok((
                 "thermal_bank_group".into(),
                 match lang {
-                    Lang::Zh => format!("热容池组 x{} (p{})", banks, power_recipe_index.as_u32()).into_boxed_str(),
+                    Lang::Zh => format!("热容池组 x{} (p{})", banks, power_recipe_index.as_u32())
+                        .into_boxed_str(),
                     Lang::En => format!(
                         "Thermal bank group x{} (p{})",
                         banks,
                         power_recipe_index.as_u32()
-                    ).into_boxed_str(),
+                    )
+                    .into_boxed_str(),
                 },
             ))
         }
@@ -407,6 +423,6 @@ fn facility_name<'a, 'id>(
     })
 }
 
-fn logistics_node_id(node: end_opt::LogisticsNodeId<'_>) -> Box<str> {
+fn logistics_node_id(node: LogisticsNodeId<'_>) -> Box<str> {
     format!("n{}", node.as_u32()).into_boxed_str()
 }

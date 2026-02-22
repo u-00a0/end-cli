@@ -161,8 +161,7 @@ external_power_consumption_w = 0
 "#
     );
 
-    let err =
-        load_aic_from_str(&src, &catalog, aic_guard).expect_err("zero supply should fail");
+    let err = load_aic_from_str(&src, &catalog, aic_guard).expect_err("zero supply should fail");
     assert_toml_parse_with_span(&err, "aic.toml", "must be >= 1, got 0");
 }
 
@@ -181,8 +180,8 @@ external_power_consumption_w = 0
 "#
     );
 
-    let err = load_aic_from_str(&src, &catalog, aic_guard)
-        .expect_err("zero consumption should fail");
+    let err =
+        load_aic_from_str(&src, &catalog, aic_guard).expect_err("zero consumption should fail");
     assert_toml_parse_with_span(&err, "aic.toml", "must be >= 1, got 0");
 }
 
@@ -217,8 +216,7 @@ prices = {{ "{price_item}" = -1 }}
 "#
     );
 
-    let err =
-        load_aic_from_str(&src, &catalog, aic_guard).expect_err("negative price should fail");
+    let err = load_aic_from_str(&src, &catalog, aic_guard).expect_err("negative price should fail");
     assert_toml_parse_with_span(&err, "aic.toml", "must be >= 0, got -1");
 }
 

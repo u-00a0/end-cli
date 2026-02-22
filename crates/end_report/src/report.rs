@@ -3,8 +3,9 @@ use crate::format::{
     facility_display_name, format_recipe_label, item_display_name, outpost_display_name, t,
 };
 use crate::{Error, Lang, Result};
-use end_model::{AicInputs, Catalog, ItemId, OutpostId};
-use end_opt::{LogisticsEdge, LogisticsNodeSite, OptimizationResult};
+use end_model::{
+    AicInputs, Catalog, ItemId, LogisticsEdge, LogisticsNodeSite, OptimizationResult, OutpostId,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy)]
@@ -356,7 +357,7 @@ pub fn build_report<'cid, 'sid, 'rid>(
 }
 
 fn top_sales_by_value<'cid, 'sid>(
-    lines: &[end_opt::OutpostSaleQty<'cid, 'sid>],
+    lines: &[end_model::OutpostSaleQty<'cid, 'sid>],
 ) -> Vec<ReportSaleValue<'cid, 'sid>> {
     let mut sales = lines
         .iter()
@@ -551,15 +552,20 @@ fn describe_logistics_site<'cid, 'sid>(
                 .ok_or(Error::MissingOutpost(outpost_index.as_u32()))?;
             let item = item_display_name(lang, catalog, *item)?;
             match lang {
-                Lang::Zh => format!("{} 出售({item})", outpost_display_name(lang, outpost)).into_boxed_str(),
-                Lang::En => format!("{} sale ({item})", outpost_display_name(lang, outpost)).into_boxed_str(),
+                Lang::Zh => {
+                    format!("{} 出售({item})", outpost_display_name(lang, outpost)).into_boxed_str()
+                }
+                Lang::En => format!("{} sale ({item})", outpost_display_name(lang, outpost))
+                    .into_boxed_str(),
             }
         }
         LogisticsNodeSite::ThermalBankGroup {
             power_recipe_index, ..
         } => match lang {
             Lang::Zh => format!("热容池组 p{}", power_recipe_index.as_u32()).into_boxed_str(),
-            Lang::En => format!("Thermal bank group p{}", power_recipe_index.as_u32()).into_boxed_str(),
+            Lang::En => {
+                format!("Thermal bank group p{}", power_recipe_index.as_u32()).into_boxed_str()
+            }
         },
     };
     Ok(rendered)

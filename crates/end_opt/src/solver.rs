@@ -1,12 +1,10 @@
 use crate::consts::LOGISTICS_EPS;
 use crate::error::{Error, Result};
 use crate::logistics::build_logistics_plan;
-use crate::types::{
-    ExternalSupplySlack, FacilityMachineCount, OptimizationResult, OutpostSaleQty, OutpostValue,
-    PosF64, RecipeUsage, StageSolution, ThermalBankUsage,
-};
 use end_model::{
-    AicInputs, Catalog, FacilityId, ItemId, ItemVec, OutpostId, PowerRecipeId, RecipeId,
+    AicInputs, Catalog, ExternalSupplySlack, FacilityId, FacilityMachineCount, ItemId, ItemVec,
+    OptimizationResult, OutpostId, OutpostSaleQty, OutpostValue, PosF64, PowerRecipeId, RecipeId,
+    RecipeUsage, StageSolution, ThermalBankUsage,
 };
 use generativity::Guard;
 use good_lp::{
@@ -254,10 +252,7 @@ fn solve_stage<'cid, 'sid>(
     let solution = model.solve().map_err(|source| Error::Solver { source })?;
 
     let revenue_per_min = solution.eval(&revenue);
-    let total_machines = near_u32(
-        || "total_machines".into(),
-        solution.eval(&total_machines),
-    )?;
+    let total_machines = near_u32(|| "total_machines".into(), solution.eval(&total_machines))?;
     let total_thermal_banks = near_u32(
         || "total_thermal_banks".into(),
         solution.eval(&total_thermal_banks),
@@ -287,7 +282,8 @@ fn solve_stage<'cid, 'sid>(
                         "outpost_sales_qty[outpost={},item={}]",
                         ov.outpost_index.as_u32(),
                         item.as_u32()
-                    ).into_boxed_str(),
+                    )
+                    .into_boxed_str(),
                     value: qty_value,
                 })?;
                 let value = *price as f64 * qty_value;
@@ -357,7 +353,8 @@ fn solve_stage<'cid, 'sid>(
             message: format!(
                 "power_recipes[{}].banks decoded as zero unexpectedly",
                 pv.power_recipe_index.as_u32()
-            ).into_boxed_str(),
+            )
+            .into_boxed_str(),
         })?;
         thermal_banks_used.push(ThermalBankUsage {
             power_recipe_index: pv.power_recipe_index,
