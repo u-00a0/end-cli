@@ -2,7 +2,7 @@
 
 use end_model::{
     AicInputs, Catalog, DisplayName, FacilityDef, FacilityRegions, ItemDef, Key, OutpostInput,
-    ScenarioRegion, Stack, ThermalBankDef,
+    Region, Stack, ThermalBankDef,
 };
 use end_opt::{Error, NEAR_INT_EPS, run_two_stage};
 use generativity::Guard;
@@ -146,21 +146,23 @@ fn run_two_stage_applies_region_facility_restrictions() {
     let catalog = b.build();
 
     make_guard!(aic_guard);
-    let aic = AicInputs::parse_with_region(
+    let mut aic_builder = AicInputs::builder(
         aic_guard,
-        ScenarioRegion::FourthValley,
         0,
         vec![(ore, nz(10))].into(),
         Default::default(),
-        vec![OutpostInput {
+    )
+    .region(Region::FourthValley);
+    aic_builder
+        .add_outpost(OutpostInput {
             key: key("Camp"),
             en: Some(name("Camp")),
             zh: Some(name("Camp_zh")),
             money_cap_per_hour: 600,
             prices: vec![(ingot, 5)].into(),
-        }],
-    )
-    .expect("valid aic inputs");
+        })
+        .expect("valid aic outpost");
+    let aic = aic_builder.build();
 
     make_guard!(result_guard);
     let result = run_two_stage(&catalog, &aic, result_guard).expect("solve sample model");
@@ -182,20 +184,22 @@ fn sample_catalog_and_aic<'cid, 'sid>(
 ) -> (Catalog<'cid>, AicInputs<'cid, 'sid>) {
     let (catalog, ore, ingot) = sample_catalog(guard, with_recipes);
 
-    let aic = AicInputs::parse(
+    let mut aic_builder = AicInputs::builder(
         aic_guard,
         0,
         vec![(ore, nz(10))].into(),
         Default::default(),
-        vec![OutpostInput {
+    );
+    aic_builder
+        .add_outpost(OutpostInput {
             key: key("Camp"),
             en: Some(name("Camp")),
             zh: Some(name("Camp_zh")),
             money_cap_per_hour: 600,
             prices: vec![(ingot, 5)].into(),
-        }],
-    )
-    .expect("valid aic inputs");
+        })
+        .expect("valid aic outpost");
+    let aic = aic_builder.build();
 
     (catalog, aic)
 }
@@ -205,20 +209,22 @@ fn run_two_stage_allows_empty_recipes_with_direct_external_sales() {
     make_guard!(guard);
     let (catalog, ore, _ingot) = sample_catalog(guard, false);
     make_guard!(aic_guard);
-    let aic = AicInputs::parse(
+    let mut aic_builder = AicInputs::builder(
         aic_guard,
         0,
         vec![(ore, nz(10))].into(),
         Default::default(),
-        vec![OutpostInput {
+    );
+    aic_builder
+        .add_outpost(OutpostInput {
             key: key("Camp"),
             en: Some(name("Camp")),
             zh: Some(name("Camp_zh")),
             money_cap_per_hour: 600,
             prices: vec![(ore, 2)].into(),
-        }],
-    )
-    .expect("valid aic inputs");
+        })
+        .expect("valid aic outpost");
+    let aic = aic_builder.build();
 
     make_guard!(result_guard);
     let result = run_two_stage(&catalog, &aic, result_guard)
@@ -305,14 +311,13 @@ fn run_two_stage_rejects_infeasible_external_consumption() {
     make_guard!(guard);
     let (catalog, ore, _ingot) = sample_catalog(guard, false);
     make_guard!(aic_guard);
-    let aic = AicInputs::parse(
+    let aic = AicInputs::builder(
         aic_guard,
         0,
         vec![(ore, nz(10))].into(),
         vec![(ore, nz(11))].into(),
-        Vec::new(),
     )
-    .expect("valid aic inputs");
+    .build();
 
     make_guard!(result_guard);
     let err =

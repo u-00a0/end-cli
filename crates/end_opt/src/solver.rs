@@ -4,7 +4,7 @@ use crate::logistics::build_logistics_plan;
 use end_model::{
     AicInputs, Catalog, ExternalSupplySlack, FacilityId, FacilityMachineCount, ItemId, ItemVec,
     OptimizationResult, OutpostId, OutpostSaleQty, OutpostValue, PosF64, PowerRecipeId, RecipeId,
-    RecipeUsage, StageSolution, ThermalBankUsage,
+    RecipeUsage, Stage2Objective, Stage2WeightedWeights, StageSolution, ThermalBankUsage,
 };
 use generativity::Guard;
 use good_lp::{
@@ -21,13 +21,35 @@ pub const NEAR_INT_EPS: f64 = 1e-6;
 enum StageObjective {
     MaxRevenue,
     MinMachines { revenue_floor_per_min: f64 },
+    MaxPowerSlack { revenue_floor_per_min: f64 },
+    MaxMoneySlack { revenue_floor_per_min: f64 },
+    Weighted {
+        revenue_floor_per_min: f64,
+        weights: Stage2WeightedWeights,
+        power_slack_scale: f64,
+        money_slack_scale: f64,
+    },
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Stage2SlackScale {
+    power_slack_max_w: f64,
+    money_slack_max_per_min: f64,
 }
 
 #[derive(Debug, Clone)]
 struct OutpostVars<'cid, 'sid> {
     outpost_index: OutpostId<'sid>,
     money_cap_per_hour: u32,
-    sell_lines: Vec<(ItemId<'cid>, u32, Variable)>,
+    sell_lines: Vec<SellLineVars<'cid>>,
+}
+
+#[derive(Debug, Clone)]
+struct SellLineVars<'cid> {
+    item: ItemId<'cid>,
+    price: u32,
+    qty_real: Variable,
+    qty_virtual: Option<Variable>,
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +73,7 @@ struct PowerVars<'id> {
 }
 
 /// Run the two-stage optimizer:
-/// 1) maximize revenue, 2) minimize machines under a near-optimal revenue floor.
+/// 1) maximize revenue, 2) optimize configurable stage2 objective under near-optimal revenue floor.
 pub fn run_two_stage<'cid, 'sid, 'rid>(
     catalog: &Catalog<'cid>,
     aic: &AicInputs<'cid, 'sid>,
@@ -61,13 +83,45 @@ pub fn run_two_stage<'cid, 'sid, 'rid>(
 
     let rel_eps = NEAR_INT_EPS * stage1.revenue_per_min.max(1.0);
     let revenue_floor_per_min = (stage1.revenue_per_min - rel_eps).max(0.0);
-    let stage2 = solve_stage(
-        catalog,
-        aic,
-        StageObjective::MinMachines {
-            revenue_floor_per_min,
-        },
-    )?;
+    let stage2 = match aic.stage2_objective() {
+        Stage2Objective::MinMachines => solve_stage(
+            catalog,
+            aic,
+            StageObjective::MinMachines {
+                revenue_floor_per_min,
+            },
+        )?,
+        Stage2Objective::MaxPowerSlack => solve_stage(
+            catalog,
+            aic,
+            StageObjective::MaxPowerSlack {
+                revenue_floor_per_min,
+            },
+        )?,
+        Stage2Objective::MaxMoneySlack => solve_stage(
+            catalog,
+            aic,
+            StageObjective::MaxMoneySlack {
+                revenue_floor_per_min,
+            },
+        )?,
+        Stage2Objective::Weighted(weights) => {
+            let Stage2SlackScale {
+                power_slack_max_w,
+                money_slack_max_per_min,
+            } = solve_stage2_slack_scale(catalog, aic, revenue_floor_per_min)?;
+            solve_stage(
+                catalog,
+                aic,
+                StageObjective::Weighted {
+                    revenue_floor_per_min,
+                    weights,
+                    power_slack_scale: power_slack_max_w,
+                    money_slack_scale: money_slack_max_per_min,
+                },
+            )?
+        }
+    };
     let logistics = build_logistics_plan(catalog, aic, &stage2, guard)?;
 
     Ok(OptimizationResult {
@@ -77,11 +131,46 @@ pub fn run_two_stage<'cid, 'sid, 'rid>(
     })
 }
 
+fn solve_stage2_slack_scale<'cid, 'sid>(
+    catalog: &Catalog<'cid>,
+    aic: &AicInputs<'cid, 'sid>,
+    revenue_floor_per_min: f64,
+) -> Result<Stage2SlackScale> {
+    let power = solve_stage(
+        catalog,
+        aic,
+        StageObjective::MaxPowerSlack {
+            revenue_floor_per_min,
+        },
+    )?;
+    let money = solve_stage(
+        catalog,
+        aic,
+        StageObjective::MaxMoneySlack {
+            revenue_floor_per_min,
+        },
+    )?;
+
+    Ok(Stage2SlackScale {
+        power_slack_max_w: power.power_margin_w as f64,
+        money_slack_max_per_min: money.money_slack_per_min,
+    })
+}
+
 fn solve_stage<'cid, 'sid>(
     catalog: &Catalog<'cid>,
     aic: &AicInputs<'cid, 'sid>,
     objective: StageObjective,
 ) -> Result<StageSolution<'cid, 'sid>> {
+    let enable_virtual_sales = matches!(
+        objective,
+        StageObjective::MaxMoneySlack { .. } | StageObjective::Weighted { .. }
+    );
+    let enable_power_slack = matches!(
+        objective,
+        StageObjective::MaxPowerSlack { .. } | StageObjective::Weighted { .. }
+    );
+
     let mut vars = variables!();
 
     let recipe_vars = catalog
@@ -141,8 +230,14 @@ fn solve_stage<'cid, 'sid>(
                 .prices
                 .iter()
                 .map(|(item, price)| {
-                    let qty = vars.add(variable().min(0.0));
-                    (item, price, qty)
+                    let qty_real = vars.add(variable().min(0.0));
+                    let qty_virtual = enable_virtual_sales.then(|| vars.add(variable().min(0.0)));
+                    SellLineVars {
+                        item,
+                        price,
+                        qty_real,
+                        qty_virtual,
+                    }
                 })
                 .collect::<Vec<_>>();
 
@@ -157,8 +252,16 @@ fn solve_stage<'cid, 'sid>(
     let revenue: Expression = outpost_vars
         .iter()
         .flat_map(|ov| ov.sell_lines.iter())
-        .map(|(_, price, qty)| *qty * *price)
+        .map(|line| line.qty_real * line.price)
         .sum();
+
+    let money_slack: Expression = outpost_vars
+        .iter()
+        .flat_map(|ov| ov.sell_lines.iter())
+        .filter_map(|line| line.qty_virtual.map(|qty| qty * line.price))
+        .sum();
+
+    let power_slack_var = enable_power_slack.then(|| vars.add(variable().min(0.0)));
 
     let total_machines: Expression = recipe_vars.iter().map(|rv| rv.y).sum();
     let total_thermal_banks: Expression = power_vars.iter().map(|pv| pv.z).sum();
@@ -205,8 +308,11 @@ fn solve_stage<'cid, 'sid>(
     let item_balance = outpost_vars
         .iter()
         .fold(item_balance, |mut item_balance, ov| {
-            ov.sell_lines.iter().for_each(|(item, _, qty)| {
-                item_balance[*item] -= *qty;
+            ov.sell_lines.iter().for_each(|line| {
+                item_balance[line.item] -= line.qty_real;
+                if let Some(qty_virtual) = line.qty_virtual {
+                    item_balance[line.item] -= qty_virtual;
+                }
             });
             item_balance
         });
@@ -219,21 +325,53 @@ fn solve_stage<'cid, 'sid>(
             item_balance
         });
 
+    let machine_count: Expression = total_machines.clone() + total_thermal_banks.clone();
+    let power_slack_expr = power_slack_var
+        .map(Expression::from)
+        .unwrap_or_else(|| power_gen.clone() - power_use.clone());
+
     let mut model = match objective {
         StageObjective::MaxRevenue => vars.maximise(revenue.clone()).using(default_solver),
         StageObjective::MinMachines {
             revenue_floor_per_min,
         } => vars
-            .minimise(total_machines.clone() + total_thermal_banks.clone())
+            .minimise(machine_count.clone())
             .using(default_solver)
             .with(constraint!(revenue.clone() >= revenue_floor_per_min)),
+        StageObjective::MaxPowerSlack {
+            revenue_floor_per_min,
+        } => vars
+            .maximise(power_slack_expr.clone())
+            .using(default_solver)
+            .with(constraint!(revenue.clone() >= revenue_floor_per_min)),
+        StageObjective::MaxMoneySlack {
+            revenue_floor_per_min,
+        } => vars
+            .maximise(money_slack.clone())
+            .using(default_solver)
+            .with(constraint!(revenue.clone() >= revenue_floor_per_min)),
+        StageObjective::Weighted {
+            revenue_floor_per_min,
+            weights,
+            power_slack_scale,
+            money_slack_scale,
+        } => {
+            let power_denom = power_slack_scale.max(1e-9);
+            let money_denom = money_slack_scale.max(1e-9);
+            let weighted_obj = machine_count.clone() * weights.alpha
+                - power_slack_expr.clone() * (weights.beta / power_denom)
+                - money_slack.clone() * (weights.gamma / money_denom);
+            vars.minimise(weighted_obj)
+                .using(default_solver)
+                .with(constraint!(revenue.clone() >= revenue_floor_per_min))
+        }
     };
 
     model = outpost_vars.iter().fold(model, |model, ov| {
         let outpost_value: Expression = ov
             .sell_lines
             .iter()
-            .map(|(_, price, qty)| *qty * *price)
+            .map(|line| line.qty_real * line.price)
             .sum();
         model.with(constraint!(
             outpost_value <= ov.money_cap_per_hour as f64 / 60.0
@@ -241,6 +379,9 @@ fn solve_stage<'cid, 'sid>(
     });
 
     model = model.with(constraint!(&power_gen >= power_use.clone()));
+    if let Some(power_slack) = power_slack_var {
+        model = model.with(constraint!(power_slack <= power_gen.clone() - power_use.clone()));
+    }
 
     model = recipe_vars.iter().fold(model, |model, rv| {
         model.with(constraint!(rv.x <= rv.throughput_per_min * rv.y))
@@ -262,6 +403,7 @@ fn solve_stage<'cid, 'sid>(
     let power_gen_w = near_u32(|| "power_gen_w".into(), solution.eval(&power_gen))?;
     let power_use_w = near_u32(|| "power_use_w".into(), solution.eval(&power_use))?;
     let power_margin_w = power_gen_w - power_use_w;
+    let money_slack_per_min = solution.eval(&money_slack);
 
     let mut outpost_sales_qty = Vec::with_capacity(
         outpost_vars
@@ -273,8 +415,8 @@ fn solve_stage<'cid, 'sid>(
         .iter()
         .map(|ov| -> Result<_> {
             let mut value_per_min = 0.0;
-            for (item, price, qty) in &ov.sell_lines {
-                let qty_value = solution.value(*qty);
+            for line in &ov.sell_lines {
+                let qty_value = solution.value(line.qty_real);
                 if qty_value <= LOGISTICS_EPS {
                     continue;
                 }
@@ -282,17 +424,17 @@ fn solve_stage<'cid, 'sid>(
                     context: format!(
                         "outpost_sales_qty[outpost={},item={}]",
                         ov.outpost_index.as_u32(),
-                        item.as_u32()
+                        line.item.as_u32()
                     )
                     .into_boxed_str(),
                     value: qty_value,
                 })?;
-                let value = *price as f64 * qty_value;
+                let value = line.price as f64 * qty_value;
                 outpost_sales_qty.push(OutpostSaleQty {
                     outpost_index: ov.outpost_index,
-                    item: *item,
+                    item: line.item,
                     qty_per_min,
-                    price: *price,
+                    price: line.price,
                 });
                 value_per_min += value;
             }
@@ -390,6 +532,7 @@ fn solve_stage<'cid, 'sid>(
         power_gen_w,
         power_use_w,
         power_margin_w,
+        money_slack_per_min,
         outpost_values: outpost_values.into_boxed_slice(),
         outpost_sales_qty: outpost_sales_qty.into_boxed_slice(),
         machines_by_facility: machines_by_facility.into_boxed_slice(),

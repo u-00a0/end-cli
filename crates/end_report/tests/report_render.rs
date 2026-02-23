@@ -82,20 +82,22 @@ fn sample_catalog_and_inputs<'cid, 'sid, 'rid>(
 
     let catalog = b.build();
 
-    let aic = AicInputs::parse(
+    let mut aic_builder = AicInputs::builder(
         aic_guard,
         0,
         vec![(ore, nz(10))].into(),
         vec![(ore, nz(1))].into(),
-        vec![OutpostInput {
+    );
+    aic_builder
+        .add_outpost(OutpostInput {
             key: key("Camp"),
             en: Some(name("Camp")),
             zh: Some(name("Camp_zh")),
             money_cap_per_hour: 600,
             prices: vec![(ingot, 5)].into(),
-        }],
-    )
-    .expect("valid aic inputs");
+        })
+        .expect("valid aic outpost");
+    let aic = aic_builder.build();
 
     let result = run_two_stage(&catalog, &aic, result_guard).expect("solve sample model");
 

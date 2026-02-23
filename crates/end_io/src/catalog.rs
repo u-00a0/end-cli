@@ -5,7 +5,7 @@ use crate::error::{
 use crate::schema::{FacilitiesToml, ItemsToml, RecipesToml, StackToml};
 use crate::{Error, Result};
 use end_model::{
-    Catalog, FacilityDef, FacilityRegions, ItemDef, ItemId, PowerRecipe, ScenarioRegion, Stack,
+    Catalog, FacilityDef, FacilityRegions, ItemDef, ItemId, PowerRecipe, Region, Stack,
     ThermalBankDef,
 };
 use generativity::Guard;
@@ -210,8 +210,8 @@ fn facility_regions_from_machine_regions(regions: &[crate::schema::ScenarioRegio
     let mut has_wuling = false;
     for region in regions {
         match region.into_inner() {
-            ScenarioRegion::FourthValley => has_fourth_valley = true,
-            ScenarioRegion::Wuling => has_wuling = true,
+            Region::FourthValley => has_fourth_valley = true,
+            Region::Wuling => has_wuling = true,
         }
     }
 

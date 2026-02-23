@@ -1,7 +1,10 @@
 use crate::error::map_aic_build_error;
-use crate::schema::AicToml;
+use crate::schema::{AicToml, Stage2Toml};
 use crate::{Error, Result};
-use end_model::{AicInputs, Catalog, ItemNonZeroU32Map, ItemU32Map, OutpostInput};
+use end_model::{
+    AicInputs, Catalog, ItemNonZeroU32Map, ItemU32Map, OutpostInput, Stage2Objective,
+    Stage2WeightedWeights,
+};
 use generativity::{Guard, make_guard};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -67,6 +70,14 @@ fn resolve_aic<'cid, 'sid>(
 ) -> Result<AicInputs<'cid, 'sid>> {
     let region = raw.region;
     let external_power_consumption_w = raw.external_power_consumption_w;
+    let stage2_objective = match raw.stage2 {
+        Stage2Toml::MinMachines => Stage2Objective::MinMachines,
+        Stage2Toml::MaxPowerSlack => Stage2Objective::MaxPowerSlack,
+        Stage2Toml::MaxMoneySlack => Stage2Objective::MaxMoneySlack,
+        Stage2Toml::Weighted { alpha, beta, gamma } => {
+            Stage2Objective::Weighted(Stage2WeightedWeights { alpha, beta, gamma })
+        }
+    };
 
     let supply_per_min_span = raw.supply_per_min.span();
     let raw_supply_per_min = raw.supply_per_min.into_inner();
@@ -103,7 +114,15 @@ fn resolve_aic<'cid, 'sid>(
         external_consumption_per_min.insert(item, value);
     }
 
-    let mut outposts = Vec::with_capacity(raw.outposts.len());
+    let mut builder = AicInputs::builder(
+        guard,
+        external_power_consumption_w,
+        supply_per_min,
+        external_consumption_per_min,
+    )
+    .region(region)
+    .stage2_objective(stage2_objective);
+
     let mut outpost_spans = BTreeMap::new();
     for outpost in raw.outposts {
         let outpost_span = outpost.span();
@@ -129,22 +148,18 @@ fn resolve_aic<'cid, 'sid>(
             prices.insert(item, price);
         }
 
-        outposts.push(OutpostInput {
-            key: outpost.key,
-            en: outpost.en,
-            zh: outpost.zh,
-            money_cap_per_hour: outpost.money_cap_per_hour,
-            prices,
-        });
+        builder
+            .add_outpost(OutpostInput {
+                key: outpost.key,
+                en: outpost.en,
+                zh: outpost.zh,
+                money_cap_per_hour: outpost.money_cap_per_hour,
+                prices,
+            })
+            .map_err(|source| {
+                map_aic_build_error(path.clone(), Arc::clone(&src), source, &outpost_spans)
+            })?;
     }
 
-    AicInputs::parse_with_region(
-        guard,
-        region,
-        external_power_consumption_w,
-        supply_per_min,
-        external_consumption_per_min,
-        outposts,
-    )
-    .map_err(|source| map_aic_build_error(path, Arc::clone(&src), source, &outpost_spans))
+    Ok(builder.build())
 }

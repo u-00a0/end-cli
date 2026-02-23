@@ -10,6 +10,9 @@ region = "fourth_valley"
 # External power consumed by non-production systems.
 external_power_consumption_w = 300
 
+[stage2]
+objective = "min_machines"
+
 # External item supply per minute.
 [supply_per_min]
 "Originium Ore" = 520

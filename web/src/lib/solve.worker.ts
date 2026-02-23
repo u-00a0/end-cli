@@ -207,7 +207,7 @@ async function getModule(): Promise<EndWebModule> {
     const factory = scope.createEndWebModule;
     if (!factory) {
       throw new Error(
-        'createEndWebModule not found. Run `npm run build:wasm` in web/ first.'
+        'createEndWebModule not found. Run `npm run dev` to auto-build wasm, or run `npm run build:wasm` manually.'
       );
     }
 

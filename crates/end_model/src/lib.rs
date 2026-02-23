@@ -5,8 +5,8 @@ mod optimization;
 mod text;
 
 pub use aic_input::{
-    AicBuildError, AicInputs, ItemNonZeroU32Map, ItemU32Map, OutpostId, OutpostInput,
-    ScenarioRegion,
+    AicBuildError, AicInputs, AicInputsBuilder, ItemNonZeroU32Map, ItemU32Map, OutpostId, OutpostInput,
+    Region, Stage2Objective, Stage2WeightedWeights,
 };
 pub use catalog::{
     Catalog, CatalogBuildError, CatalogBuilder, FacilityDef, FacilityId, FacilityRegions, ItemDef,

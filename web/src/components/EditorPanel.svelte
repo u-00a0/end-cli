@@ -26,6 +26,12 @@
     { value: "fourth_valley", label: t("四号谷地", "Fourth Valley") },
     { value: "wuling", label: t("武陵", "Wuling") },
   ]);
+  const stage2ObjectiveOptions = $derived<SelectOption[]>([
+    { value: "min_machines", label: t("最少机器", "Min Machines") },
+    { value: "max_power_slack", label: t("最大电力余量", "Max Power Slack") },
+    { value: "max_money_slack", label: t("最大虚拟成交额", "Max Money Slack") },
+    { value: "weighted", label: t("加权目标", "Weighted") },
+  ]);
 
   function t(zh: string, en: string): string {
     return lang === "zh" ? zh : en;
@@ -96,8 +102,7 @@
       value={draft.region}
       options={regionOptions}
       ariaLabel={t("选择地区", "Select region")}
-      searchPlaceholder={t("搜索地区...", "Search regions...")}
-      emptyText={t("无匹配地区", "No matching regions")}
+      searchable={false}
       onChange={(nextValue) =>
         actions.setRegion(nextValue as "fourth_valley" | "wuling")}
     />
@@ -127,6 +132,85 @@
       }}
     />
   </div>
+
+  <article class="sub-panel">
+    <div class="sub-header">
+      <div class="heading-with-hint">
+        <h3>{t("Stage2 目标", "Stage2 Objective")}</h3>
+        <FieldHint
+          text={t(
+            "Stage1 固定为最大收益，Stage2 在收益不退化下按这里选择的目标做二次优化。",
+            "Stage1 always maximizes revenue. Stage2 then optimizes the selected target under non-degraded real revenue.",
+          )}
+        />
+      </div>
+    </div>
+
+    <div class="field-row">
+      <p>{t("优化目标", "Objective")}</p>
+      <SelectField
+        value={draft.stage2.objective}
+        options={stage2ObjectiveOptions}
+        ariaLabel={t("选择 Stage2 目标", "Select Stage2 objective")}
+        searchable={false}
+        onChange={(nextValue) =>
+          actions.setStage2Objective(
+            nextValue as
+              | "min_machines"
+              | "max_power_slack"
+              | "max_money_slack"
+              | "weighted",
+          )}
+      />
+    </div>
+
+    {#if draft.stage2.objective === "weighted"}
+      <div class="row-grid three">
+        <label>
+          α
+          <input
+            type="number"
+            min="0"
+            step="0.1"
+            value={draft.stage2.alpha}
+            oninput={(event) =>
+              actions.setStage2Weight(
+                "alpha",
+                Number((event.currentTarget as HTMLInputElement).value),
+              )}
+          />
+        </label>
+        <label>
+          β
+          <input
+            type="number"
+            min="0"
+            step="0.1"
+            value={draft.stage2.beta}
+            oninput={(event) =>
+              actions.setStage2Weight(
+                "beta",
+                Number((event.currentTarget as HTMLInputElement).value),
+              )}
+          />
+        </label>
+        <label>
+          γ
+          <input
+            type="number"
+            min="0"
+            step="0.1"
+            value={draft.stage2.gamma}
+            oninput={(event) =>
+              actions.setStage2Weight(
+                "gamma",
+                Number((event.currentTarget as HTMLInputElement).value),
+              )}
+          />
+        </label>
+      </div>
+    {/if}
+  </article>
 
   <article class="sub-panel">
     <div class="sub-header">
@@ -492,6 +576,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .row-grid.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .outpost-layout {
     display: grid;
     gap: var(--space-3);
@@ -543,6 +631,12 @@
   }
 
   .row-grid.two label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .row-grid.three label {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
@@ -667,6 +761,10 @@
     }
 
     .row-grid.two {
+      grid-template-columns: 1fr;
+    }
+
+    .row-grid.three {
       grid-template-columns: 1fr;
     }
   }

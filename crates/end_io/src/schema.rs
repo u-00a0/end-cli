@@ -1,4 +1,4 @@
-use end_model::{DisplayName, Key, ScenarioRegion};
+use end_model::{DisplayName, Key, Region};
 use serde::Deserialize;
 use serde::de::Error as _;
 use std::collections::BTreeMap;
@@ -112,7 +112,7 @@ pub(crate) struct AicToml {
         default = "default_scenario_region",
         deserialize_with = "deserialize_scenario_region"
     )]
-    pub(crate) region: ScenarioRegion,
+    pub(crate) region: Region,
     #[serde(deserialize_with = "deserialize_non_negative_u32")]
     pub(crate) external_power_consumption_w: u32,
     #[serde(default = "default_empty_spanned_item_positive_u32_map")]
@@ -121,6 +121,90 @@ pub(crate) struct AicToml {
     pub(crate) external_consumption_per_min: Spanned<BTreeMap<KeyToml, PositiveU32Toml>>,
     #[serde(default)]
     pub(crate) outposts: Box<[Spanned<OutpostToml>]>,
+    #[serde(default)]
+    pub(crate) stage2: Stage2Toml,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) enum Stage2Toml {
+    #[default]
+    MinMachines,
+    MaxPowerSlack,
+    MaxMoneySlack,
+    Weighted { alpha: f64, beta: f64, gamma: f64 },
+}
+
+impl<'de> Deserialize<'de> for Stage2Toml {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Debug, Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct RawStage2Toml {
+            #[serde(default)]
+            objective: Stage2ObjectiveToml,
+            #[serde(default, deserialize_with = "deserialize_optional_non_negative_f64")]
+            alpha: Option<f64>,
+            #[serde(default, deserialize_with = "deserialize_optional_non_negative_f64")]
+            beta: Option<f64>,
+            #[serde(default, deserialize_with = "deserialize_optional_non_negative_f64")]
+            gamma: Option<f64>,
+        }
+
+        let raw = RawStage2Toml::deserialize(deserializer)?;
+        let has_any_weight = raw.alpha.is_some() || raw.beta.is_some() || raw.gamma.is_some();
+        match raw.objective {
+            Stage2ObjectiveToml::MinMachines => {
+                if has_any_weight {
+                    return Err(D::Error::custom(
+                        "stage2.alpha/stage2.beta/stage2.gamma are only allowed when stage2.objective = `weighted`",
+                    ));
+                }
+                Ok(Self::MinMachines)
+            }
+            Stage2ObjectiveToml::MaxPowerSlack => {
+                if has_any_weight {
+                    return Err(D::Error::custom(
+                        "stage2.alpha/stage2.beta/stage2.gamma are only allowed when stage2.objective = `weighted`",
+                    ));
+                }
+                Ok(Self::MaxPowerSlack)
+            }
+            Stage2ObjectiveToml::MaxMoneySlack => {
+                if has_any_weight {
+                    return Err(D::Error::custom(
+                        "stage2.alpha/stage2.beta/stage2.gamma are only allowed when stage2.objective = `weighted`",
+                    ));
+                }
+                Ok(Self::MaxMoneySlack)
+            }
+            Stage2ObjectiveToml::Weighted => Ok(Self::Weighted {
+                alpha: raw.alpha.unwrap_or_else(default_stage2_weight),
+                beta: raw.beta.unwrap_or_else(default_stage2_weight),
+                gamma: raw.gamma.unwrap_or_else(default_stage2_weight),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) enum Stage2ObjectiveToml {
+    #[default]
+    MinMachines,
+    MaxPowerSlack,
+    MaxMoneySlack,
+    Weighted,
+}
+
+impl<'de> Deserialize<'de> for Stage2ObjectiveToml {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        parse_stage2_objective(raw.as_str()).map_err(D::Error::custom)
+    }
 }
 
 /// One outpost entry from `aic.toml`.
@@ -139,10 +223,10 @@ pub(crate) struct OutpostToml {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct ScenarioRegionToml(ScenarioRegion);
+pub(crate) struct ScenarioRegionToml(Region);
 
 impl ScenarioRegionToml {
-    pub(crate) fn into_inner(self) -> ScenarioRegion {
+    pub(crate) fn into_inner(self) -> Region {
         self.0
     }
 }
@@ -252,6 +336,14 @@ where
     parse_non_negative_u32(value).map_err(D::Error::custom)
 }
 
+fn deserialize_optional_non_negative_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<f64>::deserialize(deserializer)?;
+    value.map(parse_non_negative_f64).transpose().map_err(D::Error::custom)
+}
+
 fn deserialize_optional_display_name<'de, D>(
     deserializer: D,
 ) -> Result<Option<DisplayName>, D::Error>
@@ -263,21 +355,21 @@ where
         .transpose()
 }
 
-fn parse_scenario_region(value: &str) -> Result<ScenarioRegion, String> {
+fn parse_scenario_region(value: &str) -> Result<Region, String> {
     match value {
-        "fourth_valley" => Ok(ScenarioRegion::FourthValley),
-        "wuling" => Ok(ScenarioRegion::Wuling),
+        "fourth_valley" => Ok(Region::FourthValley),
+        "wuling" => Ok(Region::Wuling),
         other => Err(format!(
             "invalid region `{other}`, expected one of: fourth_valley, wuling"
         )),
     }
 }
 
-fn default_scenario_region() -> ScenarioRegion {
-    ScenarioRegion::Wuling
+fn default_scenario_region() -> Region {
+    Region::Wuling
 }
 
-fn deserialize_scenario_region<'de, D>(deserializer: D) -> Result<ScenarioRegion, D::Error>
+fn deserialize_scenario_region<'de, D>(deserializer: D) -> Result<Region, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -300,6 +392,32 @@ fn parse_non_negative_u32(value: i64) -> Result<u32, String> {
     }
 
     u32::try_from(value).map_err(|_| format!("out of range for u32: {value}"))
+}
+
+fn parse_non_negative_f64(value: f64) -> Result<f64, String> {
+    if !value.is_finite() {
+        return Err("must be a finite number".to_string());
+    }
+    if value < 0.0 {
+        return Err(format!("must be >= 0, got {value}"));
+    }
+    Ok(value)
+}
+
+fn parse_stage2_objective(value: &str) -> Result<Stage2ObjectiveToml, String> {
+    match value {
+        "min_machines" => Ok(Stage2ObjectiveToml::MinMachines),
+        "max_power_slack" => Ok(Stage2ObjectiveToml::MaxPowerSlack),
+        "max_money_slack" => Ok(Stage2ObjectiveToml::MaxMoneySlack),
+        "weighted" => Ok(Stage2ObjectiveToml::Weighted),
+        other => Err(format!(
+            "invalid stage2.objective `{other}`, expected one of: min_machines, max_power_slack, max_money_slack, weighted"
+        )),
+    }
+}
+
+fn default_stage2_weight() -> f64 {
+    1.0
 }
 
 fn default_empty_spanned_item_positive_u32_map() -> Spanned<BTreeMap<KeyToml, PositiveU32Toml>> {

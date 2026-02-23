@@ -695,24 +695,21 @@ mod tests {
         make_guard!(guard);
         let (_, item) = sample_catalog(guard);
         make_guard!(sid_guard);
-        let outpost_index = AicInputs::parse(
+        let mut aic_builder = AicInputs::builder(
             sid_guard,
             0,
             Default::default(),
             Default::default(),
-            vec![OutpostInput {
+        );
+        let outpost_index = aic_builder
+            .add_outpost(OutpostInput {
                 key: key("camp"),
                 en: Some(name("camp")),
                 zh: Some(name("camp")),
                 money_cap_per_hour: 1,
                 prices: vec![(item, 1)].into(),
-            }],
-        )
-        .expect("valid aic")
-        .outposts_with_id()
-        .next()
-        .expect("one outpost")
-        .0;
+            })
+            .expect("valid aic outpost");
         make_guard!(rid_guard);
         let rid = rid_guard.into();
         let subproblem = ItemSubproblem::new(
@@ -876,20 +873,22 @@ mod tests {
         let catalog = b.build();
 
         make_guard!(aic_guard);
-        let aic = AicInputs::parse(
+        let mut aic_builder = AicInputs::builder(
             aic_guard,
             0,
             vec![(ore, nz(20))].into(),
             Default::default(),
-            vec![OutpostInput {
+        );
+        aic_builder
+            .add_outpost(OutpostInput {
                 key: key("Camp"),
                 en: Some(name("Camp")),
                 zh: Some(name("Camp_zh")),
                 money_cap_per_hour: 10_000,
                 prices: vec![(gear, 30), (ingot, 5)].into(),
-            }],
-        )
-        .expect("valid aic");
+            })
+            .expect("valid aic outpost");
+        let aic = aic_builder.build();
 
         make_guard!(result_guard);
         let solved = run_two_stage(&catalog, &aic, result_guard).expect("solve scenario");
@@ -961,20 +960,22 @@ mod tests {
         make_guard!(guard);
         let (catalog, item) = sample_catalog(guard);
         make_guard!(aic_guard);
-        let aic = AicInputs::parse(
+        let mut aic_builder = AicInputs::builder(
             aic_guard,
             0,
             vec![(item, nz(10))].into(),
             vec![(item, nz(4))].into(),
-            vec![OutpostInput {
+        );
+        aic_builder
+            .add_outpost(OutpostInput {
                 key: key("sink"),
                 en: Some(name("sink")),
                 zh: Some(name("sink")),
                 money_cap_per_hour: 0,
                 prices: vec![(item, 1)].into(),
-            }],
-        )
-        .expect("valid aic");
+            })
+            .expect("valid aic outpost");
+        let aic = aic_builder.build();
 
         make_guard!(result_guard);
         let solved = run_two_stage(&catalog, &aic, result_guard).expect("solve scenario");

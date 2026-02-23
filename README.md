@@ -127,11 +127,14 @@ end-cli solve --help
 仍在开发。
 
 ```bash
-# 仓库根目录：先构建并同步 wasm 到 web/public/wasm
-bash scripts/build_web_wasm.sh
-
 # 启动前端
 cd web
 npm install
 npm run dev
+```
+
+如果只想单独手动构建 wasm:
+
+```bash
+bash scripts/build_web_wasm.sh
 ```

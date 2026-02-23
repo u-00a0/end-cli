@@ -7,10 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "preview:e2e": "npm run build:wasm && npm run build && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test:unit": "vitest run",
-    "test:e2e": "mkdir -p /tmp/playwright-home/.pki/nssdb && HOME=/tmp/playwright-home PLAYWRIGHT_BROWSERS_PATH=/home/xks/.cache/ms-playwright playwright test",
-    "test:console": "mkdir -p /tmp/playwright-home/.pki/nssdb && HOME=/tmp/playwright-home PLAYWRIGHT_BROWSERS_PATH=/home/xks/.cache/ms-playwright playwright test console-errors.spec.ts",
+    "test:e2e": "playwright test",
+    "test:console": "playwright test console-errors.spec.ts",
     "build:wasm": "bash ../scripts/build_web_wasm.sh"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "svelte": "^5.25.0"
   },
   "devDependencies": {
+    "@types/node": "^24.3.0",
     "@playwright/test": "^1.51.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tsconfig/svelte": "^5.0.4",

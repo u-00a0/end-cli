@@ -1,5 +1,13 @@
 export type LangTag = 'zh' | 'en';
 export type ScenarioRegion = 'fourth_valley' | 'wuling';
+export type Stage2ObjectiveMode = 'min_machines' | 'max_power_slack' | 'max_money_slack' | 'weighted';
+
+export interface Stage2ConfigDraft {
+  objective: Stage2ObjectiveMode;
+  alpha: number;
+  beta: number;
+  gamma: number;
+}
 
 export interface CatalogItemDto {
   key: string;
@@ -143,6 +151,7 @@ export interface OutpostDraft {
 export interface AicDraft {
   region: ScenarioRegion;
   externalPowerConsumptionW: number;
+  stage2: Stage2ConfigDraft;
   supply: DraftSupplyRow[];
   consumption: DraftConsumptionRow[];
   outposts: OutpostDraft[];
@@ -151,6 +160,12 @@ export interface AicDraft {
 export const EMPTY_DRAFT: AicDraft = {
   region: 'wuling',
   externalPowerConsumptionW: 0,
+  stage2: {
+    objective: 'min_machines',
+    alpha: 1,
+    beta: 1,
+    gamma: 1
+  },
   supply: [],
   consumption: [],
   outposts: []

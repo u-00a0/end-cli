@@ -4,8 +4,41 @@ import type {
   AicDraft,
   DraftPriceRow,
   OutpostDraft,
-  ScenarioRegion
+  ScenarioRegion,
+  Stage2ConfigDraft,
+  Stage2ObjectiveMode
 } from './types';
+
+function asNonNegativeNumber(value: unknown, fallback: number): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function parseStage2Objective(value: unknown): Stage2ObjectiveMode {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (
+    raw === 'min_machines' ||
+    raw === 'max_power_slack' ||
+    raw === 'max_money_slack' ||
+    raw === 'weighted'
+  ) {
+    return raw;
+  }
+  return 'min_machines';
+}
+
+function parseStage2(raw: unknown): Stage2ConfigDraft {
+  const record = asRecord(raw);
+  return {
+    objective: parseStage2Objective(record.objective),
+    alpha: asNonNegativeNumber(record.alpha, 1),
+    beta: asNonNegativeNumber(record.beta, 1),
+    gamma: asNonNegativeNumber(record.gamma, 1)
+  };
+}
 
 function parseRegion(value: unknown): ScenarioRegion {
   const raw = typeof value === 'string' ? value.trim() : '';
@@ -52,6 +85,12 @@ function cleanDraft(draft: AicDraft): AicDraft {
   return {
     region: draft.region === 'fourth_valley' ? 'fourth_valley' : 'wuling',
     externalPowerConsumptionW: asInt(draft.externalPowerConsumptionW),
+    stage2: {
+      objective: parseStage2Objective(draft.stage2.objective),
+      alpha: asNonNegativeNumber(draft.stage2.alpha, 1),
+      beta: asNonNegativeNumber(draft.stage2.beta, 1),
+      gamma: asNonNegativeNumber(draft.stage2.gamma, 1)
+    },
     supply: draft.supply
       .filter((row) => row.itemKey.trim().length > 0)
       .map((row) => ({ itemKey: row.itemKey.trim(), value: asInt(row.value) })),
@@ -76,6 +115,7 @@ export function parseAicToml(tomlText: string): AicDraft {
   return cleanDraft({
     region: parseRegion(parsed.region),
     externalPowerConsumptionW: asInt(parsed.external_power_consumption_w),
+    stage2: parseStage2(parsed.stage2),
     supply: parseItemFlowRows(asRecord(parsed.supply_per_min)),
     consumption: parseItemFlowRows(asRecord(parsed.external_consumption_per_min)),
     outposts: Array.isArray(parsed.outposts) ? parsed.outposts.map(parseOutpost) : []
@@ -84,6 +124,14 @@ export function parseAicToml(tomlText: string): AicDraft {
 
 export function buildAicToml(draft: AicDraft): string {
   const cleaned = cleanDraft(draft);
+  const stage2: Record<string, unknown> = {
+    objective: cleaned.stage2.objective
+  };
+  if (cleaned.stage2.objective === 'weighted') {
+    stage2.alpha = cleaned.stage2.alpha;
+    stage2.beta = cleaned.stage2.beta;
+    stage2.gamma = cleaned.stage2.gamma;
+  }
 
   const supplyPerMin = Object.fromEntries(
     cleaned.supply
@@ -115,6 +163,7 @@ export function buildAicToml(draft: AicDraft): string {
   return stringifyToml({
     region: cleaned.region,
     external_power_consumption_w: asInt(cleaned.externalPowerConsumptionW),
+    stage2,
     supply_per_min: supplyPerMin,
     external_consumption_per_min: externalConsumptionPerMin,
     outposts

@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 use generativity::{Guard, Id};
 
-use crate::{Key, ScenarioRegion};
+use crate::{Key, Region};
 
 /// Canonical in-memory model resolved from TOML inputs.
 ///
@@ -121,7 +121,7 @@ impl<'id> Catalog<'id> {
     pub fn facility_available_in_region(
         &self,
         facility: FacilityId<'id>,
-        region: ScenarioRegion,
+        region: Region,
     ) -> bool {
         self.facility(facility).regions.supports(region)
     }

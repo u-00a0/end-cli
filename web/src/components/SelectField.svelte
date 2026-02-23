@@ -11,8 +11,9 @@
     options: SelectOption[];
     onChange: (nextValue: string) => void;
     ariaLabel: string;
-    searchPlaceholder: string;
-    emptyText: string;
+    searchPlaceholder?: string;
+    emptyText?: string;
+    searchable?: boolean;
     disabled?: boolean;
   }
 
@@ -21,8 +22,9 @@
     options,
     onChange,
     ariaLabel,
-    searchPlaceholder,
-    emptyText,
+    searchPlaceholder = "",
+    emptyText = "",
+    searchable = true,
     disabled = false,
   }: Props = $props();
 
@@ -32,10 +34,18 @@
   let query = $state("");
 
   const normalizedQuery = $derived(query.trim().toLocaleLowerCase());
+  const resolvedSearchPlaceholder = $derived(searchPlaceholder || ariaLabel);
+  const searchInputAriaLabel = $derived(
+    `${ariaLabel} ${searchPlaceholder || "search"}`,
+  );
   const selectedOption = $derived(
     options.find((option) => option.value === value) ?? null,
   );
   const filteredOptions = $derived.by(() => {
+    if (!searchable) {
+      return options;
+    }
+
     if (normalizedQuery.length === 0) {
       return options;
     }
@@ -61,7 +71,9 @@
     isOpen = true;
     query = "";
     await tick();
-    searchInput?.focus();
+    if (searchable) {
+      searchInput?.focus();
+    }
   }
 
   function togglePanel(): void {
@@ -136,16 +148,19 @@
 
   {#if isOpen}
     <div class="menu" role="dialog" aria-label={ariaLabel}>
-      <input
-        class="search"
-        bind:this={searchInput}
-        type="search"
-        value={query}
-        placeholder={searchPlaceholder}
-        oninput={(event) => {
-          query = (event.currentTarget as HTMLInputElement).value;
-        }}
-      />
+      {#if searchable}
+        <input
+          class="search"
+          bind:this={searchInput}
+          type="search"
+          value={query}
+          placeholder={resolvedSearchPlaceholder}
+          aria-label={searchInputAriaLabel}
+          oninput={(event) => {
+            query = (event.currentTarget as HTMLInputElement).value;
+          }}
+        />
+      {/if}
 
       <div class="options" role="listbox" aria-label={ariaLabel}>
         {#if filteredOptions.length === 0}

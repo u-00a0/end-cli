@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use generativity::Id;
 
-use crate::{DisplayName, Key, ScenarioRegion};
+use crate::{DisplayName, Key, Region};
 
 /// Stable identifier for an item in [`Catalog`](super::Catalog).
 ///
@@ -159,12 +159,12 @@ pub enum FacilityRegions {
 }
 
 impl FacilityRegions {
-    pub fn supports(self, region: ScenarioRegion) -> bool {
+    pub fn supports(self, region: Region) -> bool {
         matches!(
             (self, region),
             (Self::All, _)
-                | (Self::FourthValleyOnly, ScenarioRegion::FourthValley)
-                | (Self::WulingOnly, ScenarioRegion::Wuling)
+                | (Self::FourthValleyOnly, Region::FourthValley)
+                | (Self::WulingOnly, Region::Wuling)
         )
     }
 }

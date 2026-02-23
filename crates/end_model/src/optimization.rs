@@ -176,6 +176,8 @@ pub struct StageSolution<'cid, 'sid> {
     pub power_use_w: u32,
     /// `power_gen_w - power_use_w`.
     pub power_margin_w: u32,
+    /// Stage-level virtual money slack value in per-minute revenue.
+    pub money_slack_per_min: f64,
 }
 
 /// Combined output for stage 1 and stage 2.

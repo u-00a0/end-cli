@@ -50,6 +50,8 @@
 - $\tilde q_{o,i}\ge 0$：超出 outpost 预算上限的每分钟虚拟销量
 - $s^{\$}\ge 0$：每分钟虚拟成交额
 
+变量启用规则：`max_money_slack` 与 `weighted` 启用 $\tilde q_{o,i}, s^{\$}$；`max_power_slack` 与 `weighted` 启用 $s^{P}$；`min_machines` 模式可视为这些 slack 变量固定为 0。
+
 ## 4. 目标（Two-stage Objective）
 
 ### Stage 1：最大化每分钟收入
@@ -91,6 +93,7 @@ $$
 \hat s^{\$}=\frac{s^{\$}}{S^{\$}_{\max}+\epsilon}
 $$
 $S^{P}_{\max}$ 可由 `max_power_slack` 的 Stage 2 最优值给出，$S^{\$}_{\max}$ 可由 `max_money_slack` 的 Stage 2 最优值给出，$\epsilon>0$ 为数值稳定用的小常数。
+权重 $\alpha,\beta,\gamma$ 由用户在 CLI/前端配置填写。
 
 ## 5. 约束（Constraints）
 

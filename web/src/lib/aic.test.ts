@@ -7,6 +7,12 @@ describe('aic toml conversions', () => {
     const draft: AicDraft = {
       region: 'fourth_valley',
       externalPowerConsumptionW: 322,
+      stage2: {
+        objective: 'weighted',
+        alpha: 1.5,
+        beta: 2,
+        gamma: 0.5
+      },
       supply: [
         { itemKey: 'IronOre', value: 120 },
         { itemKey: 'CopperOre', value: 80 }
@@ -32,7 +38,11 @@ describe('aic toml conversions', () => {
     const parsed = parseAicToml(toml);
 
     expect(parsed.externalPowerConsumptionW).toBe(322);
-  expect(parsed.region).toBe('fourth_valley');
+    expect(parsed.region).toBe('fourth_valley');
+    expect(parsed.stage2.objective).toBe('weighted');
+    expect(parsed.stage2.alpha).toBe(1.5);
+    expect(parsed.stage2.beta).toBe(2);
+    expect(parsed.stage2.gamma).toBe(0.5);
     expect(parsed.supply).toHaveLength(2);
     expect(parsed.consumption).toHaveLength(2);
     expect(parsed.outposts).toHaveLength(1);
@@ -58,6 +68,7 @@ money_cap_per_hour = 10
 
     expect(parsed.outposts).toHaveLength(1);
     expect(parsed.outposts[0]?.name).toBe('旧据点');
+    expect(parsed.stage2.objective).toBe('min_machines');
   });
 
   it('drops blank keys during cleaning', () => {
@@ -84,5 +95,29 @@ money_cap_per_hour = 100
     expect(parsed.consumption).toHaveLength(1);
     expect(parsed.outposts).toHaveLength(0);
     expect(parsed.region).toBe('wuling');
+  });
+
+  it('does not emit weighted coefficients for non-weighted stage2 objective', () => {
+    const draft: AicDraft = {
+      region: 'wuling',
+      externalPowerConsumptionW: 10,
+      stage2: {
+        objective: 'min_machines',
+        alpha: 1.5,
+        beta: 2,
+        gamma: 3
+      },
+      supply: [],
+      consumption: [],
+      outposts: []
+    };
+
+    const toml = buildAicToml(draft);
+
+    expect(toml).toContain('[stage2]');
+    expect(toml).toContain('objective = "min_machines"');
+    expect(toml).not.toContain('alpha =');
+    expect(toml).not.toContain('beta =');
+    expect(toml).not.toContain('gamma =');
   });
 });

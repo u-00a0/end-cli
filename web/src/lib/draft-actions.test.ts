@@ -11,6 +11,8 @@ import {
   removeSupplyRow,
   setConsumptionValue,
   setExternalPower,
+  setStage2Objective,
+  setStage2Weight,
   setOutpostField,
   setPriceValue,
   setSupplyValue
@@ -20,6 +22,12 @@ import type { AicDraft } from './types';
 const EMPTY_DRAFT: AicDraft = {
   region: 'wuling',
   externalPowerConsumptionW: 0,
+  stage2: {
+    objective: 'min_machines',
+    alpha: 1,
+    beta: 1,
+    gamma: 1
+  },
   supply: [],
   consumption: [],
   outposts: []
@@ -90,5 +98,17 @@ describe('draft actions', () => {
 
     const added = addOutpost(EMPTY_DRAFT, -1);
     expect(normalizeSelectedOutpostIndex(added.draft, 9)).toBe(0);
+  });
+
+  it('updates stage2 objective and weighted coefficients', () => {
+    let draft = setStage2Objective(EMPTY_DRAFT, 'weighted');
+    draft = setStage2Weight(draft, 'alpha', 1.25);
+    draft = setStage2Weight(draft, 'beta', 2.5);
+    draft = setStage2Weight(draft, 'gamma', -3);
+
+    expect(draft.stage2.objective).toBe('weighted');
+    expect(draft.stage2.alpha).toBe(1.25);
+    expect(draft.stage2.beta).toBe(2.5);
+    expect(draft.stage2.gamma).toBe(0);
   });
 });

@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use end_io::{Error, default_aic_toml, load_aic, load_catalog};
-use end_model::{AicInputs, Catalog, ScenarioRegion};
+use end_model::{AicInputs, Catalog, Region, Stage2Objective};
 use generativity::make_guard;
 use std::fs;
 use tempfile::TempDir;
@@ -271,7 +271,7 @@ prices = {{ "{price_item}" = 1 }}
 
     let aic = load_aic_from_str(&src, &catalog, aic_guard).expect("valid aic should load");
     assert_eq!(aic.external_power_consumption_w(), 0);
-    assert_eq!(aic.region(), ScenarioRegion::Wuling);
+    assert_eq!(aic.region(), Region::Wuling);
     assert_eq!(aic.external_consumption_per_min().len(), 1);
     assert_eq!(aic.outposts().len(), 1);
 }
@@ -291,6 +291,54 @@ external_power_consumption_w = 0
     )
     .expect_err("invalid region should fail");
     assert_toml_parse_with_span(&err, "aic.toml", "invalid region `unknown`");
+}
+
+#[test]
+fn load_aic_rejects_weights_when_stage2_not_weighted() {
+    make_guard!(catalog_guard);
+    let catalog = load_catalog(None, catalog_guard).expect("load builtin catalog");
+    make_guard!(aic_guard);
+    let src = r#"
+external_power_consumption_w = 0
+
+[stage2]
+objective = "min_machines"
+alpha = 1.0
+"#;
+
+    let err = load_aic_from_str(src, &catalog, aic_guard)
+        .expect_err("weights should be rejected for non-weighted objective");
+    assert_toml_parse_with_span(
+        &err,
+        "aic.toml",
+        "only allowed when stage2.objective = `weighted`",
+    );
+}
+
+#[test]
+fn load_aic_accepts_weighted_objective_with_weights() {
+    make_guard!(catalog_guard);
+    let catalog = load_catalog(None, catalog_guard).expect("load builtin catalog");
+    make_guard!(aic_guard);
+    let src = r#"
+external_power_consumption_w = 0
+
+[stage2]
+objective = "weighted"
+alpha = 2.0
+beta = 3.0
+gamma = 4.0
+"#;
+
+    let aic = load_aic_from_str(src, &catalog, aic_guard).expect("weighted stage2 should load");
+    assert_eq!(
+        aic.stage2_objective(),
+        Stage2Objective::Weighted(end_model::Stage2WeightedWeights {
+            alpha: 2.0,
+            beta: 3.0,
+            gamma: 4.0,
+        })
+    );
 }
 
 #[test]

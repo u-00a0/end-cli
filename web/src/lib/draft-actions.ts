@@ -5,6 +5,10 @@ function asNonNegativeInt(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
+function asNonNegativeNumber(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
 function cloneOutpost(outpost: OutpostDraft): OutpostDraft {
   return {
     key: outpost.key,
@@ -13,6 +17,7 @@ function cloneOutpost(outpost: OutpostDraft): OutpostDraft {
     prices: outpost.prices.map((price) => ({ ...price }))
   };
 }
+
 
 function nextOutpostKey(draft: AicDraft): string {
   const used = new Set(draft.outposts.map((outpost) => outpost.key.trim().toLowerCase()));
@@ -43,6 +48,29 @@ export function setRegion(draft: AicDraft, region: 'fourth_valley' | 'wuling'): 
   return {
     ...draft,
     region
+  };
+}
+
+export function setStage2Objective(
+  draft: AicDraft,
+  objective: 'min_machines' | 'max_power_slack' | 'max_money_slack' | 'weighted'
+): AicDraft {
+  return {
+    ...draft,
+    stage2: {
+      ...draft.stage2,
+      objective
+    }
+  };
+}
+
+export function setStage2Weight(draft: AicDraft, field: 'alpha' | 'beta' | 'gamma', value: number): AicDraft {
+  return {
+    ...draft,
+    stage2: {
+      ...draft.stage2,
+      [field]: asNonNegativeNumber(value)
+    }
   };
 }
 

@@ -1,6 +1,7 @@
 import type { AicDraft, CatalogItemDto } from './types';
 
 export type OutpostField = 'name' | 'moneyCapPerHour';
+export type Stage2WeightField = 'alpha' | 'beta' | 'gamma';
 
 export interface EditorActions {
   resetToDefault: () => void;
@@ -8,6 +9,8 @@ export interface EditorActions {
   exportToml: () => void;
   setRegion: (region: 'fourth_valley' | 'wuling') => void;
   setExternalPower: (value: number) => void;
+  setStage2Objective: (objective: 'min_machines' | 'max_power_slack' | 'max_money_slack' | 'weighted') => void;
+  setStage2Weight: (field: Stage2WeightField, value: number) => void;
   supply: {
     add: () => void;
     remove: (index: number) => void;

@@ -18,6 +18,8 @@
     setConsumptionKey,
     setConsumptionValue,
     setExternalPower,
+    setStage2Objective,
+    setStage2Weight,
     setRegion,
     setOutpostField,
     setPriceKey,
@@ -352,6 +354,12 @@
     },
     setExternalPower: (value) => {
       draft = setExternalPower(draft, value);
+    },
+    setStage2Objective: (objective) => {
+      draft = setStage2Objective(draft, objective);
+    },
+    setStage2Weight: (field, value) => {
+      draft = setStage2Weight(draft, field, value);
     },
     supply: {
       add: () => {
