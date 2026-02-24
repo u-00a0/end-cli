@@ -137,6 +137,20 @@ pub fn build_item_subproblems<'cid, 'sid, 'rid>(
         )?;
     }
 
+    // Add a sink demand for per-item stockpiles (units/min).
+    // This ensures the logistics graph explicitly shows leftover items being stored.
+    let mut item_stockpile = stage.item_stockpile.iter().collect::<Vec<_>>();
+    item_stockpile.sort_by_key(|row| row.item.as_u32());
+    for row in item_stockpile {
+        push_demand(
+            &mut per_item,
+            row.item,
+            DemandSite::WarehouseStockpile,
+            row.qty_per_min,
+            "warehouse_stockpile",
+        )?;
+    }
+
     let subproblems = per_item
         .into_iter()
         .filter(|(_, bucket)| !bucket.demands.is_empty())
@@ -426,6 +440,7 @@ enum LogisticsNodeKey<'cid, 'sid> {
         power_recipe_index: end_model::PowerRecipeId<'cid>,
         item: ItemId<'cid>,
     },
+    WarehouseStockpile,
 }
 
 fn allocate_logistics_node<'cid, 'sid, 'rid>(
@@ -477,6 +492,7 @@ fn demand_site_key<'cid, 'sid>(site: &DemandSite<'cid, 'sid>) -> LogisticsNodeKe
             power_recipe_index,
             item,
         },
+        DemandSite::WarehouseStockpile => LogisticsNodeKey::WarehouseStockpile,
     }
 }
 
@@ -503,6 +519,7 @@ fn key_to_site<'cid, 'sid>(key: LogisticsNodeKey<'cid, 'sid>) -> LogisticsNodeSi
             power_recipe_index,
             item,
         },
+        LogisticsNodeKey::WarehouseStockpile => LogisticsNodeSite::WarehouseStockpile,
     }
 }
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import EditorPanel from "./components/EditorPanel.svelte";
   import DragImportOverlay from "./components/DragImportOverlay.svelte";
   import GraphPanel from "./components/GraphPanel.svelte";
@@ -41,11 +41,16 @@
     createSolverController,
     type SolverController,
   } from "./lib/solver-controller";
+  import {
+    errorMessageOf,
+    isSolveBusy,
+    renderedOkState,
+    type SolveState,
+  } from "./lib/solve-state";
   import type {
     AicDraft,
     CatalogItemDto,
     LangTag,
-    SolvePayload,
   } from "./lib/types";
   import { EMPTY_DRAFT } from "./lib/types";
   import { loadBootstrap, solveScenario, warmupWasmWorker } from "./lib/wasm";
@@ -92,12 +97,15 @@
   let defaultToml = $state("");
 
   let isBootstrapping = $state(true);
-  let isSolving = $state(false);
-  let solveElapsedMs = $state<number | null>(null);
-  let errorMessage = $state("");
 
-  let result = $state<SolvePayload | null>(null);
+  let solveState = $state<SolveState>({ status: "idle" });
   let selectedOutpostIndex = $state(-1);
+
+  let renderedOk = $derived(renderedOkState(solveState));
+  let renderedResult = $derived(renderedOk?.payload ?? null);
+  let errorMessage = $derived(errorMessageOf(solveState));
+  let isSolving = $derived(isSolveBusy(solveState));
+  let solveElapsedMs = $derived(isSolving ? null : renderedOk?.elapsedMs ?? null);
 
   let layoutElement = $state<HTMLElement | null>(null);
   let rightPaneElement = $state<HTMLElement | null>(null);
@@ -118,8 +126,7 @@
   function applyToml(text: string): void {
     draft = parseAicToml(text);
     selectedOutpostIndex = draft.outposts.length > 0 ? 0 : -1;
-    result = null;
-    errorMessage = "";
+    solveState = { status: "idle" };
     solverController?.resetSolvedFingerprint();
   }
 
@@ -129,10 +136,13 @@
 
   async function importTomlFile(file: File): Promise<void> {
     if (!isTomlFile(file)) {
-      errorMessage = t(
+      solveState = {
+        status: "err",
+        message: t(
         "仅支持导入 .toml 文件（例如 aic.toml）。",
         "Only .toml files are supported for import (for example aic.toml).",
-      );
+        ),
+      };
       return;
     }
 
@@ -140,13 +150,16 @@
       const text = await file.text();
       applyToml(text);
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : String(error);
+      solveState = {
+        status: "err",
+        message: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
   async function loadInitialState(): Promise<void> {
     isBootstrapping = true;
-    errorMessage = "";
+    solveState = { status: "idle" };
 
     try {
       const payload = await loadBootstrap(lang);
@@ -162,7 +175,10 @@
         applyToml(defaultToml);
       }
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : String(error);
+      solveState = {
+        status: "err",
+        message: error instanceof Error ? error.message : String(error),
+      };
     } finally {
       isBootstrapping = false;
     }
@@ -177,7 +193,10 @@
 
       applyToml(defaultToml);
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : String(error);
+      solveState = {
+        status: "err",
+        message: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -221,7 +240,10 @@
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : String(error);
+      solveState = {
+        status: "err",
+        message: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -323,25 +345,52 @@
       debounceMs: AUTO_SOLVE_DEBOUNCE_MS,
       getSnapshot: () => ({ draft, lang, isBootstrapping }),
       toToml: buildAicToml,
-      solve: async (solveLang, toml) => {
-        const startedAt = performance.now();
-        try {
-          return await solveScenario(solveLang, toml);
-        } finally {
-          solveElapsedMs = Math.max(0, Math.round(performance.now() - startedAt));
-        }
-      },
+      solve: (solveLang, toml) => solveScenario(solveLang, toml),
       onSolvingChange: (next) => {
-        isSolving = next;
         if (next) {
-          solveElapsedMs = null;
+          const previousOk = untrack(() => renderedOkState(solveState));
+          solveState = {
+            status: "pending",
+            previousOk,
+          };
+          return;
         }
+
+        const pending = untrack(() => solveState.status === "pending");
+        if (!pending) return;
+        const previousOk = untrack(() => (solveState.status === "pending" ? solveState.previousOk : null));
+        solveState = previousOk ?? { status: "idle" };
+      },
+      onSolveStarted: () => {
+        const previousOk = untrack(() => renderedOkState(solveState));
+        solveState = {
+          status: "solving",
+          startedAt: performance.now(),
+          previousOk,
+        };
       },
       onErrorMessage: (next) => {
-        errorMessage = next;
+        const message = next.trim();
+        if (message.length === 0) {
+          if (untrack(() => solveState.status === "err")) {
+            solveState = { status: "idle" };
+          }
+          return;
+        }
+
+        solveState = {
+          status: "err",
+          message,
+        };
       },
       onSolved: (payload) => {
-        result = payload;
+        const startedAt = untrack(() => (solveState.status === "solving" ? solveState.startedAt : null));
+        const elapsedMs = startedAt === null ? 0 : Math.max(0, Math.round(performance.now() - startedAt));
+        solveState = {
+          status: "ok",
+          payload,
+          elapsedMs,
+        };
       },
     });
 
@@ -469,10 +518,7 @@
         <ResultPanel
           {lang}
           {isBootstrapping}
-          {isSolving}
-          {solveElapsedMs}
-          {result}
-          {errorMessage}
+          {solveState}
         />
 
         <HorizontalSplitter
@@ -486,7 +532,7 @@
           }}
         />
 
-        <GraphPanel {lang} {result} />
+        <GraphPanel {lang} {solveState} />
       </div>
     {:else}
       <section
@@ -495,17 +541,14 @@
         <ResultPanel
           {lang}
           {isBootstrapping}
-          {isSolving}
-          {solveElapsedMs}
-          {result}
-          {errorMessage}
+          {solveState}
         />
       </section>
 
       <section
         class={`${activeTab !== "graph" ? "tab-hidden" : ""}`}
       >
-        <GraphPanel {lang} {result} />
+        <GraphPanel {lang} {solveState} />
       </section>
     {/if}
 

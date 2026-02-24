@@ -1,42 +1,63 @@
 <script lang="ts">
+  import CopyOutputButton from "./CopyOutputButton.svelte";
   import DataTable from "./DataTable.svelte";
-  import IconActionButton from "./IconActionButton.svelte";
   import { onDestroy } from "svelte";
   import Panel from "./Panel.svelte";
-  import type { LangTag, SolvePayload } from "../lib/types";
+  import SolveStatusPill, {
+    type SolveStatusPillState,
+  } from "./SolveStatusPill.svelte";
+  import type { LogisticsGraphDto } from "../lib/types";
+  import type { LangTag } from "../lib/types";
+  import {
+    errorMessageOf,
+    isSolveBusy,
+    renderedOkState,
+    type SolveState,
+  } from "../lib/solve-state";
 
   interface Props {
     lang: LangTag;
     isBootstrapping: boolean;
-    isSolving: boolean;
-    solveElapsedMs: number | null;
-    result: SolvePayload | null;
-    errorMessage: string;
+    solveState: SolveState;
   }
-
-  type CopyState = "idle" | "copied" | "failed";
 
   let {
     lang,
     isBootstrapping,
-    isSolving,
-    solveElapsedMs,
-    result,
-    errorMessage,
+    solveState,
   }: Props = $props();
 
   let liveElapsedMs = $state<number | null>(null);
-  let solveStartedAt = $state<number | null>(null);
   let solveTimerId: number | null = null;
 
-  let copyState = $state<CopyState>("idle");
-  let copyStateTimerId: number | null = null;
-
-  const headerElapsedMs = $derived<number | null>(
-    isSolving ? liveElapsedMs : solveElapsedMs,
-  );
-
+  const isSolving = $derived(isSolveBusy(solveState));
+  const renderedOk = $derived(renderedOkState(solveState));
+  const result = $derived(renderedOk?.payload ?? null);
+  const errorMessage = $derived(errorMessageOf(solveState));
   const showError = $derived(errorMessage.trim().length > 0);
+  const headerElapsedMs = $derived.by((): number | null => {
+    if (solveState.status === 'solving') {
+      return liveElapsedMs;
+    }
+
+    if (solveState.status === 'ok') {
+      return solveState.elapsedMs;
+    }
+
+    return null;
+  });
+
+  const solveMetaState = $derived.by((): SolveStatusPillState => {
+    if (isSolving) {
+      return { status: "solving", elapsedMs: headerElapsedMs };
+    }
+
+    if (showError) {
+      return { status: "error", elapsedMs: headerElapsedMs };
+    }
+
+    return { status: "ok", elapsedMs: headerElapsedMs };
+  });
 
   const solveOutputText = $derived.by(() => {
     if (errorMessage.trim().length > 0) {
@@ -50,35 +71,33 @@
     return "";
   });
 
-  const copyButtonLabel = $derived.by(() => {
-    if (copyState === "copied") {
-      return t("已复制", "Copied");
-    }
-
-    if (copyState === "failed") {
-      return t("复制失败", "Copy failed");
-    }
-
-    return solveOutputText.length === 0
-      ? t("暂无可复制内容", "Nothing to copy")
-      : t("复制输出", "Copy output");
-  });
-
   function t(zh: string, en: string): string {
     return lang === "zh" ? zh : en;
   }
 
-  function formatElapsed(ms: number | null): string {
-    if (ms === null) {
-      return "--";
+  function computeStockpileKpi(graph: LogisticsGraphDto): {
+    itemKindCount: number;
+    totalPerMin: number;
+  } {
+    const warehouseNode = graph.nodes.find((n) => n.kind === "warehouse_stockpile");
+    if (!warehouseNode) {
+      return { itemKindCount: 0, totalPerMin: 0 };
     }
 
-    if (ms < 1000) {
-      return `${ms} ms`;
+    const itemKeys = new Set<string>();
+    let totalPerMin = 0;
+    for (const edge of graph.edges) {
+      if (edge.target !== warehouseNode.id) {
+        continue;
+      }
+      if (edge.flowPerMin <= 0) {
+        continue;
+      }
+      itemKeys.add(edge.itemKey);
+      totalPerMin += edge.flowPerMin;
     }
 
-    const seconds = ms / 1000;
-    return `${seconds.toFixed(seconds < 10 ? 2 : 1)} s`;
+    return { itemKindCount: itemKeys.size, totalPerMin };
   }
 
   function stopSolveTimer(): void {
@@ -90,109 +109,29 @@
     solveTimerId = null;
   }
 
-  function tickLiveElapsed(): void {
-    if (solveStartedAt === null) {
-      return;
-    }
-
-    liveElapsedMs = Math.max(0, Math.round(performance.now() - solveStartedAt));
-  }
-
-  function resetCopyStateLater(): void {
-    if (copyStateTimerId !== null && typeof window !== "undefined") {
-      window.clearTimeout(copyStateTimerId);
-    }
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    copyStateTimerId = window.setTimeout(() => {
-      copyState = "idle";
-      copyStateTimerId = null;
-    }, 1400);
-  }
-
-  function fallbackCopy(text: string): boolean {
-    if (typeof document === "undefined") {
-      return false;
-    }
-
-    const input = document.createElement("textarea");
-    input.value = text;
-    input.setAttribute("readonly", "");
-    input.style.position = "fixed";
-    input.style.left = "-9999px";
-    document.body.append(input);
-    input.select();
-    let copied = false;
-    try {
-      copied = document.execCommand("copy");
-    } catch {
-      copied = false;
-    }
-    input.remove();
-    return copied;
-  }
-
-  async function copyOutput(): Promise<void> {
-    if (solveOutputText.length === 0) {
-      return;
-    }
-
-    let copied = false;
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(solveOutputText);
-        copied = true;
-      } catch {
-        copied = false;
-      }
-    }
-
-    if (!copied) {
-      copied = fallbackCopy(solveOutputText);
-    }
-
-    copyState = copied ? "copied" : "failed";
-    resetCopyStateLater();
+  function tickLiveElapsed(startedAt: number): void {
+    liveElapsedMs = Math.max(0, Math.round(performance.now() - startedAt));
   }
 
   $effect(() => {
-    if (!isSolving) {
+    if (solveState.status !== 'solving') {
       stopSolveTimer();
-      solveStartedAt = null;
-      liveElapsedMs = solveElapsedMs;
+      liveElapsedMs = null;
       return;
     }
 
-    if (solveStartedAt === null) {
-      solveStartedAt = performance.now() - (solveElapsedMs ?? 0);
-    }
-
-    tickLiveElapsed();
+    const startedAt = solveState.startedAt;
+    tickLiveElapsed(startedAt);
 
     if (solveTimerId === null && typeof window !== "undefined") {
-      solveTimerId = window.setInterval(tickLiveElapsed, 80);
+      solveTimerId = window.setInterval(() => tickLiveElapsed(startedAt), 80);
     }
 
-    return () => {
-      stopSolveTimer();
-    };
-  });
-
-  $effect(() => {
-    solveOutputText;
-    copyState = "idle";
+    return () => stopSolveTimer();
   });
 
   onDestroy(() => {
     stopSolveTimer();
-
-    if (copyStateTimerId !== null && typeof window !== "undefined") {
-      window.clearTimeout(copyStateTimerId);
-      copyStateTimerId = null;
-    }
   });
 </script>
 
@@ -212,33 +151,9 @@
       </div>
 
       <div class="header-controls">
-        <IconActionButton
-          icon={copyState === "copied" ? "check" : "content_copy"}
-          onClick={() => {
-            void copyOutput();
-          }}
-          disabled={solveOutputText.length === 0}
-          ariaLabel={copyButtonLabel}
-          title={copyButtonLabel}
-        />
+        <CopyOutputButton lang={lang} text={solveOutputText} />
 
-        <div class="solve-meta" class:danger={showError}>
-          {#if isSolving}
-            <span class="spinner" aria-hidden="true"></span>
-          {:else if errorMessage}
-            <span
-              class="material-symbols-outlined solve-icon danger"
-              aria-hidden="true">error</span
-            >
-          {:else}
-            <span class="material-symbols-outlined solve-icon" aria-hidden="true"
-              >{solveElapsedMs === null ? "schedule" : "check_circle"}</span
-            >
-          {/if}
-          <p class="elapsed" class:danger={showError}>
-            {formatElapsed(headerElapsedMs)}
-          </p>
-        </div>
+        <SolveStatusPill lang={lang} state={solveMetaState} />
       </div>
     </div>
   {/snippet}
@@ -259,6 +174,8 @@
       )}
     </p>
   {:else}
+    {@const stockpile = computeStockpileKpi(result.logisticsGraph)}
+
     <div class="kpi-grid">
     <article>
       <h3>{t("收益 / min", "Revenue / min")}</h3>
@@ -269,12 +186,12 @@
       <p>{result.summary.stage2RevenuePerHour.toFixed(0)}</p>
     </article>
     <article>
-      <h3>{t("生产机器", "Machines")}</h3>
-      <p>{result.summary.totalMachines}</p>
+      <h3>{t("机器/热能池", "Machines/Thermal")}</h3>
+      <p>{result.summary.totalMachines}/{result.summary.totalThermalBanks}</p>
     </article>
     <article>
-      <h3>{t("热能池", "Thermal Banks")}</h3>
-      <p>{result.summary.totalThermalBanks}</p>
+      <h3>{t("囤货种类/总数", "Stockpiled kinds/total")}</h3>
+      <p>{stockpile.itemKindCount}/{stockpile.totalPerMin.toFixed(2)}/min</p>
     </article>
     <article>
       <h3>{t("用电/发电", "Power Use/Gen")}</h3>
@@ -292,26 +209,70 @@
         t("据点", "Outpost"),
         t("收益/min", "Value/min"),
         t("上限/min", "Cap/min"),
-        t("占比", "Ratio"),
+        t("触顶", "Cap"),
       ]}
       rows={result.summary.outposts.map((outpost) => [
         outpost.name,
         outpost.valuePerMin.toFixed(2),
         outpost.capPerMin.toFixed(2),
-        `${(outpost.ratio * 100).toFixed(1)}%`,
+        outpost.capPerMin > 0 && outpost.ratio >= 0.9999
+          ? {
+              text: t("触顶", "Capped"),
+              icon: "check_circle",
+              className: "cell-good",
+            }
+          : {
+              text: t("未触顶", "Not capped"),
+              icon: "warning",
+              className: "cell-warn",
+              tooltip: t(
+                "交易额无法触顶，可考虑增加更多原料供应",
+                "Revenue cannot reach cap; consider adding more raw supply",
+              ),
+            },
       ])}
+      numericColumns={[1, 2]}
+    />
+
+    <DataTable
+      title={t("外部供给利用率", "External Supply Utilization")}
+      headers={[
+        t("物品", "Item"),
+        t("供给/min", "Supply/min"),
+        t("使用/min", "Used/min"),
+        t("利用率", "Utilization"),
+      ]}
+      rows={result.summary.externalSupplySlack
+        .slice()
+        .sort((a, b) => a.itemKey.localeCompare(b.itemKey))
+        .map((row) => {
+          const used = Math.max(0, row.supplyPerMin - row.slackPerMin);
+          const ratio = row.supplyPerMin <= 0 ? 0 : used / row.supplyPerMin;
+          return [
+            row.itemName,
+            row.supplyPerMin.toFixed(2),
+            used.toFixed(2),
+            `${(ratio * 100).toFixed(1)}%`,
+          ];
+        })}
       numericColumns={[1, 2, 3]}
     />
 
     <DataTable
       title={t("销售物品", "Sold Items")}
-      headers={[t("物品", "Item"), t("据点", "Outpost"), t("收益/min", "Value/min")]}
+      headers={[
+        t("物品", "Item"),
+        t("据点", "Outpost"),
+        t("数量/min", "Qty/min"),
+        t("收益/min", "Value/min"),
+      ]}
       rows={result.summary.topSales.map((sale) => [
         sale.itemName,
         sale.outpostName,
+        sale.qtyPerMin.toFixed(2),
         sale.valuePerMin.toFixed(2),
       ])}
-      numericColumns={[2]}
+      numericColumns={[2, 3]}
     />
 
     <DataTable
@@ -338,70 +299,6 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-  }
-
-  .solve-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    border-radius: 999px;
-    background: color-mix(in srgb,var(--surface-soft) 60%,var(--accent-soft));
-    padding: 8px 12px;
-    min-height: var(--control-size);
-  }
-
-  .solve-meta.danger {
-    background: #ffebe9;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .solve-meta:hover {
-      background: var(--accent-soft);
-    }
-
-    .solve-meta.danger:hover {
-      background: #ffddda;
-    }
-  }
-
-  .spinner {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--line) 80%, #b5d0c5);
-    border-top-color: var(--accent);
-    animation: spin 0.8s linear infinite;
-    flex: 0 0 auto;
-  }
-
-  .solve-icon {
-    font-size: 16px;
-    line-height: 1;
-    color: var(--accent);
-    display: block;
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 600,
-      "GRAD" 0,
-      "opsz" 16;
-  }
-
-  .solve-icon.danger {
-    color: var(--danger);
-  }
-
-  .elapsed {
-    margin: 0;
-    color: var(--accent);
-    font-size: 12px;
-    font-weight: 600;
-    width: 50px;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .elapsed.danger {
-    color: var(--danger);
   }
 
   .error-message {
@@ -445,12 +342,6 @@
   .hint {
     margin: 0;
     color: var(--muted-text);
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(1turn);
-    }
   }
 
   @media (max-width: 760px) {

@@ -47,7 +47,7 @@
       <h2>{t("求解输入", "Solver Inputs")}</h2>
       <p class="subtitle">
         {t(
-          "设置供给、外部消耗、据点收购价和电力预算，右侧会自动计算收益方案。",
+          "这里填写输入内容。",
           "Set supply, external consumption, outpost prices, and power budget. The right side auto-solves revenue plans.",
         )}
       </p>
@@ -56,19 +56,17 @@
       <IconActionButton
         kind="danger"
         icon="delete"
-        label={t("重置到默认输入", "Reset to Default Input")}
+        label={t("重置为默认输入", "Reset to Default Input")}
         onClick={actions.resetToDefault}
         disabled={isResetDisabled}
         ariaLabel={t("重置默认配置", "Reset Default")}
-        title={t("重置到默认输入", "Reset to Default Input")}
       />
 
       <IconActionButton
         kind="secondary"
-        icon="upload"
+        icon="download"
         label={t("导入 aic.toml", "Import aic.toml")}
         ariaLabel={t("导入 aic.toml", "Import aic.toml")}
-        title={t("导入 aic.toml", "Import aic.toml")}
         fileInput={{
           accept: ".toml,text/plain",
           onChange: actions.importFromFile,
@@ -77,10 +75,10 @@
 
       <IconActionButton
         kind="secondary"
-        icon="download"
+        icon="upload"
         onClick={actions.exportToml}
+        label={t("导出", "Export")}
         ariaLabel={t("导出 aic.toml", "Export aic.toml")}
-        title={t("导出 aic.toml", "Export aic.toml")}
       />
     </div>
     </div>
@@ -228,7 +226,6 @@
         icon="add"
         onClick={actions.supply.add}
         ariaLabel={t("添加供给条目", "Add supply row")}
-        title={t("添加供给条目", "Add supply row")}
       />
     </div>
 
@@ -263,7 +260,6 @@
           icon="horizontal_rule"
           onClick={() => actions.supply.remove(rowIndex)}
           ariaLabel={t("删除供给条目", "Remove supply row")}
-          title={t("删除供给条目", "Remove supply row")}
           fullWidth
         />
       </div>
@@ -285,7 +281,6 @@
         icon="add"
         onClick={actions.consumption.add}
         ariaLabel={t("添加消耗条目", "Add consumption row")}
-        title={t("添加消耗条目", "Add consumption row")}
       />
     </div>
 
@@ -321,7 +316,6 @@
           icon="horizontal_rule"
           onClick={() => actions.consumption.remove(rowIndex)}
           ariaLabel={t("删除消耗条目", "Remove consumption row")}
-          title={t("删除消耗条目", "Remove consumption row")}
           fullWidth
         />
       </div>
@@ -343,7 +337,6 @@
         icon="add"
         onClick={actions.outposts.add}
         ariaLabel={t("添加据点", "Add outpost")}
-        title={t("添加据点", "Add outpost")}
       />
     </div>
 
@@ -388,7 +381,6 @@
                 icon="delete"
                 onClick={() => actions.outposts.remove(selectedOutpostIndex)}
                 ariaLabel={t("删除据点", "Remove outpost")}
-                title={t("删除据点", "Remove outpost")}
               />
             </div>
 
@@ -408,7 +400,7 @@
               </label>
 
               <label>
-                <span class="label-with-hint compact">
+                <span class="label-with-hint">
                   <span>{t("每小时交易上限", "Money Cap / h")}</span>
                   <FieldHint
                     text={t(
@@ -445,7 +437,6 @@
                 icon="add"
                 onClick={() => actions.prices.add(selectedOutpostIndex)}
                 ariaLabel={t("添加价格条目", "Add price row")}
-                title={t("添加价格条目", "Add price row")}
               />
             </div>
 
@@ -487,7 +478,6 @@
                   onClick={() =>
                     actions.prices.remove(selectedOutpostIndex, priceIndex)}
                   ariaLabel={t("删除价格条目", "Remove price row")}
-                  title={t("删除价格条目", "Remove price row")}
                   fullWidth
                 />
               </div>
@@ -530,17 +520,11 @@
   .label-with-hint {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
   }
-
-  .label-with-hint.compact {
-    width: fit-content;
-  }
-
+  
   .heading-with-hint {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
   }
 
   .row-grid {

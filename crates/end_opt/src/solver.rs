@@ -2,16 +2,17 @@ use crate::consts::LOGISTICS_EPS;
 use crate::error::{Error, Result};
 use crate::logistics::build_logistics_plan;
 use end_model::{
-    AicInputs, Catalog, ExternalSupplySlack, FacilityId, FacilityMachineCount, ItemId, ItemVec,
-    OptimizationResult, OutpostId, OutpostSaleQty, OutpostValue, PosF64, PowerRecipeId, RecipeId,
-    RecipeUsage, Stage2Objective, Stage2WeightedWeights, StageSolution, ThermalBankUsage,
+    AicInputs, Catalog, ExternalSupplySlack, FacilityId, FacilityMachineCount, ItemId,
+    ItemStockpile, ItemVec, OptimizationResult, OutpostId, OutpostSaleQty, OutpostValue, PosF64,
+    PowerRecipeId, RecipeId, RecipeUsage, Stage2Objective, Stage2WeightedWeights, StageSolution,
+    ThermalBankUsage,
 };
 use generativity::Guard;
 use good_lp::{
     Expression, Solution, SolverModel, Variable, constraint, default_solver, variable, variables,
 };
 use smallvec::SmallVec;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::num::NonZeroU32;
 
 /// Maximum tolerated distance from an integer value for decoded integer variables.
@@ -305,17 +306,19 @@ fn solve_stage<'cid, 'sid>(
             item_balance
         });
 
-    let item_balance = outpost_vars
-        .iter()
-        .fold(item_balance, |mut item_balance, ov| {
+    let (item_balance, virtual_sales_by_item) = outpost_vars.iter().fold(
+        (item_balance, ItemVec::filled(catalog, Expression::from(0.0))),
+        |(mut item_balance, mut virtual_sales_by_item), ov| {
             ov.sell_lines.iter().for_each(|line| {
                 item_balance[line.item] -= line.qty_real;
                 if let Some(qty_virtual) = line.qty_virtual {
                     item_balance[line.item] -= qty_virtual;
+                    virtual_sales_by_item[line.item] += qty_virtual;
                 }
             });
-            item_balance
-        });
+            (item_balance, virtual_sales_by_item)
+        },
+    );
 
     let item_balance = power_vars
         .iter()
@@ -523,6 +526,47 @@ fn solve_stage<'cid, 'sid>(
         .collect::<Vec<_>>();
     external_supply_slack.sort_by(|a, b| a.slack_per_min.total_cmp(&b.slack_per_min));
 
+    // Per-item stockpile quantity in units/min.
+    //
+    // Motivation: stage2 may introduce virtual sales variables to maximize potential money value.
+    // Those virtual quantities are not physically sold in game and should be interpreted as
+    // items ending up in warehouse, so we define:
+    //   stockpile(item) = item_balance_slack(item) + virtual_sales_qty(item).
+    let mut touched_items = BTreeSet::<ItemId<'cid>>::new();
+    for (item, _) in aic.supply_per_min().iter() {
+        touched_items.insert(item);
+    }
+    for (item, _) in aic.external_consumption_per_min().iter() {
+        touched_items.insert(item);
+    }
+    for rv in &recipe_vars {
+        for (item, _) in &rv.net {
+            touched_items.insert(*item);
+        }
+    }
+    for ov in &outpost_vars {
+        for line in &ov.sell_lines {
+            touched_items.insert(line.item);
+        }
+    }
+    for pv in &power_vars {
+        touched_items.insert(pv.ingredient);
+    }
+
+    let mut item_stockpile = Vec::<ItemStockpile<'cid>>::new();
+    for item in touched_items {
+        let slack = solution.eval(&item_balance[item]);
+        let virtual_qty = solution.eval(&virtual_sales_by_item[item]);
+        let stockpile = slack + virtual_qty;
+        if stockpile > LOGISTICS_EPS {
+            item_stockpile.push(ItemStockpile {
+                item,
+                qty_per_min: stockpile,
+            });
+        }
+    }
+    item_stockpile.sort_by(|a, b| a.item.as_u32().cmp(&b.item.as_u32()));
+
     Ok(StageSolution {
         p_core_w: catalog.core_power_w(),
         p_ext_w: aic.external_power_consumption_w(),
@@ -539,6 +583,7 @@ fn solve_stage<'cid, 'sid>(
         recipes_used: recipes_used.into_boxed_slice(),
         thermal_banks_used: thermal_banks_used.into_boxed_slice(),
         external_supply_slack: external_supply_slack.into_boxed_slice(),
+        item_stockpile: item_stockpile.into_boxed_slice(),
     })
 }
 

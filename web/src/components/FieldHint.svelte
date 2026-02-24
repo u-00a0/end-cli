@@ -67,7 +67,7 @@
     onfocus={openHint}
     onblur={closeHint}
   >
-    <span class="material-symbols-outlined icon" aria-hidden="true">question_mark</span>
+    <span class="material-symbols-outlined icon" aria-hidden="true">info</span>
   </button>
   <span
     bind:this={bubbleEl}
@@ -89,7 +89,7 @@
   }
 
   .hint-trigger {
-    border: 1px solid color-mix(in srgb, var(--line) 90%, #b6cec2);
+    border: none;
     background: var(--panel-strong);
     color: var(--muted-text);
     border-radius: 999px;
@@ -101,6 +101,18 @@
     justify-content: center;
     line-height: 1;
     cursor: help;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .hint-trigger:hover {
+      background: color-mix(in srgb,var(--surface-soft) 60%,var(--accent-soft));
+      color: var(--text);
+    }
+  }
+
+  .hint-trigger:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 
   .hint-trigger .icon {

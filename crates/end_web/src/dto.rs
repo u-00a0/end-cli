@@ -67,6 +67,7 @@ pub struct SaleValueDto {
     pub outpost_name: Box<str>,
     pub item_key: Box<str>,
     pub item_name: Box<str>,
+    pub qty_per_min: f64,
     pub value_per_min: f64,
 }
 

@@ -68,6 +68,8 @@ pub enum DemandSite<'cid, 'sid> {
         power_recipe_index: PowerRecipeId<'cid>,
         item: ItemId<'cid>,
     },
+    /// Stockpile leftovers into warehouse.
+    WarehouseStockpile,
 }
 
 #[derive(Debug, Clone, PartialEq)]

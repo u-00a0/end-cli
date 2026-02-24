@@ -567,6 +567,10 @@ fn describe_logistics_site<'cid, 'sid>(
                 format!("Thermal bank group p{}", power_recipe_index.as_u32()).into_boxed_str()
             }
         },
+        LogisticsNodeSite::WarehouseStockpile => match lang {
+            Lang::Zh => "囤到仓库".into(),
+            Lang::En => "Stockpile to warehouse".into(),
+        },
     };
     Ok(rendered)
 }

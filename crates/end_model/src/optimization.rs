@@ -111,6 +111,19 @@ pub enum LogisticsNodeSite<'cid, 'sid> {
         power_recipe_index: PowerRecipeId<'cid>,
         item: ItemId<'cid>,
     },
+    /// Stockpile leftover items into warehouse.
+    ///
+    /// This node represents per-item remaining quantities after fulfilling all *real* demands.
+    /// In particular, virtual sales (used by stage-2 objectives) should be interpreted as
+    /// potential value rather than a physical sink, so those quantities end up here.
+    WarehouseStockpile,
+}
+
+/// Per-item stockpile quantity in units/min.
+#[derive(Debug, Clone)]
+pub struct ItemStockpile<'cid> {
+    pub item: ItemId<'cid>,
+    pub qty_per_min: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -162,6 +175,8 @@ pub struct StageSolution<'cid, 'sid> {
     pub thermal_banks_used: Box<[ThermalBankUsage<'cid>]>,
     /// Slack information for externally supplied items.
     pub external_supply_slack: Box<[ExternalSupplySlack<'cid>]>,
+    /// Per-item stockpile quantities (units/min).
+    pub item_stockpile: Box<[ItemStockpile<'cid>]>,
     /// Core generation capacity in watts.
     pub p_core_w: u32,
     /// External power consumption in watts.

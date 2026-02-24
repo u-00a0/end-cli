@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { tooltip } from "../lib/tooltip";
+
   interface FileInputConfig {
     accept: string;
     onChange: (event: Event) => void;
@@ -60,7 +62,7 @@
 </script>
 
 {#if fileInput}
-  <label class={rootClass} aria-label={ariaLabel} title={title}>
+  <label class={rootClass} aria-label={ariaLabel} use:tooltip={title}>
     <span class="material-symbols-outlined icon" aria-hidden="true">{icon}</span>
     {#if label}
       <span class="text">{label}</span>
@@ -77,7 +79,7 @@
     type="button"
     class={rootClass}
     aria-label={ariaLabel}
-    title={title}
+    use:tooltip={title}
     onclick={onClick}
     disabled={disabled}
   >
@@ -151,5 +153,9 @@
     .icon-action-btn:hover:not(.disabled):not(:disabled) {
       background: var(--icon-action-hover-bg);
     }
+  }
+
+  .icon-action-btn:focus-visible {
+    background: var(--icon-action-hover-bg);
   }
 </style>

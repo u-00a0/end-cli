@@ -17,6 +17,6 @@ pub use item_vec::ItemVec;
 pub use optimization::{
     ExternalSupplySlack, FacilityMachineCount, LogisticsEdge, LogisticsNode, LogisticsNodeId,
     LogisticsNodeSite, LogisticsPlan, OptimizationResult, OutpostSaleQty, OutpostValue, PosF64,
-    RecipeUsage, StageSolution, ThermalBankUsage,
+    RecipeUsage, StageSolution, ThermalBankUsage, ItemStockpile,
 };
 pub use text::{DisplayName, DisplayNameValidationError, Key, KeyValidationError};

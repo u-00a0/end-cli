@@ -11,7 +11,8 @@
     type Node,
   } from "@xyflow/svelte";
   import { buildFlowGraph } from "../lib/graph";
-  import type { LangTag, SolvePayload } from "../lib/types";
+  import type { LangTag } from "../lib/types";
+  import { renderedOkState, type SolveState } from "../lib/solve-state";
 
   type FullscreenDocument = Document & {
     webkitFullscreenElement?: Element | null;
@@ -24,12 +25,14 @@
 
   interface Props {
     lang: LangTag;
-    result: SolvePayload | null;
+    solveState: SolveState;
   }
 
-  let { lang, result }: Props = $props();
+  let { lang, solveState }: Props = $props();
   let flowElement = $state<HTMLElement | null>(null);
   let isFullscreen = $state(false);
+
+  let result = $derived(renderedOkState(solveState)?.payload ?? null);
 
   const flow = $derived<{ nodes: Node[]; edges: Edge[] }>(
     result ? buildFlowGraph(result.logisticsGraph) : { nodes: [], edges: [] },

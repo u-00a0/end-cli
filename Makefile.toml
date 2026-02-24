@@ -14,7 +14,7 @@ dependencies = ["clippy", "test"]
 [tasks.tokei]
 command = "tokei"
 workspace = false
-args = ["crates", "web", "--exclude", "package-lock.json"]
+args = ["crates", "web", "--exclude", "package-lock.json", "--exclude", "*.toml"]
 
 [tasks.archive]
 workspace = false

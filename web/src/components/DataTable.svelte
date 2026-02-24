@@ -1,8 +1,19 @@
 <script lang="ts">
+  import { tooltip, type TooltipValue } from "../lib/tooltip";
+
+  export type DataTableCell =
+    | string
+    | {
+        text: string;
+        icon?: string;
+        className?: string;
+        tooltip?: TooltipValue;
+      };
+
   interface Props {
     title: string;
     headers: string[];
-    rows: string[][];
+    rows: DataTableCell[][];
     numericColumns?: number[];
   }
 
@@ -31,7 +42,23 @@
           {#each rows as row}
             <tr>
               {#each row as value, index}
-                <td class:numeric={isNumericColumn(index)}>{value}</td>
+                <td class:numeric={isNumericColumn(index)}>
+                  {#if typeof value === 'string'}
+                    {value}
+                  {:else}
+                    <span
+                      class={['cell', value.className ?? ''].filter(Boolean).join(' ')}
+                      use:tooltip={value.tooltip}
+                    >
+                      {#if value.icon}
+                        <span class="material-symbols-outlined cell-icon" aria-hidden="true"
+                          >{value.icon}</span
+                        >
+                      {/if}
+                      <span>{value.text}</span>
+                    </span>
+                  {/if}
+                </td>
               {/each}
             </tr>
           {/each}
@@ -96,5 +123,31 @@
   th {
     color: var(--ink-soft);
     font-weight: 600;
+  }
+
+  .cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cell-icon {
+    font-size: 16px;
+    line-height: 1;
+    font-variation-settings:
+      "FILL" 0,
+      "wght" 600,
+      "GRAD" 0,
+      "opsz" 16;
+  }
+
+  .cell-good {
+    color: var(--good, var(--accent));
+    font-weight: 700;
+  }
+
+  .cell-warn {
+    color: var(--warn, color-mix(in srgb, var(--ink) 40%, #f9e9c8));
+    font-weight: 700;
   }
 </style>

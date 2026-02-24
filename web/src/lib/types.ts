@@ -35,6 +35,7 @@ export interface SaleValueDto {
   outpostName: string;
   itemKey: string;
   itemName: string;
+  qtyPerMin: number;
   valuePerMin: number;
 }
 
@@ -74,7 +75,8 @@ export type LogisticsNodeKind =
   | 'external_consumption'
   | 'recipe_group'
   | 'outpost_sale'
-  | 'thermal_bank_group';
+  | 'thermal_bank_group'
+  | 'warehouse_stockpile';
 
 export interface LogisticsItemSummaryDto {
   itemKey: string;

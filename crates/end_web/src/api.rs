@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use end_io::{default_aic_toml, load_aic_from_str, load_catalog};
 use end_model::{
     AicInputs, Catalog, FacilityId, ItemId, LogisticsNodeId, LogisticsNodeSite, OptimizationResult,
-    OutpostId, OutpostSaleQty, PowerRecipeId, RecipeId,
+    PowerRecipeId, RecipeId,
 };
 use end_opt::run_two_stage;
 use generativity::make_guard;
@@ -14,13 +14,6 @@ use crate::dto::{
     OutpostValueDto, SaleValueDto, SolvePayload, SummaryDto,
 };
 use crate::{Error, Lang, Result};
-
-#[derive(Debug, Clone, Copy)]
-struct ComputedSaleValue<'cid, 'sid> {
-    outpost_index: OutpostId<'sid>,
-    item: ItemId<'cid>,
-    value_per_min: f64,
-}
 
 pub fn bootstrap(lang: Lang) -> Result<BootstrapPayload> {
     make_guard!(guard);
@@ -103,21 +96,34 @@ fn build_summary<'cid, 'sid, 'rid>(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let top_sales = top_sales_by_value(&stage2.outpost_sales_qty)
-        .into_iter()
+    let mut top_sales = stage2
+        .outpost_sales_qty
+        .iter()
         .map(|sale| {
             let outpost = inputs
                 .outpost(sale.outpost_index)
                 .ok_or(Error::MissingOutpost(sale.outpost_index.as_u32()))?;
+
+            let qty_per_min = sale.qty_per_min.get();
+            let value_per_min = qty_per_min * sale.price as f64;
+
             Ok::<_, Error>(SaleValueDto {
                 outpost_key: outpost.key.as_str().into(),
                 outpost_name: outpost_name(lang, outpost).into(),
                 item_key: item_key(catalog, sale.item)?.into(),
                 item_name: item_name(lang, catalog, sale.item)?.into(),
-                value_per_min: sale.value_per_min,
+                qty_per_min,
+                value_per_min,
             })
         })
         .collect::<Result<Vec<_>>>()?;
+
+    // 默认排序：按据点 key、再按物品 key。
+    top_sales.sort_by(|lhs, rhs| {
+        lhs.outpost_key
+            .cmp(&rhs.outpost_key)
+            .then_with(|| lhs.item_key.cmp(&rhs.item_key))
+    });
 
     let facilities = stage2
         .machines_by_facility
@@ -162,21 +168,6 @@ fn build_summary<'cid, 'sid, 'rid>(
         facilities: facilities.into_boxed_slice(),
         external_supply_slack: external_supply_slack.into_boxed_slice(),
     })
-}
-
-fn top_sales_by_value<'cid, 'sid>(
-    lines: &[OutpostSaleQty<'cid, 'sid>],
-) -> Vec<ComputedSaleValue<'cid, 'sid>> {
-    let mut sales = lines
-        .iter()
-        .map(|line| ComputedSaleValue {
-            outpost_index: line.outpost_index,
-            item: line.item,
-            value_per_min: line.qty_per_min.get() * line.price as f64,
-        })
-        .collect::<Vec<_>>();
-    sales.sort_by(|a, b| b.value_per_min.total_cmp(&a.value_per_min));
-    sales
 }
 
 fn build_logistics_graph<'cid, 'sid, 'rid>(
@@ -377,6 +368,13 @@ fn describe_logistics_site<'cid, 'sid>(
                 },
             ))
         }
+        LogisticsNodeSite::WarehouseStockpile => Ok((
+            "warehouse_stockpile".into(),
+            match lang {
+                Lang::Zh => "囤到仓库".into(),
+                Lang::En => "Stockpile to warehouse".into(),
+            },
+        )),
     }
 }
 

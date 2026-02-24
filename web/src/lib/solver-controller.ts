@@ -14,6 +14,7 @@ interface CreateSolverControllerOptions {
   toToml: (draft: AicDraft) => string;
   solve: (lang: LangTag, toml: string) => Promise<SolvePayload>;
   onSolvingChange: (next: boolean) => void;
+  onSolveStarted?: (trigger: SolveTrigger) => void;
   onErrorMessage: (next: string) => void;
   onSolved: (payload: SolvePayload, trigger: SolveTrigger) => void;
 }
@@ -102,6 +103,7 @@ export function createSolverController(options: CreateSolverControllerOptions): 
     isSolving = true;
     emitSolvingState();
     options.onErrorMessage('');
+    options.onSolveStarted?.(trigger);
 
     try {
       const solved = await options.solve(snapshot.lang, toml);
