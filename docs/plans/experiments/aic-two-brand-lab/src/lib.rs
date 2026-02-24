@@ -106,8 +106,12 @@ impl<'cid, 'sid> AicInputs<'cid, 'sid> {
         })
     }
 
-    pub fn outpost(&self, id: OutpostId<'sid>) -> Option<&OutpostInput<'cid>> {
-        self.outposts.get(id.index())
+    pub fn outpost(&self, id: OutpostId<'sid>) -> &OutpostInput<'cid> {
+        let index = id.index();
+        debug_assert!(index < self.outposts.len());
+        // SAFETY: `OutpostId<'sid>` is branded by this scenario and is only constructed
+        // from indices into `self.outposts`, so `index` is in-bounds.
+        unsafe { self.outposts.get_unchecked(index) }
     }
 
     pub fn outposts_with_id(&self) -> impl Iterator<Item = (OutpostId<'sid>, &OutpostInput<'cid>)> + '_ {
@@ -185,9 +189,7 @@ pub fn build_report<'cid, 'sid>(
         .outpost_sales_qty
         .first()
         .ok_or(ReportError::NoSale)?;
-    let outpost = aic
-        .outpost(first_sale.outpost_index)
-        .ok_or(ReportError::MissingOutpost(first_sale.outpost_index.as_u32()))?;
+    let outpost = aic.outpost(first_sale.outpost_index);
     let item_key = catalog
         .item_key(outpost.sale_item)
         .ok_or(ReportError::MissingItem(outpost.sale_item.as_u32()))?;

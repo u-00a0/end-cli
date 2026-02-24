@@ -9,6 +9,10 @@ function normalizeBasePath(rawBasePath: string | undefined): string {
     return '/';
   }
 
+  if (trimmed === '.' || trimmed === './') {
+    return './';
+  }
+
   const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
 }
@@ -131,10 +135,11 @@ function rustWasmDevPlugin(): PluginOption {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  const basePath = env.VITE_BASE_PATH || process.env.VITE_BASE_PATH;
 
   return {
     plugins: [svelte(), rustWasmDevPlugin()],
-    base: normalizeBasePath(env.VITE_BASE_PATH),
+    base: normalizeBasePath(basePath),
     define: {
       global: 'globalThis'
     },

@@ -14,9 +14,6 @@ pub enum Error {
     #[error("Optimization failed")]
     Optimize(#[source] end_opt::Error),
 
-    #[error("Missing outpost id {0:?}")]
-    MissingOutpost(u32),
-
     #[error("Missing logistics node {node:?} for item {item:?}")]
     MissingLogisticsNode { item: u32, node: u32 },
 

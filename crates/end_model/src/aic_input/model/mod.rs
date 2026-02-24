@@ -32,8 +32,12 @@ impl<'cid, 'sid> AicInputs<'cid, 'sid> {
         &self.outposts
     }
 
-    pub fn outpost(&self, id: OutpostId<'sid>) -> Option<&OutpostInput<'cid>> {
-        self.outposts.get(id.index())
+    pub fn outpost(&self, id: OutpostId<'sid>) -> &OutpostInput<'cid> {
+        let index = id.index();
+        debug_assert!(index < self.outposts.len());
+        // SAFETY: `OutpostId<'sid>` is branded by this scenario and is only constructed
+        // within this crate from indices into `self.outposts`, so `index` is in-bounds.
+        unsafe { self.outposts.get_unchecked(index) }
     }
 
     pub fn outposts_with_id(

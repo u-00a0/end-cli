@@ -190,12 +190,12 @@
       <p>{result.summary.totalMachines}/{result.summary.totalThermalBanks}</p>
     </article>
     <article>
-      <h3>{t("囤货种类/总数", "Stockpiled kinds/total")}</h3>
-      <p>{stockpile.itemKindCount}/{stockpile.totalPerMin.toFixed(2)}/min</p>
+      <h3>{t("囤货种类/总数/min", "Stockpiled kinds/total/min")}</h3>
+      <p>{stockpile.itemKindCount}/{stockpile.totalPerMin.toFixed(2)}</p>
     </article>
     <article>
       <h3>{t("用电/发电", "Power Use/Gen")}</h3>
-      <p>{result.summary.powerUseW}/{result.summary.powerGenW} W</p>
+      <p>{result.summary.powerUseW}/{result.summary.powerGenW}</p>
     </article>
     <article>
       <h3>{t("电力余量", "Power Margin")}</h3>
@@ -207,14 +207,12 @@
       title={t("据点收益", "Outpost Revenue")}
       headers={[
         t("据点", "Outpost"),
+        t("触顶", "Cap"),
         t("收益/min", "Value/min"),
         t("上限/min", "Cap/min"),
-        t("触顶", "Cap"),
       ]}
       rows={result.summary.outposts.map((outpost) => [
         outpost.name,
-        outpost.valuePerMin.toFixed(2),
-        outpost.capPerMin.toFixed(2),
         outpost.capPerMin > 0 && outpost.ratio >= 0.9999
           ? {
               text: t("触顶", "Capped"),
@@ -230,8 +228,10 @@
                 "Revenue cannot reach cap; consider adding more raw supply",
               ),
             },
+        outpost.valuePerMin.toFixed(2),
+        outpost.capPerMin.toFixed(2),
       ])}
-      numericColumns={[1, 2]}
+      numericColumns={[2, 3]}
     />
 
     <DataTable
@@ -261,14 +261,14 @@
     <DataTable
       title={t("销售物品", "Sold Items")}
       headers={[
-        t("物品", "Item"),
         t("据点", "Outpost"),
+        t("物品", "Item"),
         t("数量/min", "Qty/min"),
         t("收益/min", "Value/min"),
       ]}
       rows={result.summary.topSales.map((sale) => [
-        sale.itemName,
         sale.outpostName,
+        sale.itemName,
         sale.qtyPerMin.toFixed(2),
         sale.valuePerMin.toFixed(2),
       ])}

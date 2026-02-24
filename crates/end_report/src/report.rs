@@ -72,9 +72,7 @@ pub fn build_report<'cid, 'sid, 'rid>(
     out.push('\n');
     out.push_str(&format!("{}\n", a.h(t(lang, "交易", "Trading"))));
     for ov in &stage2.outpost_values {
-        let outpost = inputs
-            .outpost(ov.outpost_index)
-            .ok_or(Error::MissingOutpost(ov.outpost_index.as_u32()))?;
+        let outpost = inputs.outpost(ov.outpost_index);
         let name = outpost_display_name(lang, outpost);
         let at_cap = ov.cap_per_min > 0.0 && ov.ratio >= 0.9999;
         let tag = if at_cap {
@@ -116,9 +114,7 @@ pub fn build_report<'cid, 'sid, 'rid>(
             ))
         ));
         for sale in top_sales {
-            let outpost = inputs
-                .outpost(sale.outpost_index)
-                .ok_or(Error::MissingOutpost(sale.outpost_index.as_u32()))?;
+            let outpost = inputs.outpost(sale.outpost_index);
             let item = item_display_name(lang, catalog, sale.item)?;
             out.push_str(&format!(
                 "- {} @ {}: {:.2}/min\n",
@@ -263,9 +259,7 @@ pub fn build_report<'cid, 'sid, 'rid>(
     for ov in &stage2.outpost_values {
         if ov.ratio > 0.98 {
             any = true;
-            let outpost = inputs
-                .outpost(ov.outpost_index)
-                .ok_or(Error::MissingOutpost(ov.outpost_index.as_u32()))?;
+            let outpost = inputs.outpost(ov.outpost_index);
             out.push_str(&format!(
                 "- {}\n",
                 match lang {
@@ -547,9 +541,7 @@ fn describe_logistics_site<'cid, 'sid>(
             outpost_index,
             item,
         } => {
-            let outpost = inputs
-                .outpost(*outpost_index)
-                .ok_or(Error::MissingOutpost(outpost_index.as_u32()))?;
+            let outpost = inputs.outpost(*outpost_index);
             let item = item_display_name(lang, catalog, *item)?;
             match lang {
                 Lang::Zh => {

@@ -1,5 +1,4 @@
 import type { BootstrapPayload, LangTag, SolvePayload } from './types';
-import { publicDir } from './public-asset';
 
 interface BootstrapRequest {
   id: number;
@@ -64,7 +63,15 @@ type WorkerResponse = BootstrapOk | BootstrapErr | WarmupOk | WarmupErr | SolveO
 let solveWorker: Worker | null = null;
 let workerRequestId = 1;
 let warmupPromise: Promise<void> | null = null;
-const wasmBase = publicDir('wasm');
+
+function deriveAppBasePathname(): string {
+  const moduleDir = new URL('.', import.meta.url);
+  const appBaseDir = new URL('..', moduleDir);
+  const pathname = appBaseDir.pathname;
+  return pathname.endsWith('/') ? pathname : `${pathname}/`;
+}
+
+const wasmBase = `${deriveAppBasePathname()}wasm/`;
 
 const pendingBootstrap = new Map<
   number,

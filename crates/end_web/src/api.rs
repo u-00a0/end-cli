@@ -83,9 +83,7 @@ fn build_summary<'cid, 'sid, 'rid>(
         .outpost_values
         .iter()
         .map(|value| {
-            let outpost = inputs
-                .outpost(value.outpost_index)
-                .ok_or(Error::MissingOutpost(value.outpost_index.as_u32()))?;
+            let outpost = inputs.outpost(value.outpost_index);
             Ok::<_, Error>(OutpostValueDto {
                 key: outpost.key.as_str().into(),
                 name: outpost_name(lang, outpost).into(),
@@ -100,9 +98,7 @@ fn build_summary<'cid, 'sid, 'rid>(
         .outpost_sales_qty
         .iter()
         .map(|sale| {
-            let outpost = inputs
-                .outpost(sale.outpost_index)
-                .ok_or(Error::MissingOutpost(sale.outpost_index.as_u32()))?;
+            let outpost = inputs.outpost(sale.outpost_index);
 
             let qty_per_min = sale.qty_per_min.get();
             let value_per_min = qty_per_min * sale.price as f64;
@@ -334,9 +330,7 @@ fn describe_logistics_site<'cid, 'sid>(
             outpost_index,
             item,
         } => {
-            let outpost = inputs
-                .outpost(*outpost_index)
-                .ok_or(Error::MissingOutpost(outpost_index.as_u32()))?;
+            let outpost = inputs.outpost(*outpost_index);
             Ok((
                 "outpost_sale".into(),
                 match lang {
