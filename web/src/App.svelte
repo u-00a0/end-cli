@@ -2,7 +2,6 @@
   import { onMount } from "svelte";
   import SiteFooter from "./components/SiteFooter.svelte";
   import About from "./routes/About.svelte";
-  import HowItWorks from "./routes/HowItWorks.svelte";
   import Home from "./routes/Home.svelte";
   import type { RouteKey } from "./lib/routes";
   import { parseHashRoute } from "./lib/routes";
@@ -13,6 +12,13 @@
       ? "home"
       : parseHashRoute(window.location.hash),
   );
+
+  let howRouteModulePromise: Promise<typeof import("./routes/HowItWorks.svelte")> | null = null;
+
+  function loadHowRoute() {
+    howRouteModulePromise ??= import("./routes/HowItWorks.svelte");
+    return howRouteModulePromise;
+  }
 
   onMount(() => {
     const onHashChange = () => {
@@ -33,7 +39,10 @@
   {:else if route === "about"}
     <About />
   {:else}
-    <HowItWorks />
+    {#await loadHowRoute() then howModule}
+      {@const HowItWorks = howModule.default}
+      <HowItWorks />
+    {/await}
   {/if}
 
   <SiteFooter />

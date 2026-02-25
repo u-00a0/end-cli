@@ -106,23 +106,6 @@
 </Panel>
 
 <style>
-  .nav-link {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: 0 var(--space-3);
-    height: var(--control-size);
-    border-radius: var(--radius-sm);
-    background: var(--surface-soft);
-    color: var(--accent-ink);
-    text-decoration: none;
-    font-weight: 600;
-  }
-
-  .nav-link:hover {
-    background: var(--accent-soft);
-  }
-
   .content {
     display: grid;
     gap: var(--space-3);

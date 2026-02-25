@@ -1,8 +1,12 @@
+# rust build dir
 /target
 target/
 
 /web/node_modules
 /web/dist
-/web/public/wasm
 /web/test-results
 /web/playwright-report
+
+# generated files
+/web/public/wasm
+/web/src/lib/generated

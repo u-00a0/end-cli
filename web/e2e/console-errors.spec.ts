@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 
-const aicTomlPath = fileURLToPath(new URL('../../aic.toml', import.meta.url));
+const aicTomlPath = fileURLToPath(new URL('../../crates/end_io/src/aic.toml', import.meta.url));
 
 test('捕获浏览器控制台报错', async ({ page }) => {
   const errors: Array<{ type: string; text: string; location?: string }> = [];
