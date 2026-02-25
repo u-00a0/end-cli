@@ -1,6 +1,8 @@
 <script lang="ts">
   import Dialog from "./components/Dialog.svelte";
-  import ErrorToast, { type ErrorToastState } from "./components/ErrorToast.svelte";
+  import ErrorToast, {
+    type ErrorToastState,
+  } from "./components/ErrorToast.svelte";
   import { onMount } from "svelte";
   import EditorPanel from "./components/EditorPanel.svelte";
   import DragImportOverlay from "./components/DragImportOverlay.svelte";
@@ -48,14 +50,8 @@
     createSolverController,
     type SolverController,
   } from "./lib/solver-controller";
-  import {
-    type SolveState,
-  } from "./lib/solve-state";
-  import type {
-    AicDraft,
-    CatalogItemDto,
-    LangTag,
-  } from "./lib/types";
+  import { type SolveState } from "./lib/solve-state";
+  import type { AicDraft, CatalogItemDto, LangTag } from "./lib/types";
   import { EMPTY_DRAFT } from "./lib/types";
   import { loadBootstrap, solveScenario, warmupWasmWorker } from "./lib/wasm";
 
@@ -63,7 +59,7 @@
   const MIN_EDITOR_WIDTH_PX = 300;
   const MIN_RIGHT_WIDTH_PX = 420;
   const MIN_TOP_PANEL_HEIGHT_PX = 80;
-  const MIN_BOTTOM_PANEL_HEIGHT_PX = 80+12;
+  const MIN_BOTTOM_PANEL_HEIGHT_PX = 80 + 12;
   const AUTO_SOLVE_DEBOUNCE_MS = 200;
 
   const STORAGE_CONFIG: DraftStorageConfig = {
@@ -440,26 +436,26 @@
   {/if}
 
   <main
-    class={`workspace ${isNarrowScreen ? "mobile" : ""}`}
+    class={`workspace`}
     bind:this={layoutElement}
     style={isNarrowScreen
       ? undefined
       : `--left-pane-width: ${(leftPaneRatio * 100).toFixed(2)}%`}
   >
-    <section
-      class={`editor ${isNarrowScreen && activeTab !== "editor" ? "tab-hidden" : ""}`}
-    >
-      <EditorPanel
-        {lang}
-        {draft}
-        {catalogItems}
-        {selectedOutpostIndex}
-        isResetDisabled={isBootstrapping}
-        actions={editorActions}
-      />
-    </section>
-
     {#if !isNarrowScreen}
+      <section
+        class={`editor`}
+      >
+        <EditorPanel
+          {lang}
+          {draft}
+          {catalogItems}
+          {selectedOutpostIndex}
+          isResetDisabled={isBootstrapping}
+          actions={editorActions}
+        />
+      </section>
+
       <Splitter
         {layoutElement}
         ratio={leftPaneRatio}
@@ -476,11 +472,7 @@
         bind:this={rightPaneElement}
         style={`--right-top-height: ${(rightPaneRatio * 100).toFixed(2)}%; --right-min-top-height: ${MIN_TOP_PANEL_HEIGHT_PX}px; --right-min-bottom-height: ${MIN_BOTTOM_PANEL_HEIGHT_PX}px`}
       >
-        <ResultPanel
-          {lang}
-          {isBootstrapping}
-          {solveState}
-        />
+        <ResultPanel {lang} {isBootstrapping} {solveState} />
 
         <HorizontalSplitter
           layoutElement={rightPaneElement}
@@ -497,18 +489,23 @@
       </div>
     {:else}
       <section
-        class={`${activeTab !== "result" ? "tab-hidden" : ""}`}
+        class={`${isNarrowScreen && activeTab !== "editor" ? "tab-hidden" : "editor"}`}
       >
-        <ResultPanel
+        <EditorPanel
           {lang}
-          {isBootstrapping}
-          {solveState}
+          {draft}
+          {catalogItems}
+          {selectedOutpostIndex}
+          isResetDisabled={isBootstrapping}
+          actions={editorActions}
         />
       </section>
 
-      <section
-        class={`${activeTab !== "graph" ? "tab-hidden" : ""}`}
-      >
+      <section class={`${activeTab !== "result" ? "tab-hidden" : "result"}`}>
+        <ResultPanel {lang} {isBootstrapping} {solveState} />
+      </section>
+
+      <section class={`${activeTab !== "graph" ? "tab-hidden" : "graph"}`}>
         <GraphPanel {lang} {solveState} />
       </section>
     {/if}

@@ -55,6 +55,18 @@
     min-width: 0;
   }
 
+  /* Hide number input spinners (Chrome/Safari/Edge + Firefox) */
+  input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
   @media (hover: hover) and (pointer: fine) {
     input:hover {
       box-shadow: var(--focus-ring);

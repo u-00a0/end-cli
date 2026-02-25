@@ -118,7 +118,7 @@
       <div class="field-row">
         <div class="label-with-hint">
           <label for="external-power"
-            >{t("基地内外额外耗电 (W)", "External Power (W)")}</label
+            >{t("额外耗电", "External Power (W)")}</label
           >
           <FieldHint
             text={t(
@@ -332,7 +332,7 @@
     <section>
       <div class="sub-header">
         <div class="heading-with-hint">
-          <h3>{t("据点与收购价", "Outposts & Buy Prices")}</h3>
+          <h3>{t("据点", "Outposts")}</h3>
           <FieldHint
             text={t(
               "此列表可以留空；填入后求解器会根据收购价和供需情况自动计算生产什么产品来交易以最大化利润。",
@@ -366,7 +366,7 @@
                     `${t("据点", "Outpost")} ${outpostIndex + 1}`}
                 </p>
                 <p class="outpost-pick-meta">
-                  {t("每小时交易上限", "Money Cap / h")}: {outpost.moneyCapPerHour}
+                  {t("交易上限", "Cap / h")}: {outpost.moneyCapPerHour}
                 </p>
                 <p class="outpost-pick-meta">
                   {t("收购条目", "Price rows")}: {outpost.prices.length}
@@ -442,7 +442,7 @@
                 </label>
               </div>
 
-              <div class="sub-header mini">
+              <div class="sub-header">
                 <div class="heading-with-hint">
                   <h5>{t("收购价", "Buy Prices")}</h5>
                   <FieldHint
@@ -545,10 +545,6 @@
     line-height: 1.2;
   }
 
-  .sub-header.mini {
-    margin-top: var(--space-1);
-  }
-
   .field-row {
     display: grid;
     grid-template-columns: 1fr 190px;
@@ -611,6 +607,18 @@
     container-type: inline-size;
   }
 
+  .row-grid.two label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .row-grid.three label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
   .row-grid {
     display: grid;
     gap: var(--space-2);
@@ -632,25 +640,6 @@
   .outpost-layout {
     display: grid;
     gap: var(--space-3);
-    grid-template-columns: 200px minmax(0, 1fr);
-  }
-
-  .row-grid.two label {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-
-  @container (max-width: 280px) {
-    .row-grid.two {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .row-grid.three label {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
   }
 
   .outpost-list {
@@ -659,8 +648,24 @@
     align-content: start;
   }
 
+  @container (min-width: 480px) {
+    .outpost-layout {
+      grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr);
+    }
+  }
+
   @container (max-width: 480px) {
     .outpost-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .outpost-list {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @container (max-width: 280px) {
+    .row-grid.two {
       grid-template-columns: 1fr;
     }
   }
