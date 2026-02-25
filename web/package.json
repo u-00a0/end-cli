@@ -15,6 +15,7 @@
     "lint:fix": "eslint . --fix",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:chromium": "playwright test -c playwright.chromium.config.ts",
     "test:console": "playwright test console-errors.spec.ts",
     "build:wasm": "bash ../scripts/build_web_wasm.sh"
   },

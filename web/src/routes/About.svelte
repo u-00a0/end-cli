@@ -38,67 +38,61 @@
 <Panel>
   {#snippet header()}
     <PanelHeader
-      titleText={t("关于这个工具", "About this tool")}
+      titleText={t("关于这个 App", "About this app")}
       subtitleText={t(
-        "Rust + WebAssembly 的终末地产线规划器（MILP / HiGHS）。",
-        "A Rust + WebAssembly production planner (MILP / HiGHS).",
+        "Rust + WebAssembly 的终末地产线规划器，使用 HiGHS 求解器在浏览器本地执行。",
+        "A Rust + WebAssembly production planner, using the HiGHS solver locally in the browser.",
       )}
     >
     </PanelHeader>
   {/snippet}
 
   <section class="content">
-    <h3>{t("它能做什么", "What it does")}</h3>
-    <ul>
-      <li>
-        {t(
-          "根据外部供给/消耗、据点价格与上限、外部耗电等输入，自动给出“卖什么、跑哪些配方、需要多少机器/热能池”的最优方案。",
-          "Given external supply/consumption, outpost prices & caps, and external power usage, it computes an optimal plan (what to sell, which recipes to run, and how many machines/thermal banks).",
-        )}
-      </li>
-      <li>
-        {t(
-          "求解在浏览器本地执行：WASM + WebWorker + HiGHS；导入/导出 aic.toml 也只发生在本地。",
-          "Solving runs locally in your browser (WASM + WebWorker + HiGHS); importing/exporting aic.toml also stays local.",
-        )}
-      </li>
-    </ul>
-
-    <h3>{t("快速上手", "Quick start")}</h3>
+    <h3>{t("能做什么", "What it does")}</h3>
+    <p>
+      {t(
+        "这个 App 可以计算产线，然后变成漂亮的报告和可视化流程图，并且和朋友、ChatGPT 分享。",
+        "This app can compute production plans, then turn them into nice reports and visualized flow charts, and share with your friends and ChatGPT.",
+      )}
+    </p>
+    <h3>{t("快速上手", "How to use it")}</h3>
+    <p>
+      {t(
+        "首先，根据游戏进程在左侧输入当前矿点产量、据点价格与交易额上限、电力情况等信息。",
+        "First, based on your game progress, enter on the left your current mine outputs, outpost prices and money caps, and power situation.",
+      )}
+    </p>
     <ol>
       <li>
         {t(
-          "在左侧“求解输入”里填写外部供给/外部消耗、据点收购价与交易额上限、外部耗电。",
-          "Fill inputs on the left: supply/consumption, outpost prices & money caps, and external power.",
+          "使用方式 1：已经明确知道想要生产的物品时，把它们填在外部消耗里，据点列表可以留空，将本工具当作产线配平计算器使用。",
+          "Mode 1: when you already know exactly which items you want to produce, put them into external consumption, leave the outpost list empty, and use this as a pure production-balancing calculator.",
         )}
       </li>
       <li>
         {t(
-          "右侧会自动求解并刷新“方案评估”和“物流图”。",
-          "The right side auto-solves and updates the summary and flow graph.",
-        )}
-      </li>
-      <li>
-        {t(
-          "需要保存时，用“导出”按钮下载当前输入的 aic.toml。",
-          "Use Export to download the current aic.toml.",
+          "使用方式 2：需要探索各种方案时，填好据点收购价与交易额上限，让求解器在先打满据点收入的前提下，尽量优化剩余可支撑的物资生产和电力生产。",
+          "Mode 2: when you want to explore different plans, fill in outpost buy prices and money caps so the solver first maxes out outpost income, then uses the remaining capacity to optimize additional goods and power production.",
         )}
       </li>
     </ol>
+    <p>
+      {t(
+        "需要保存当前输入时，用导出按钮下载对应的 toml 文件。",
+        "When you want to save the current inputs, use Export to download the corresponding toml file.",
+      )}
+    </p>
 
     <h3>{t("项目链接", "Links")}</h3>
     <ul>
       <li>
         <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">GitHub: sssxks/end-cli</a>
       </li>
-      <li>
-        <a href={WEB_URL} target="_blank" rel="noreferrer">{t("网页版本", "Web app")}</a>
-      </li>
     </ul>
 
     <p class="note">
       {t(
-        "想提需求/报错/讨论模型细节：建议直接去 GitHub 开 issue。",
+        "提需求、报错、讨论，建议直接来 GitHub 开 issue。",
         "For feature requests / bugs / modeling discussions, please open an issue on GitHub.",
       )}
     </p>
