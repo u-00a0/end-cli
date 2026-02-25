@@ -3,14 +3,10 @@ import type { AicDraft } from './types';
 
 export interface DraftStorageConfig {
   draftStorageKey: string;
-  paneRatioStorageKey: string;
-  minPaneRatio: number;
-  maxPaneRatio: number;
 }
 
 export interface RestoredLocalState {
   draft: AicDraft | null;
-  leftPaneRatio: number | null;
 }
 
 function getStorage(): Storage | null {
@@ -106,25 +102,14 @@ export function restoreLocalState(config: DraftStorageConfig): RestoredLocalStat
   const storage = getStorage();
   if (!storage) {
     return {
-      draft: null,
-      leftPaneRatio: null
+      draft: null
     };
-  }
-
-  let leftPaneRatio: number | null = null;
-  const storedRatio = storage.getItem(config.paneRatioStorageKey);
-  if (storedRatio !== null) {
-    const nextRatio = Number(storedRatio);
-    if (Number.isFinite(nextRatio)) {
-      leftPaneRatio = Math.min(config.maxPaneRatio, Math.max(config.minPaneRatio, nextRatio));
-    }
   }
 
   const storedDraft = storage.getItem(config.draftStorageKey);
   if (storedDraft === null) {
     return {
-      draft: null,
-      leftPaneRatio
+      draft: null
     };
   }
 
@@ -138,8 +123,7 @@ export function restoreLocalState(config: DraftStorageConfig): RestoredLocalStat
   }
 
   return {
-    draft,
-    leftPaneRatio
+    draft
   };
 }
 
@@ -157,6 +141,14 @@ export function persistDraft(storageKey: string, draft: AicDraft): void {
 }
 
 export function persistLeftPaneRatio(storageKey: string, ratio: number): void {
+  persistPaneRatio(storageKey, ratio);
+}
+
+export function persistRightPaneRatio(storageKey: string, ratio: number): void {
+  persistPaneRatio(storageKey, ratio);
+}
+
+function persistPaneRatio(storageKey: string, ratio: number): void {
   const storage = getStorage();
   if (!storage) {
     return;

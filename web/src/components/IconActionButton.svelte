@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import { tooltip } from "../lib/tooltip";
 
   interface FileInputConfig {
@@ -6,30 +7,43 @@
     onChange: (event: Event) => void;
   }
 
-  interface Props {
+  interface CommonProps {
     ariaLabel: string;
-    icon: string;
+    icon?: string;
+    iconSnippet?: Snippet;
     label?: string;
     title?: string;
     kind?: "default" | "danger";
     disabled?: boolean;
+    active?: boolean;
     onClick?: () => void;
     className?: string;
     fullWidth?: boolean;
+  }
+
+  interface Props extends CommonProps {
     fileInput?: FileInputConfig;
+    href?: string;
+    target?: string;
+    rel?: string;
   }
 
   let {
     ariaLabel,
     icon,
+    iconSnippet,
     label,
     title,
     kind = "default",
     disabled = false,
+    active = false,
     onClick,
     className = "",
     fullWidth = false,
     fileInput,
+    href,
+    target,
+    rel,
   }: Props = $props();
 
   const rootClass = $derived.by(() => {
@@ -51,6 +65,10 @@
       classes.push("disabled");
     }
 
+    if (active) {
+      classes.push("active");
+    }
+
     if (className.trim().length > 0) {
       classes.push(className.trim());
     }
@@ -61,7 +79,11 @@
 
 {#if fileInput}
   <label class={rootClass} aria-label={ariaLabel} use:tooltip={title}>
-    <span class="material-symbols-outlined icon" aria-hidden="true">{icon}</span>
+    {#if iconSnippet}
+      {@render iconSnippet()}
+    {:else if icon}
+      <span class="material-symbols-outlined icon" aria-hidden="true">{icon}</span>
+    {/if}
     {#if label}
       <span class="text">{label}</span>
     {/if}
@@ -72,6 +94,34 @@
       disabled={disabled}
     />
   </label>
+{:else if href}
+  <a
+    class={rootClass}
+    href={href}
+    target={target}
+    rel={rel}
+    aria-label={ariaLabel}
+    aria-current={active ? "page" : undefined}
+    aria-disabled={disabled || undefined}
+    tabindex={disabled ? -1 : undefined}
+    use:tooltip={title}
+    onclick={(event) => {
+      if (disabled) {
+        event.preventDefault();
+        return;
+      }
+      onClick?.();
+    }}
+  >
+    {#if iconSnippet}
+      {@render iconSnippet()}
+    {:else if icon}
+      <span class="material-symbols-outlined icon" aria-hidden="true">{icon}</span>
+    {/if}
+    {#if label}
+      <span class="text">{label}</span>
+    {/if}
+  </a>
 {:else}
   <button
     type="button"
@@ -81,7 +131,11 @@
     onclick={onClick}
     disabled={disabled}
   >
-    <span class="material-symbols-outlined icon" aria-hidden="true">{icon}</span>
+    {#if iconSnippet}
+      {@render iconSnippet()}
+    {:else if icon}
+      <span class="material-symbols-outlined icon" aria-hidden="true">{icon}</span>
+    {/if}
     {#if label}
       <span class="text">{label}</span>
     {/if}
@@ -124,6 +178,14 @@
   .icon-action-btn.disabled {
     cursor: not-allowed;
     opacity: 0.6;
+  }
+
+  .icon-action-btn.active {
+    background: var(--icon-action-hover-bg);
+  }
+
+  a.icon-action-btn {
+    text-decoration: none;
   }
 
   .icon-action-btn input {

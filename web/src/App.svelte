@@ -4,35 +4,14 @@
   import About from "./routes/About.svelte";
   import HowItWorks from "./routes/HowItWorks.svelte";
   import Home from "./routes/Home.svelte";
-
-  type RouteKey = "home" | "about" | "how";
-
-  function parseHashRoute(hash: string): RouteKey {
-    const raw = hash.trim();
-    if (raw.length === 0) {
-      return "home";
-    }
-
-    const cleaned = raw.startsWith("#") ? raw.slice(1) : raw;
-    const pathname = cleaned.startsWith("/") ? cleaned.slice(1) : cleaned;
-
-    if (pathname === "" || pathname === "/") {
-      return "home";
-    }
-
-    const firstSegment = pathname.split("/")[0]?.toLowerCase() ?? "";
-    if (firstSegment === "about") {
-      return "about";
-    }
-    if (firstSegment === "how" || firstSegment === "how-it-works") {
-      return "how";
-    }
-
-    return "home";
-  }
+  import type { RouteKey } from "./lib/routes";
+  import { parseHashRoute } from "./lib/routes";
+  import "./styles/app-shell.css";
 
   let route = $state<RouteKey>(
-    typeof window === "undefined" ? "home" : parseHashRoute(window.location.hash),
+    typeof window === "undefined"
+      ? "home"
+      : parseHashRoute(window.location.hash),
   );
 
   onMount(() => {
@@ -48,12 +27,29 @@
   });
 </script>
 
-{#if route === "home"}
-  <Home />
-{:else if route === "about"}
-  <About />
-{:else}
-  <HowItWorks />
-{/if}
+<div class="shell">
+  {#if route === "home"}
+    <Home />
+  {:else if route === "about"}
+    <About />
+  {:else}
+    <HowItWorks />
+  {/if}
 
-<SiteFooter />
+  <SiteFooter />
+</div>
+
+<style>
+  .shell {
+    /* 1800px x 100dvh, padding var(--space-3) */
+    width: min(1800px, 100%);
+    margin: 0 auto;
+    padding: var(--space-3);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+
+    /* for mobile tabs */
+    gap: var(--space-3);
+  }
+</style>

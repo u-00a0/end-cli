@@ -24,7 +24,8 @@
     </filter>
   </defs>
 
-  <g filter="url(#shadow)" shape-rendering="geometricPrecision">
+  <!-- move it left-down a little bit -->
+  <g filter="url(#shadow)" shape-rendering="geometricPrecision" transform="translate(-12 16)">
     <!-- outer crystal -->
     <path d="M77 75 L196 33 L217 39 L229 67 L211 172 L173 208 L116 214 L38 171 L33 135 Z"
           fill="url(#amber)" />

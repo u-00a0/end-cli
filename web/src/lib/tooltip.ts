@@ -1,4 +1,13 @@
-export type TooltipValue = string | null | undefined;
+export type TooltipPlacement = "auto" | "top" | "bottom";
+
+export type TooltipParam =
+  | string
+  | {
+      text: string;
+      placement?: TooltipPlacement;
+    };
+
+export type TooltipValue = TooltipParam | null | undefined;
 
 type TooltipActionReturn = {
   update?: (value: TooltipValue) => void;
@@ -47,11 +56,23 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function resolveText(value: TooltipValue): string {
-  const text = (value ?? "").trim();
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  const text = (value?.text ?? "").trim();
   return text;
 }
 
-function positionTooltip(node: HTMLElement, tooltipEl: HTMLElement): void {
+function resolvePlacement(value: TooltipValue): TooltipPlacement {
+  if (typeof value === "string" || value == null) {
+    return "auto";
+  }
+
+  return value.placement ?? "auto";
+}
+
+function positionTooltip(node: HTMLElement, tooltipEl: HTMLElement, placement: TooltipPlacement): void {
   const rect = node.getBoundingClientRect();
   const tipRect = tooltipEl.getBoundingClientRect();
 
@@ -65,12 +86,41 @@ function positionTooltip(node: HTMLElement, tooltipEl: HTMLElement): void {
     viewportWidth - VIEWPORT_PADDING_PX - tipRect.width,
   );
 
-  const idealTop = rect.bottom + TOOLTIP_OFFSET_PX;
-  const top = clamp(
-    idealTop,
+  const topCandidate = rect.top - TOOLTIP_OFFSET_PX - tipRect.height;
+  const bottomCandidate = rect.bottom + TOOLTIP_OFFSET_PX;
+
+  const spaceAbove = rect.top - VIEWPORT_PADDING_PX;
+  const spaceBelow = viewportHeight - rect.bottom - VIEWPORT_PADDING_PX;
+  const requiredSpace = TOOLTIP_OFFSET_PX + tipRect.height;
+
+  const pickTop = () => clamp(
+    topCandidate,
     VIEWPORT_PADDING_PX,
     viewportHeight - VIEWPORT_PADDING_PX - tipRect.height,
   );
+
+  const pickBottom = () => clamp(
+    bottomCandidate,
+    VIEWPORT_PADDING_PX,
+    viewportHeight - VIEWPORT_PADDING_PX - tipRect.height,
+  );
+
+  let top: number;
+  if (placement === "top") {
+    top = pickTop();
+  } else if (placement === "bottom") {
+    top = pickBottom();
+  } else {
+    // auto: prefer showing above; fall back to below when space is insufficient.
+    if (spaceAbove >= requiredSpace) {
+      top = pickTop();
+    } else if (spaceBelow >= requiredSpace) {
+      top = pickBottom();
+    } else {
+      // If neither side has enough space, pick the side with more room.
+      top = spaceAbove >= spaceBelow ? pickTop() : pickBottom();
+    }
+  }
 
   tooltipEl.style.left = `${left}px`;
   tooltipEl.style.top = `${top}px`;
@@ -118,6 +168,8 @@ export function tooltip(node: HTMLElement, value: TooltipValue): TooltipActionRe
       return;
     }
 
+    const placement = resolvePlacement(currentValue);
+
     removeNativeTitle();
 
     if (tooltipEl) {
@@ -125,13 +177,13 @@ export function tooltip(node: HTMLElement, value: TooltipValue): TooltipActionRe
       if (content) {
         content.textContent = text;
       }
-      positionTooltip(node, tooltipEl);
+      positionTooltip(node, tooltipEl, placement);
       return;
     }
 
     tooltipEl = createTooltipElement(text);
     document.body.append(tooltipEl);
-    positionTooltip(node, tooltipEl);
+    positionTooltip(node, tooltipEl, placement);
   };
 
   const hide = () => {
@@ -163,7 +215,7 @@ export function tooltip(node: HTMLElement, value: TooltipValue): TooltipActionRe
     if (!tooltipEl) {
       return;
     }
-    positionTooltip(node, tooltipEl);
+    positionTooltip(node, tooltipEl, resolvePlacement(currentValue));
   };
 
   node.addEventListener("mouseenter", onPointerEnter);
@@ -189,7 +241,7 @@ export function tooltip(node: HTMLElement, value: TooltipValue): TooltipActionRe
           if (content) {
             content.textContent = nextText;
           }
-          positionTooltip(node, tooltipEl);
+          positionTooltip(node, tooltipEl, resolvePlacement(currentValue));
         }
       }
     },

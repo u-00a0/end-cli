@@ -4,13 +4,8 @@
     type ErrorToastState,
   } from "../components/ErrorToast.svelte";
   import { onMount } from "svelte";
-  import EditorPanel from "../components/EditorPanel.svelte";
-  import DragImportOverlay from "../components/DragImportOverlay.svelte";
-  import GraphPanel from "../components/GraphPanel.svelte";
-  import HorizontalSplitter from "../components/HorizontalSplitter.svelte";
-  import ResultPanel from "../components/ResultPanel.svelte";
-  import Splitter from "../components/Splitter.svelte";
-  import "../styles/app-shell.css";
+  import HomeDesktopLayout from "../components/layout/HomeDesktopLayout.svelte";
+  import HomeMobileLayout from "../components/layout/HomeMobileLayout.svelte";
   import { buildAicToml, parseAicToml } from "../lib/aic";
   import {
     isSameOutpostSelection,
@@ -41,7 +36,6 @@
   } from "../lib/draft-actions";
   import {
     persistDraft,
-    persistLeftPaneRatio,
     restoreLocalState,
     type DraftStorageConfig,
   } from "../lib/draft-storage";
@@ -64,9 +58,6 @@
 
   const STORAGE_CONFIG: DraftStorageConfig = {
     draftStorageKey: "end2.web.draft.v2",
-    paneRatioStorageKey: "end2.web.left-pane-ratio.v2",
-    minPaneRatio: 0.1,
-    maxPaneRatio: 0.9,
   };
 
   function detectBrowserLang(): LangTag {
@@ -102,13 +93,7 @@
   let errorToast = $state<ErrorToastState>({ kind: "closed" });
 
   let selectedOutpostIndex = $state<OutpostSelection>(NO_OUTPOST_SELECTED);
-
-  let layoutElement = $state<HTMLElement | null>(null);
-  let rightPaneElement = $state<HTMLElement | null>(null);
   let isNarrowScreen = $state(false);
-  let activeTab = $state<"editor" | "result" | "graph">("editor");
-  let leftPaneRatio = $state(0.55);
-  let rightPaneRatio = $state(0.5);
 
   let hasHydratedLocalState = $state(false);
   let hasRestoredDraftFromStorage = $state(false);
@@ -330,9 +315,6 @@
     void warmupWasmWorker().catch(() => undefined);
 
     const restored = restoreLocalState(STORAGE_CONFIG);
-    if (restored.leftPaneRatio !== null) {
-      leftPaneRatio = restored.leftPaneRatio;
-    }
 
     if (restored.draft) {
       draft = restored.draft;
@@ -357,9 +339,6 @@
     const mediaQuery = window.matchMedia(NARROW_LAYOUT_QUERY);
     const updateScreenMode = (): void => {
       isNarrowScreen = mediaQuery.matches;
-      if (!isNarrowScreen) {
-        activeTab = "editor";
-      }
     };
 
     updateScreenMode();
@@ -390,14 +369,6 @@
   });
 
   $effect(() => {
-    if (!hasHydratedLocalState) {
-      return;
-    }
-
-    persistLeftPaneRatio(STORAGE_CONFIG.paneRatioStorageKey, leftPaneRatio);
-  });
-
-  $effect(() => {
     const normalized = normalizeSelectedOutpostIndex(
       draft,
       selectedOutpostIndex,
@@ -408,111 +379,33 @@
   });
 </script>
 
-<div class="shell">
-  {#if isNarrowScreen}
-    <nav class="mobile-tabs" aria-label={t("页面分区", "Panel tabs")}>
-      <button
-        type="button"
-        class:active={activeTab === "editor"}
-        onclick={() => (activeTab = "editor")}
-      >
-        {t("输入", "Inputs")}
-      </button>
-      <button
-        type="button"
-        class:active={activeTab === "result"}
-        onclick={() => (activeTab = "result")}
-      >
-        {t("评估", "Summary")}
-      </button>
-      <button
-        type="button"
-        class:active={activeTab === "graph"}
-        onclick={() => (activeTab = "graph")}
-      >
-        {t("物流", "Flow")}
-      </button>
-    </nav>
-  {/if}
-
-  <main
-    class={`workspace`}
-    bind:this={layoutElement}
-    style={isNarrowScreen
-      ? undefined
-      : `--left-pane-width: ${(leftPaneRatio * 100).toFixed(2)}%`}
-  >
-    {#if !isNarrowScreen}
-      <section
-        class={`editor`}
-      >
-        <EditorPanel
-          {lang}
-          {draft}
-          {catalogItems}
-          {selectedOutpostIndex}
-          isResetDisabled={isBootstrapping}
-          actions={editorActions}
-        />
-      </section>
-
-      <Splitter
-        {layoutElement}
-        ratio={leftPaneRatio}
-        minLeftPx={MIN_EDITOR_WIDTH_PX}
-        minRightPx={MIN_RIGHT_WIDTH_PX}
-        ariaLabel={t("左右栏宽度调节", "Resize left and right columns")}
-        onRatioChange={(nextRatio) => {
-          leftPaneRatio = nextRatio;
-        }}
-      />
-
-      <div
-        class="right-pane"
-        bind:this={rightPaneElement}
-        style={`--right-top-height: ${(rightPaneRatio * 100).toFixed(2)}%; --right-min-top-height: ${MIN_TOP_PANEL_HEIGHT_PX}px; --right-min-bottom-height: ${MIN_BOTTOM_PANEL_HEIGHT_PX}px`}
-      >
-        <ResultPanel {lang} {isBootstrapping} {solveState} />
-
-        <HorizontalSplitter
-          layoutElement={rightPaneElement}
-          ratio={rightPaneRatio}
-          minTopPx={MIN_TOP_PANEL_HEIGHT_PX}
-          minBottomPx={MIN_BOTTOM_PANEL_HEIGHT_PX}
-          ariaLabel={t("上下栏高度调节", "Resize top and bottom panels")}
-          onRatioChange={(nextRatio) => {
-            rightPaneRatio = nextRatio;
-          }}
-        />
-
-        <GraphPanel {lang} {solveState} />
-      </div>
-    {:else}
-      <section
-        class={`${isNarrowScreen && activeTab !== "editor" ? "tab-hidden" : "editor"}`}
-      >
-        <EditorPanel
-          {lang}
-          {draft}
-          {catalogItems}
-          {selectedOutpostIndex}
-          isResetDisabled={isBootstrapping}
-          actions={editorActions}
-        />
-      </section>
-
-      <section class={`${activeTab !== "result" ? "tab-hidden" : "result"}`}>
-        <ResultPanel {lang} {isBootstrapping} {solveState} />
-      </section>
-
-      <section class={`${activeTab !== "graph" ? "tab-hidden" : "graph"}`}>
-        <GraphPanel {lang} {solveState} />
-      </section>
-    {/if}
-
-    <DragImportOverlay {lang} onImportFile={importTomlFile} />
-  </main>
-</div>
+{#if isNarrowScreen}
+  <HomeMobileLayout
+    {lang}
+    {draft}
+    {catalogItems}
+    {selectedOutpostIndex}
+    {isBootstrapping}
+    {solveState}
+    {editorActions}
+    onImportFile={importTomlFile}
+  />
+{:else}
+  <HomeDesktopLayout
+    {lang}
+    {draft}
+    {catalogItems}
+    {selectedOutpostIndex}
+    {isBootstrapping}
+    {solveState}
+    {editorActions}
+    onImportFile={importTomlFile}
+    minEditorWidthPx={MIN_EDITOR_WIDTH_PX}
+    minRightWidthPx={MIN_RIGHT_WIDTH_PX}
+    minTopPanelHeightPx={MIN_TOP_PANEL_HEIGHT_PX}
+    minBottomPanelHeightPx={MIN_BOTTOM_PANEL_HEIGHT_PX}
+  />
+{/if}
 
 <ErrorToast
   state={errorToast}
