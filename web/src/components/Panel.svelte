@@ -77,6 +77,15 @@
     background: color-mix(in srgb, var(--accent) 44%, var(--panel-strong));
   }
 
+  /* Touch devices don't have hover, so keep content scrollable. */
+  @media (hover: none) {
+    .panel-content {
+      overflow-y: auto;
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
   .panel-content.flush {
     padding: 0;
     gap: 0;
