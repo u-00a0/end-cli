@@ -2,6 +2,7 @@
   import IconActionButton from "./IconActionButton.svelte";
   import { onMount } from "svelte";
   import Panel from "./Panel.svelte";
+  import PanelHeader from "./PanelHeader.svelte";
   import {
     Background,
     Controls,
@@ -105,28 +106,26 @@
 
 <Panel contentMode="flush">
   {#snippet header()}
-    <div class="sub-header">
-      <div>
-        <h2>{t("物流图", "Flow Map")}</h2>
-        <p class="subtitle">
-          {t(
-            "节点是机器和输入输出，线条表示物品流动。",
-            "Nodes represent machines and inputs/outputs, and lines indicate item flow. ",
-          )}
-        </p>
-      </div>
-
-      {#if result}
-        <IconActionButton
-          icon="fullscreen"
-          ariaLabel={t("全屏", "Fullscreen")}
-          title={t("全屏", "Fullscreen")}
-          onClick={() => {
-            void toggleFullscreen();
-          }}
-        />
-      {/if}
-    </div>
+    <PanelHeader
+      titleText={t("物流图", "Flow Map")}
+      subtitleText={t(
+        "节点是机器和输入输出，线条表示物品流动。",
+        "Nodes represent machines and inputs/outputs, and lines indicate item flow. ",
+      )}
+    >
+      {#snippet controls()}
+        {#if result}
+          <IconActionButton
+            icon="fullscreen"
+            ariaLabel={t("全屏", "Fullscreen")}
+            title={t("全屏", "Fullscreen")}
+            onClick={() => {
+              void toggleFullscreen();
+            }}
+          />
+        {/if}
+      {/snippet}
+    </PanelHeader>
   {/snippet}
 
     {#if !result}

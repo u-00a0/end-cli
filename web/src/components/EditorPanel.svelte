@@ -3,6 +3,7 @@
   import IconActionButton from "./IconActionButton.svelte";
   import InputField from "./InputField.svelte";
   import Panel from "./Panel.svelte";
+  import PanelHeader from "./PanelHeader.svelte";
   import SelectField, { type SelectOption } from "./SelectField.svelte";
   import type { EditorPanelProps } from "../lib/editor-actions";
   import type { OutpostDraft } from "../lib/types";
@@ -53,17 +54,14 @@
 
 <Panel>
   {#snippet header()}
-    <div class="panel-head">
-      <div>
-        <h2>{t("求解输入", "Solver Inputs")}</h2>
-        <p class="subtitle">
-          {t(
-            "这里填写输入内容。",
-            "Set supply, external consumption, outpost prices, and power budget. The right side auto-solves revenue plans.",
-          )}
-        </p>
-      </div>
-      <div class="panel-actions">
+    <PanelHeader
+      titleText={t("求解输入", "Solver Inputs")}
+      subtitleText={t(
+        "这里填写输入内容。",
+        "Set supply, external consumption, outpost prices, and power budget. The right side auto-solves revenue plans.",
+      )}
+    >
+      {#snippet controls()}
         <IconActionButton
           kind="danger"
           icon="delete"
@@ -89,8 +87,8 @@
           label={t("导出", "Export")}
           ariaLabel={t("导出 aic.toml", "Export aic.toml")}
         />
-      </div>
-    </div>
+      {/snippet}
+    </PanelHeader>
   {/snippet}
 
   <section class="editor-shell">
@@ -142,16 +140,14 @@
     </section>
 
     <section>
-      <div class="sub-header">
-        <div class="heading-with-hint">
-          <h3>{t("次级目标", "Secondary Objective")}</h3>
-          <FieldHint
-            text={t(
-              "求解器首先会尝试最大化收益，然后在达到最大收益的前提下优化这里设置的目标",
-              "The solver first maximizes profit, then optimizes the objective set here as a tiebreaker among equally profitable solutions.",
-            )}
-          />
-        </div>
+      <div class="heading-with-hint">
+        <h3>{t("次级目标", "Secondary Objective")}</h3>
+        <FieldHint
+          text={t(
+            "求解器首先会尝试最大化收益，然后在达到最大收益的前提下优化这里设置的目标",
+            "The solver first maximizes profit, then optimizes the objective set here as a tiebreaker among equally profitable solutions.",
+          )}
+        />
       </div>
 
       <div class="field-row">
@@ -221,22 +217,27 @@
     </section>
 
     <section>
-      <div class="sub-header">
-        <div class="heading-with-hint">
-          <h3>{t("外部供给 / min", "External Supply / min")}</h3>
-          <FieldHint
-            text={t(
-              "通常用于表示矿点持续开采带来的矿物供给。",
-              "Typically used for minerals continuously supplied by mining points.",
-            )}
+      <PanelHeader>
+        {#snippet title()}
+          <div class="heading-with-hint">
+            <h3>{t("外部供给 / min", "External Supply / min")}</h3>
+            <FieldHint
+              text={t(
+                "通常用于表示矿点持续开采带来的矿物供给。",
+                "Typically used for minerals continuously supplied by mining points.",
+              )}
+            />
+          </div>
+        {/snippet}
+
+        {#snippet controls()}
+          <IconActionButton
+            icon="add"
+            onClick={actions.supply.add}
+            ariaLabel={t("添加供给条目", "Add supply row")}
           />
-        </div>
-        <IconActionButton
-          icon="add"
-          onClick={actions.supply.add}
-          ariaLabel={t("添加供给条目", "Add supply row")}
-        />
-      </div>
+        {/snippet}
+      </PanelHeader>
 
       {#if draft.supply.length === 0}
         <p class="hint">{t("暂无供给条目。", "No supply rows yet.")}</p>
@@ -275,22 +276,27 @@
     </section>
 
     <section>
-      <div class="sub-header">
-        <div class="heading-with-hint">
-          <h3>{t("外部消耗 / min", "External Consumption / min")}</h3>
-          <FieldHint
-            text={t(
-              "通常用于表示日用品和快递货物等外部需求，你需要将需求转换成每分钟的平均数据。",
-              "Typically used for stable external demand such as daily supplies and delivery cargo, converted to per-minute averages.",
-            )}
+      <PanelHeader>
+        {#snippet title()}
+          <div class="heading-with-hint">
+            <h3>{t("外部消耗 / min", "External Consumption / min")}</h3>
+            <FieldHint
+              text={t(
+                "通常用于表示日用品和快递货物等外部需求，你需要将需求转换成每分钟的平均数据。",
+                "Typically used for stable external demand such as daily supplies and delivery cargo, converted to per-minute averages.",
+              )}
+            />
+          </div>
+        {/snippet}
+
+        {#snippet controls()}
+          <IconActionButton
+            icon="add"
+            onClick={actions.consumption.add}
+            ariaLabel={t("添加消耗条目", "Add consumption row")}
           />
-        </div>
-        <IconActionButton
-          icon="add"
-          onClick={actions.consumption.add}
-          ariaLabel={t("添加消耗条目", "Add consumption row")}
-        />
-      </div>
+        {/snippet}
+      </PanelHeader>
 
       {#if draft.consumption.length === 0}
         <p class="hint">{t("暂无消耗条目。", "No consumption rows yet.")}</p>
@@ -330,22 +336,27 @@
     </section>
 
     <section>
-      <div class="sub-header">
-        <div class="heading-with-hint">
-          <h3>{t("据点", "Outposts")}</h3>
-          <FieldHint
-            text={t(
-              "此列表可以留空；填入后求解器会根据收购价和供需情况自动计算生产什么产品来交易以最大化利润。",
-              "This section can be left empty for the solver to ignore outposts; when filled, the solver automatically calculates which products to produce for trading based on their prices and supply/demand to maximize profit.",
-            )}
+      <PanelHeader>
+        {#snippet title()}
+          <div class="heading-with-hint">
+            <h3>{t("据点", "Outposts")}</h3>
+            <FieldHint
+              text={t(
+                "此列表可以留空；填入后求解器会根据收购价和供需情况自动计算生产什么产品来交易以最大化利润。",
+                "This section can be left empty for the solver to ignore outposts; when filled, the solver automatically calculates which products to produce for trading based on their prices and supply/demand to maximize profit.",
+              )}
+            />
+          </div>
+        {/snippet}
+
+        {#snippet controls()}
+          <IconActionButton
+            icon="add"
+            onClick={actions.outposts.add}
+            ariaLabel={t("添加据点", "Add outpost")}
           />
-        </div>
-        <IconActionButton
-          icon="add"
-          onClick={actions.outposts.add}
-          ariaLabel={t("添加据点", "Add outpost")}
-        />
-      </div>
+        {/snippet}
+      </PanelHeader>
 
       {#if draft.outposts.length === 0}
         <p class="hint">{t("暂无据点。", "No outposts yet.")}</p>
@@ -442,27 +453,32 @@
                 </label>
               </div>
 
-              <div class="sub-header">
-                <div class="heading-with-hint">
-                  <h5>{t("收购价", "Buy Prices")}</h5>
-                  <FieldHint
-                    text={t(
-                      "除按价格表填写外，可手动删去低价且容易爆仓的条目来收缩优化范围。本程序使用稳态模型，不会主动考虑爆仓风险。",
-                      "Besides filling from price table, you can remove low-value, overflow-prone rows to narrow optimization scope. This program uses a steady-state model and does not actively consider overflow risk.",
-                    )}
+              <PanelHeader>
+                {#snippet title()}
+                  <div class="heading-with-hint">
+                    <h5>{t("收购价", "Buy Prices")}</h5>
+                    <FieldHint
+                      text={t(
+                        "除按价格表填写外，可手动删去低价且容易爆仓的条目来收缩优化范围。本程序使用稳态模型，不会主动考虑爆仓风险。",
+                        "Besides filling from price table, you can remove low-value, overflow-prone rows to narrow optimization scope. This program uses a steady-state model and does not actively consider overflow risk.",
+                      )}
+                    />
+                  </div>
+                {/snippet}
+
+                {#snippet controls()}
+                  <IconActionButton
+                    icon="add"
+                    onClick={() => {
+                      if (selectedOutpostIndex.kind !== "selected") {
+                        return;
+                      }
+                      actions.prices.add(selectedOutpostIndex.index);
+                    }}
+                    ariaLabel={t("添加价格条目", "Add price row")}
                   />
-                </div>
-                <IconActionButton
-                  icon="add"
-                  onClick={() => {
-                    if (selectedOutpostIndex.kind !== "selected") {
-                      return;
-                    }
-                    actions.prices.add(selectedOutpostIndex.index);
-                  }}
-                  ariaLabel={t("添加价格条目", "Add price row")}
-                />
-              </div>
+                {/snippet}
+              </PanelHeader>
 
               {#if selectedOutpost.prices.length === 0}
                 <p class="hint">{t("暂无价格条目。", "No price rows yet.")}</p>

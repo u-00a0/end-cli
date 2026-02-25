@@ -4,9 +4,8 @@
   import { onDestroy } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import Panel from "./Panel.svelte";
-  import StatusPill, {
-    type SolveStatusPillState,
-  } from "./StatusPill.svelte";
+  import PanelHeader from "./PanelHeader.svelte";
+  import StatusPill, { type SolveStatusPillState } from "./StatusPill.svelte";
   import type { LogisticsGraphDto } from "../lib/types";
   import type { LangTag } from "../lib/types";
   import {
@@ -136,24 +135,18 @@
 
 <Panel>
   {#snippet header()}
-    <div class="panel-head">
-      <div>
-        <div class="panel-title-row">
-          <h2>{t("方案评估", "Plan Summary")}</h2>
-        </div>
-        <p class="subtitle">
-          {t(
-            "每次编辑后自动刷新收益、电力平衡和产线规模。",
-            "After each edit, this panel auto-updates revenue, power balance, and line size.",
-          )}
-        </p>
-      </div>
-
-      <div class="header-controls">
+    <PanelHeader
+      titleText={t("方案评估", "Plan Summary")}
+      subtitleText={t(
+        "每次编辑后自动刷新收益、电力平衡和产线规模。",
+        "After each edit, this panel auto-updates revenue, power balance, and line size.",
+      )}
+    >
+      {#snippet controls()}
         <CopyButton {lang} text={solveOutputText} />
         <StatusPill {lang} state={solveMetaState} />
-      </div>
-    </div>
+      {/snippet}
+    </PanelHeader>
   {/snippet}
 
   {#if showError}
@@ -295,12 +288,6 @@
 </Panel>
 
 <style>
-  .panel-title-row {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
   .error-message {
     margin: 0;
     color: var(--danger);
