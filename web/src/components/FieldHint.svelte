@@ -91,7 +91,7 @@
   .hint-trigger {
     border: none;
     background: var(--panel-strong);
-    color: var(--muted-text);
+    color: var(--accent-ink);
     border-radius: 999px;
     width: 24px;
     height: 24px;

@@ -46,7 +46,7 @@
     gap: var(--space-3);
     flex-wrap: wrap;
     min-width: 0;
-    align-items: flex-start;
+    align-items: center;
   }
 
   .left {
