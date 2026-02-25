@@ -84,7 +84,7 @@
         <IconActionButton
           icon="upload"
           onClick={actions.exportToml}
-          label={t("导出", "Export")}
+          title={t("导出", "Export")}
           ariaLabel={t("导出 aic.toml", "Export aic.toml")}
         />
       {/snippet}
@@ -93,65 +93,20 @@
 
   <section class="editor-shell">
     <section>
-      <div class="field-row">
-        <div class="label-with-hint">
-          <label for="scenario-region">{t("地区", "Region")}</label>
-          <FieldHint
-            text={t(
-              "地区不会改变据点信息；主要影响部分带地区限制的机器是否可用。",
-              "Region does not change outpost data; it mainly controls availability for machines with region locks.",
-            )}
-          />
-        </div>
-        <SelectField
-          value={draft.region}
-          options={regionOptions}
-          ariaLabel={t("选择地区", "Select region")}
-          searchable={false}
-          onChange={(nextValue) =>
-            actions.setRegion(nextValue as "fourth_valley" | "wuling")}
-        />
-      </div>
-
-      <div class="field-row">
-        <div class="label-with-hint">
-          <label for="external-power"
-            >{t("额外耗电", "External Power (W)")}</label
-          >
-          <FieldHint
-            text={t(
-              "用于建模矿点、滑索、作战设备，以及基地内未被程序显式建模的其他生产线耗电；使用这个数字和外部供给、外部消耗一起描述系统外影响。",
-              "Models power used by mining points, ziplines, combat devices, and other in-base lines not explicitly modeled; together with external supply/consumption, this captures off-model effects.",
-            )}
-          />
-        </div>
-        <InputField
-          id="external-power"
-          type="number"
-          min="0"
-          value={draft.externalPowerConsumptionW}
-          oninput={(event) => {
-            actions.setExternalPower(
-              Number((event.currentTarget as HTMLInputElement).value),
-            );
-          }}
-        />
-      </div>
-    </section>
-
-    <section>
-      <div class="heading-with-hint">
+      <!-- <div class="heading-with-hint">
         <h3>{t("次级目标", "Secondary Objective")}</h3>
-        <FieldHint
-          text={t(
-            "求解器首先会尝试最大化收益，然后在达到最大收益的前提下优化这里设置的目标",
-            "The solver first maximizes profit, then optimizes the objective set here as a tiebreaker among equally profitable solutions.",
-          )}
-        />
-      </div>
+      </div> -->
 
       <div class="field-row">
-        <p>{t("优化目标", "Objective")}</p>
+        <div class="label-with-hint">
+          <label for="stage2-objective">{t("优化目标", "Objective")}</label>
+          <FieldHint
+            text={t(
+              "求解器首先会尝试最大化收益，若有平局，则额外优化该目标。",
+              "The solver first maximizes profit, then optimizes the objective set here as a tiebreaker among equally profitable solutions.",
+            )}
+          />
+        </div>
         <SelectField
           value={draft.stage2.objective}
           options={stage2ObjectiveOptions}
@@ -214,6 +169,51 @@
           </label>
         </div>
       {/if}
+
+      <div class="field-row">
+        <div class="label-with-hint">
+          <label for="scenario-region">{t("地区", "Region")}</label>
+          <FieldHint
+            text={t(
+              "地区不会改变据点信息；主要影响部分带地区限制的机器是否可用。",
+              "Region does not change outpost data; it mainly controls availability for machines with region locks.",
+            )}
+          />
+        </div>
+        <SelectField
+          value={draft.region}
+          options={regionOptions}
+          ariaLabel={t("选择地区", "Select region")}
+          searchable={false}
+          onChange={(nextValue) =>
+            actions.setRegion(nextValue as "fourth_valley" | "wuling")}
+        />
+      </div>
+
+      <div class="field-row">
+        <div class="label-with-hint">
+          <label for="external-power"
+            >{t("外部耗电", "External Power (W)")}</label
+          >
+          <FieldHint
+            text={t(
+              "用于建模矿点、滑索、作战设备等基地外部设备耗电，以及基地内未被程序显式建模的其他生产线耗电；使用这个数字和外部供给、外部消耗一起描述系统外影响。",
+              "Models power used by mining points, ziplines, combat devices, and other in-base lines not explicitly modeled; together with external supply/consumption, this captures off-model effects.",
+            )}
+          />
+        </div>
+        <InputField
+          id="external-power"
+          type="number"
+          min="0"
+          value={draft.externalPowerConsumptionW}
+          oninput={(event) => {
+            actions.setExternalPower(
+              Number((event.currentTarget as HTMLInputElement).value),
+            );
+          }}
+        />
+      </div>
     </section>
 
     <section>
@@ -223,7 +223,7 @@
             <h3>{t("外部供给 / min", "External Supply / min")}</h3>
             <FieldHint
               text={t(
-                "通常用于表示矿点持续开采带来的矿物供给。",
+                "通常用于表示矿点持续开采的矿物供给。；使用这个数字和外部耗电、外部消耗一起描述系统外影响。",
                 "Typically used for minerals continuously supplied by mining points.",
               )}
             />
@@ -282,7 +282,7 @@
             <h3>{t("外部消耗 / min", "External Consumption / min")}</h3>
             <FieldHint
               text={t(
-                "通常用于表示日用品和快递货物等外部需求，你需要将需求转换成每分钟的平均数据。",
+                "通常用于表示日用品和快递货物等外部需求，须填写每分钟平均数据。",
                 "Typically used for stable external demand such as daily supplies and delivery cargo, converted to per-minute averages.",
               )}
             />
@@ -459,8 +459,8 @@
                     <h5>{t("收购价", "Buy Prices")}</h5>
                     <FieldHint
                       text={t(
-                        "除按价格表填写外，可手动删去低价且容易爆仓的条目来收缩优化范围。本程序使用稳态模型，不会主动考虑爆仓风险。",
-                        "Besides filling from price table, you can remove low-value, overflow-prone rows to narrow optimization scope. This program uses a steady-state model and does not actively consider overflow risk.",
+                        "除按游戏内价格填写外，可手动删去低价且容易爆仓的条目来收缩优化范围。本程序使用稳态模型，不会主动考虑爆仓风险。",
+                        "Besides filling from in-game prices, you can remove low-value, overflow-prone rows to narrow optimization scope. This program uses a steady-state model and does not actively consider overflow risk.",
                       )}
                     />
                   </div>

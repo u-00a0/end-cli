@@ -1,14 +1,21 @@
-# end-cli
+# 源石计划 - 终末地产线规划
 
-[``end-cli``](https://end-8jk.pages.dev/) 是一个用于《明日方舟：终末地》自动化生产规划的网页、命令行求解器。
-给定外部供给（矿点）、据点收购价和预算池、基地内外的额外耗电，可计算:
+使用 Rust/WebAssembly 实现的终末地生产线规划工具，支持 CLI 和 Web 版本。基于 HiGHS 求解器实现 MILP 模型求解。
 
-- 每分钟该跑哪些配方（以及跑多少）
-- 各类生产机器需要多少台
-- 热能池该喂哪种电池、要开几台
-- 卖给哪个据点哪些货，收益最高
+🔗 网页链接: [end-8jk.pages.dev](https://end-8jk.pages.dev/), [sssxks.github.io/end-cli/](https://sssxks.github.io/end-cli/)
 
-![demo](docs/demo.png)
+## 截图展示
+
+![Main Demo](docs/main_demo.png)
+![Logistic Graph](docs/logistic_graph.png)
+
+## Web 版本开发部署
+
+```bash
+cd web
+npm install
+npm run dev
+```
 
 ## 安装 CLI 版本
 
@@ -122,19 +129,3 @@ end-cli solve --help
 - 配方吞吐受机器数量约束
 - 总发电功率 >= 总用电功率
 
-## Web
-
-仍在开发。
-
-```bash
-# 启动前端
-cd web
-npm install
-npm run dev
-```
-
-如果只想单独手动构建 wasm:
-
-```bash
-bash scripts/build_web_wasm.sh
-```
