@@ -1,22 +1,22 @@
 <script lang="ts">
-  import Dialog from "./components/Dialog.svelte";
+  import Dialog from "../components/Dialog.svelte";
   import ErrorToast, {
     type ErrorToastState,
-  } from "./components/ErrorToast.svelte";
+  } from "../components/ErrorToast.svelte";
   import { onMount } from "svelte";
-  import EditorPanel from "./components/EditorPanel.svelte";
-  import DragImportOverlay from "./components/DragImportOverlay.svelte";
-  import GraphPanel from "./components/GraphPanel.svelte";
-  import HorizontalSplitter from "./components/HorizontalSplitter.svelte";
-  import ResultPanel from "./components/ResultPanel.svelte";
-  import Splitter from "./components/Splitter.svelte";
-  import "./styles/app-shell.css";
-  import { buildAicToml, parseAicToml } from "./lib/aic";
+  import EditorPanel from "../components/EditorPanel.svelte";
+  import DragImportOverlay from "../components/DragImportOverlay.svelte";
+  import GraphPanel from "../components/GraphPanel.svelte";
+  import HorizontalSplitter from "../components/HorizontalSplitter.svelte";
+  import ResultPanel from "../components/ResultPanel.svelte";
+  import Splitter from "../components/Splitter.svelte";
+  import "../styles/app-shell.css";
+  import { buildAicToml, parseAicToml } from "../lib/aic";
   import {
     isSameOutpostSelection,
     NO_OUTPOST_SELECTED,
     type OutpostSelection,
-  } from "./lib/outpost-selection";
+  } from "../lib/outpost-selection";
   import {
     addConsumptionRow,
     addOutpost,
@@ -38,22 +38,22 @@
     setPriceValue,
     setSupplyKey,
     setSupplyValue,
-  } from "./lib/draft-actions";
+  } from "../lib/draft-actions";
   import {
     persistDraft,
     persistLeftPaneRatio,
     restoreLocalState,
     type DraftStorageConfig,
-  } from "./lib/draft-storage";
-  import type { EditorActions } from "./lib/editor-actions";
+  } from "../lib/draft-storage";
+  import type { EditorActions } from "../lib/editor-actions";
   import {
     createSolverController,
     type SolverController,
-  } from "./lib/solver-controller";
-  import { type SolveState } from "./lib/solve-state";
-  import type { AicDraft, CatalogItemDto, LangTag } from "./lib/types";
-  import { EMPTY_DRAFT } from "./lib/types";
-  import { loadBootstrap, solveScenario, warmupWasmWorker } from "./lib/wasm";
+  } from "../lib/solver-controller";
+  import { type SolveState } from "../lib/solve-state";
+  import type { AicDraft, CatalogItemDto, LangTag } from "../lib/types";
+  import { EMPTY_DRAFT } from "../lib/types";
+  import { loadBootstrap, solveScenario, warmupWasmWorker } from "../lib/wasm";
 
   const NARROW_LAYOUT_QUERY = "(max-width: 760px)";
   const MIN_EDITOR_WIDTH_PX = 300;
