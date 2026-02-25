@@ -1,7 +1,6 @@
 .workspace {
   position: relative;
   display: grid;
-  gap: 0;
   min-height: 0;
   flex: 1;
 }
@@ -57,28 +56,17 @@
     color: var(--accent-ink);
   }
 
-  .workspace {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      'editor'
-      'result'
-      'graph';
-  }
-
   .editor {
-    grid-area: editor;
     min-height: 0;
     min-width: 0;
   }
 
   .result {
-    grid-area: result;
     min-height: 0;
     min-width: 0;
   }
 
   .graph {
-    grid-area: graph;
     min-height: 0;
     min-width: 0;
   }

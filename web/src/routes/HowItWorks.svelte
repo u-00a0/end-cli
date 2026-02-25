@@ -44,7 +44,7 @@
       titleText={t("这个 App 如何工作", "How this app works")}
       subtitleText={t(
         "不用看了，右边复制原文给 ChatGPT",
-        "Don't look, just copy the text to ChatGPT, copy button on the right",
+        "No read, just copy the text to ChatGPT, copy button on the right",
       )}
     >
       {#snippet controls()}
@@ -53,40 +53,35 @@
     </PanelHeader>
   {/snippet}
 
-  <section class="content" aria-label="model_v1.md">
-    <article class="markdown-body">{@html MODEL_V1_RENDERED_HTML}</article>
-  </section>
+  <article class="content">
+    {@html MODEL_V1_RENDERED_HTML}
+  </article>
 </Panel>
 
 <style>
   .content {
-    min-width: 0;
-    display: flex;
-    justify-content: center;
-  }
-
-  /* The Markdown HTML is injected via {@html ...}, so styles must be global. */
-  .content :global(.markdown-body) {
     width: 100%;
     max-width: 960px;
     margin: 0 auto;
-    padding: clamp(10px, 1.4vw, 18px) clamp(12px, 2vw, 22px);
-    border-radius: var(--radius-lg);
-    border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-    background: color-mix(in srgb, var(--surface-soft) 82%, transparent);
 
     color: var(--ink);
-    font-size: 14px;
     line-height: 1.68;
     word-break: break-word;
   }
 
   @media (min-width: 760px) {
-    .content :global(.markdown-body) {
+    .content {
       font-size: 16px;
     }
   }
 
+  @media (max-width: 760px) {
+    .content {
+      font-size: 14px;
+    }
+  }
+
+  /* The Markdown HTML is injected via {@html ...}, so styles must be global. */
   .content :global(.katex) {
     /* open PR as 2026/02/26: https://github.com/KaTeX/KaTeX/pull/3859 */
     /* katex hidden mathml uses absolute, cause issue when parent scrolling element is non-static */
@@ -95,60 +90,60 @@
     position: relative;
   }
 
-  .content :global(.markdown-body > :first-child) {
+  .content :global(:first-child) {
     margin-top: 0;
   }
 
-  .content :global(.markdown-body > :last-child) {
+  .content :global(:last-child) {
     margin-bottom: 0;
   }
 
-  .content :global(.markdown-body p) {
+  .content :global(p) {
     margin: var(--space-3) 0;
   }
 
-  .content :global(.markdown-body h1),
-  .content :global(.markdown-body h2),
-  .content :global(.markdown-body h3),
-  .content :global(.markdown-body h4) {
+  .content :global(h1),
+  .content :global(h2),
+  .content :global(h3),
+  .content :global(h4) {
     margin: var(--space-5) 0 var(--space-3);
     line-height: 1.25;
     letter-spacing: -0.01em;
   }
 
-  .content :global(.markdown-body h2) {
+  .content :global(h2) {
     padding-bottom: var(--space-2);
     border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   }
 
-  .content :global(.markdown-body h3) {
+  .content :global(h3) {
     margin-top: var(--space-4);
   }
 
-  .content :global(.markdown-body ul),
-  .content :global(.markdown-body ol) {
+  .content :global(ul),
+  .content :global(ol) {
     margin: var(--space-3) 0;
     padding-left: 1.25em;
   }
 
-  .content :global(.markdown-body li) {
+  .content :global(li) {
     margin: var(--space-2) 0;
   }
 
-  .content :global(.markdown-body li > p) {
+  .content :global(li > p) {
     margin: var(--space-2) 0;
   }
 
-  .content :global(.markdown-body a) {
+  .content :global(a) {
     color: var(--accent-ink);
     text-underline-offset: 0.18em;
   }
 
-  .content :global(.markdown-body a:hover) {
+  .content :global(a:hover) {
     text-decoration-thickness: 2px;
   }
 
-  .content :global(.markdown-body code) {
+  .content :global(code) {
     font-size: 0.92em;
     padding: 0.14em 0.38em;
     border-radius: var(--radius-sm);
@@ -156,7 +151,7 @@
     border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
   }
 
-  .content :global(.markdown-body pre) {
+  .content :global(pre) {
     margin: var(--space-4) 0;
     padding: var(--space-3);
     border-radius: var(--radius-md);
@@ -165,7 +160,7 @@
     overflow-x: auto;
   }
 
-  .content :global(.markdown-body pre code) {
+  .content :global(pre code) {
     padding: 0;
     border: none;
     background: transparent;
@@ -173,7 +168,7 @@
     line-height: 1.55;
   }
 
-  .content :global(.markdown-body blockquote) {
+  .content :global(blockquote) {
     margin: var(--space-4) 0;
     padding: var(--space-3) var(--space-4);
     border-left: 4px solid color-mix(in srgb, var(--accent) 42%, var(--line));
@@ -181,21 +176,21 @@
     border-radius: var(--radius-md);
   }
 
-  .content :global(.markdown-body blockquote > :first-child) {
+  .content :global(blockquote > :first-child) {
     margin-top: 0;
   }
 
-  .content :global(.markdown-body blockquote > :last-child) {
+  .content :global(blockquote > :last-child) {
     margin-bottom: 0;
   }
 
-  .content :global(.markdown-body hr) {
+  .content :global(hr) {
     border: none;
     border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
     margin: var(--space-5) 0;
   }
 
-  .content :global(.markdown-body table) {
+  .content :global(table) {
     width: 100%;
     border-collapse: collapse;
     margin: var(--space-4) 0;
@@ -204,20 +199,20 @@
     border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   }
 
-  .content :global(.markdown-body th),
-  .content :global(.markdown-body td) {
+  .content :global(th),
+  .content :global(td) {
     padding: var(--space-2) var(--space-3);
     border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
     vertical-align: top;
   }
 
-  .content :global(.markdown-body th) {
+  .content :global(th) {
     text-align: left;
     background: color-mix(in srgb, var(--surface-soft) 65%, transparent);
     font-weight: 600;
   }
 
-  .content :global(.markdown-body tr:last-child td) {
+  .content :global(tr:last-child td) {
     border-bottom: none;
   }
 
@@ -237,7 +232,7 @@
     font-size: 1.02em;
   }
 
-  .content :global(.markdown-body li + li) {
+  .content :global(li + li) {
     margin-top: var(--space-2);
   }
 </style>

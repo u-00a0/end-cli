@@ -55,6 +55,12 @@
         "This app can compute production plans, then turn them into nice reports and visualized flow charts, and share with your friends and ChatGPT.",
       )}
     </p>
+    <p>
+      {t(
+        "感兴趣可以看一下右边那一页的公式。",
+        "If you're interested, you can check out the formulas on the right page.",
+      )}
+    </p>
     <h3>{t("快速上手", "How to use it")}</h3>
     <p>
       {t(
