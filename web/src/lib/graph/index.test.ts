@@ -236,6 +236,20 @@ describe('buildFlowGraph', () => {
     expect(normalNode?.style).toContain('border:1px solid');
   });
 
+  it('lays out SCC internals from top to bottom', () => {
+    const flow = buildFlowGraph(sccFixture);
+    const sccNodes = flow.nodes.filter((node) =>
+      node.id === 'n2' || node.id === 'n3' || node.id === 'n4'
+    );
+
+    const xValues = sccNodes.map((node) => node.position.x);
+    const yValues = sccNodes.map((node) => node.position.y);
+    const horizontalSpan = Math.max(...xValues) - Math.min(...xValues);
+    const verticalSpan = Math.max(...yValues) - Math.min(...yValues);
+
+    expect(verticalSpan).toBeGreaterThan(horizontalSpan);
+  });
+
   it('handles linear chains without SCC styling', () => {
     const flow = buildFlowGraph(linearChainFixture);
 

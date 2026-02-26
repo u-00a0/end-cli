@@ -68,7 +68,7 @@ function createLightweightNode(node: LogisticsNodeDto): Node {
   };
 }
 
-function createNormalNode(node: LogisticsNodeDto, isInScc: boolean): Node {
+function createNormalNode(node: LogisticsNodeDto, _isInScc: boolean): Node {
   const color = pickNodeColor(node.kind);
 
   const isOutputNode =
@@ -77,16 +77,14 @@ function createNormalNode(node: LogisticsNodeDto, isInScc: boolean): Node {
     node.kind === 'thermal_bank_group' ||
     node.kind === 'warehouse_stockpile';
 
-  const borderStyle = isInScc
-    ? `border:2px solid ${color};box-shadow:0 0 0 1px ${color}40,0 8px 18px -16px rgba(0,0,0,0.65);`
-    : `border:1px solid ${color};box-shadow:0 8px 18px -16px rgba(0,0,0,0.65);`;
+  const borderStyle = `border:1px solid ${color};box-shadow:0 8px 18px -16px rgba(0,0,0,0.65);`;
 
   return {
     id: node.id,
     type: isOutputNode ? 'output' : undefined,
     data: {
       label: node.label,
-      isInSCC: isInScc
+      isInSCC: _isInScc
     },
     position: { x: 0, y: 0 },
     sourcePosition: 'right' as Position,

@@ -318,11 +318,17 @@ fn describe_logistics_site<'cid, 'sid>(
             let recipe = catalog.recipe(*recipe_index);
             let facility = facility_name(lang, catalog, recipe.facility)?;
             let machines = recipe_machines.get(recipe_index).copied().unwrap_or(1);
+            let product_names: Vec<String> = recipe
+                .products
+                .iter()
+                .map(|p| item_name(lang, catalog, p.item).map(String::from))
+                .collect::<Result<Vec<_>>>()?;
+            let products_str = product_names.join(", ");
             Ok((
                 "recipe_group".into(),
                 match lang {
-                    Lang::Zh => format!("{} x{}", facility, machines).into_boxed_str(),
-                    Lang::En => format!("{} x{}", facility, machines).into_boxed_str(),
+                    Lang::Zh => format!("{} x{} | {}", facility, machines, products_str).into_boxed_str(),
+                    Lang::En => format!("{} x{} | {}", facility, machines, products_str).into_boxed_str(),
                 },
             ))
         }

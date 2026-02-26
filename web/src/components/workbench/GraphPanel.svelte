@@ -17,7 +17,7 @@
     selectGraphHighlight,
     type BuildFlowGraphResult,
     type GraphHighlightSelection,
-  } from "../../lib/graph";
+  } from "../../lib/graph/index";
   import { currentFlowSnapshot } from "../../lib/export/flow-snapshot";
   import type { LangTag } from "../../lib/types";
   import { renderedOkState, type SolveState } from "../../lib/solve-state";
@@ -52,7 +52,9 @@
   let viewport = $state<Viewport>({ x: 0, y: 0, zoom: 1 });
   let baseNodeStyleById = new Map<string, string | undefined>();
   let baseEdgeStyleById = new Map<string, string | undefined>();
+  let baseEdgeLabelById = new Map<string, Edge["label"]>();
   let baseEdgeLabelStyleById = new Map<string, string | undefined>();
+  let highlightEdgeLabelById = new Map<string, string>();
 
   function appendStyle(baseStyle: string | undefined, extension: string): string {
     return `${baseStyle ?? ""}${extension}`;
@@ -66,6 +68,7 @@
       }));
       edges = edges.map((edge) => ({
         ...edge,
+        label: baseEdgeLabelById.get(edge.id),
         style: baseEdgeStyleById.get(edge.id),
         labelStyle: baseEdgeLabelStyleById.get(edge.id),
       }));
@@ -87,6 +90,9 @@
       const isHighlighted = selection.edgeIds.has(edge.id);
       return {
         ...edge,
+        label: isHighlighted
+          ? (highlightEdgeLabelById.get(edge.id) ?? baseEdgeLabelById.get(edge.id))
+          : baseEdgeLabelById.get(edge.id),
         style: appendStyle(
           baseEdgeStyleById.get(edge.id),
           isHighlighted
@@ -95,7 +101,9 @@
         ),
         labelStyle: appendStyle(
           baseEdgeLabelStyleById.get(edge.id),
-          isHighlighted ? "fill:#154a59;font-weight:700;" : "fill:#7a95a2;",
+          isHighlighted
+            ? "fill:#154a59;font-weight:700;white-space:pre-line;text-align:center;"
+            : "fill:#7a95a2; opacity:0.14;",
         ),
       };
     });
@@ -135,7 +143,9 @@
       highlightedNodeId = null;
       baseNodeStyleById = new Map();
       baseEdgeStyleById = new Map();
+      baseEdgeLabelById = new Map();
       baseEdgeLabelStyleById = new Map();
+      highlightEdgeLabelById = new Map();
       nodes = [];
       edges = [];
       viewport = { x: 0, y: 0, zoom: 1 };
@@ -147,9 +157,16 @@
     highlightedNodeId = null;
     nodes = flow.nodes;
     edges = flow.edges;
-    baseNodeStyleById = new Map(flow.nodes.map((node) => [node.id, node.style]));
-    baseEdgeStyleById = new Map(flow.edges.map((edge) => [edge.id, edge.style]));
-    baseEdgeLabelStyleById = new Map(flow.edges.map((edge) => [edge.id, edge.labelStyle]));
+    baseNodeStyleById = new Map(flow.nodes.map((node: Node) => [node.id, node.style]));
+    baseEdgeStyleById = new Map(flow.edges.map((edge: Edge) => [edge.id, edge.style]));
+    baseEdgeLabelById = new Map(flow.edges.map((edge: Edge) => [edge.id, edge.label]));
+    baseEdgeLabelStyleById = new Map(flow.edges.map((edge: Edge) => [edge.id, edge.labelStyle]));
+    highlightEdgeLabelById = new Map(
+      result.logisticsGraph.edges.map((edge) => [
+        edge.id,
+        `${edge.itemName}\n${edge.flowPerMin.toFixed(2)}/min`,
+      ]),
+    );
   });
 
   $effect(() => {
