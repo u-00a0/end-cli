@@ -10,6 +10,11 @@ export type FlowExportSize = {
   height: number;
 };
 
+const DEFAULT_EXPORT_SIZE: FlowExportSize = {
+  width: 1600,
+  height: 900,
+};
+
 type NodeBounds = {
   minX: number;
   minY: number;
@@ -26,44 +31,6 @@ type FlowNodeLike = {
   style?: unknown;
 };
 
-type ExportFlowDebugConfig = {
-  enabled: boolean;
-  showIframe: boolean;
-  keepIframe: boolean;
-};
-
-function getExportFlowDebugConfig(): ExportFlowDebugConfig {
-  // Debug helpers should be dev-only; exporting in production should stay clean.
-  if (!import.meta.env.DEV) {
-    return { enabled: false, showIframe: false, keepIframe: false };
-  }
-
-  // Enable via either:
-  // - URL params: ?debugExportFlow=1&debugExportFlowShow=1&debugExportFlowKeep=1
-  // - or localStorage: debugExportFlow=1, debugExportFlowShow=1, debugExportFlowKeep=1
-  const params = new URLSearchParams(window.location.search);
-  const hasParam = (key: string): boolean => params.has(key);
-  const ls = window.localStorage;
-  const hasLs = (key: string): boolean => ls.getItem(key) === "1";
-
-  const enabled = hasParam("debugExportFlow") || hasLs("debugExportFlow");
-  const showIframe = enabled && (hasParam("debugExportFlowShow") || hasLs("debugExportFlowShow"));
-  const keepIframe = enabled && (hasParam("debugExportFlowKeep") || hasLs("debugExportFlowKeep"));
-  return { enabled, showIframe, keepIframe };
-}
-
-function clampExportSize(size: FlowExportSize): FlowExportSize {
-  const width = Math.max(240, Math.min(8192, Math.trunc(size.width)));
-  const height = Math.max(240, Math.min(8192, Math.trunc(size.height)));
-  return { width, height };
-}
-
-function ensureBrowser(): void {
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    throw new Error("export is unavailable in this environment");
-  }
-}
-
 function createOffscreenExportRoot(size: FlowExportSize): HTMLDivElement {
   const root = document.createElement("div");
   root.style.width = `${size.width}px`;
@@ -71,39 +38,14 @@ function createOffscreenExportRoot(size: FlowExportSize): HTMLDivElement {
   root.style.position = "fixed";
   root.style.left = "-10000px";
   root.style.top = "-10000px";
-  root.style.opacity = "0";
+  // Keep it fully opaque.
+  // dom-to-svg treats `opacity: 0` as invisible and skips it (and all descendants),
+  // which breaks export unless debug mode forces opacity back to 1.
   root.style.pointerEvents = "none";
   root.style.overflow = "hidden";
   root.style.background = "transparent";
   root.dataset.exportFlowRoot = "1";
   return root;
-}
-
-function applyDebugStylesToExportRoot(
-  root: HTMLDivElement,
-  size: FlowExportSize,
-  debug: ExportFlowDebugConfig,
-): void {
-  if (!debug.enabled) {
-    return;
-  }
-
-  root.dataset.exportFlowDebug = "1";
-  root.style.opacity = "1";
-
-  if (debug.showIframe) {
-    // Keep the same query param naming, but now it shows the export root.
-    root.style.left = "0";
-    root.style.top = "0";
-    root.style.zIndex = "2147483647";
-    root.style.pointerEvents = "auto";
-    root.style.border = "1px solid currentColor";
-    root.style.background = "white";
-    root.style.width = `${size.width}px`;
-    root.style.height = `${size.height}px`;
-  }
-
-  (window as Window & { __exportFlowDebugRoot?: HTMLDivElement }).__exportFlowDebugRoot = root;
 }
 
 function nextAnimationFrame(): Promise<void> {
@@ -179,6 +121,26 @@ function computeNodesBounds(nodes: FlowNodeLike[]): NodeBounds | null {
   }
   return { minX, minY, maxX, maxY };
 } 
+
+function computeExportSizeFromNodes(nodes: FlowNodeLike[]): FlowExportSize | null {
+  const bounds = computeNodesBounds(nodes);
+  if (!bounds) {
+    return null;
+  }
+
+  const boundsWidth = Math.max(1, bounds.maxX - bounds.minX);
+  const boundsHeight = Math.max(1, bounds.maxY - bounds.minY);
+
+  // Match typical fitView defaults: ~10% padding.
+  const padding = 0.1;
+  const paddedWidth = boundsWidth * (1 + padding * 2);
+  const paddedHeight = boundsHeight * (1 + padding * 2);
+
+  return {
+    width: Math.ceil(paddedWidth),
+    height: Math.ceil(paddedHeight),
+  };
+}
 
 function fitViewportToNodes(
   nodes: FlowNodeLike[],
@@ -271,19 +233,17 @@ async function svgStringToPngBlob(
 }
 
 export async function exportCurrentFlowToSvgString(
-  rawSize: FlowExportSize,
 ): Promise<string> {
-  ensureBrowser();
-  const size = clampExportSize(rawSize);
-  const debug = getExportFlowDebugConfig();
   const snapshot = get(currentFlowSnapshot);
 
   if (!snapshot) {
     throw new Error("Flow is not ready to export");
   }
 
+  const nodes = snapshot.nodes as unknown as FlowNodeLike[];
+  const size = computeExportSizeFromNodes(nodes) ?? DEFAULT_EXPORT_SIZE;
+
   const root = createOffscreenExportRoot(size);
-  applyDebugStylesToExportRoot(root, size, debug);
   document.body.append(root);
 
   const exportApp = mount(FlowExportRenderer, {
@@ -291,7 +251,7 @@ export async function exportCurrentFlowToSvgString(
     props: {
       nodes: snapshot.nodes,
       edges: snapshot.edges,
-      viewport: fitViewportToNodes(snapshot.nodes as unknown as FlowNodeLike[], size) ?? snapshot.viewport,
+      viewport: fitViewportToNodes(nodes, size) ?? snapshot.viewport,
       width: size.width,
       height: size.height,
     },
@@ -299,25 +259,28 @@ export async function exportCurrentFlowToSvgString(
 
   try {
     // Allow SvelteFlow to layout/measure.
+    // two frames for smaller graph, 3 frame for larger graph?
+    await nextAnimationFrame();
     await nextAnimationFrame();
     await nextAnimationFrame();
 
     const svgDocument = elementToSVG(root);
     return serializeSvgDocument(svgDocument);
   } finally {
-    if (!debug.keepIframe) {
-      unmount(exportApp);
-      root.remove();
-    } else {
-      (window as Window & { __exportFlowDebugApp?: unknown }).__exportFlowDebugApp = exportApp;
-    }
+    unmount(exportApp);
+    root.remove();
   }
 }
 
 export async function exportCurrentFlowToPngBlob(
-  rawSize: FlowExportSize,
 ): Promise<Blob> {
-  const svg = await exportCurrentFlowToSvgString(rawSize);
-  const size = clampExportSize(rawSize);
+  const snapshot = get(currentFlowSnapshot);
+  if (!snapshot) {
+    throw new Error("Flow is not ready to export");
+  }
+
+  const nodes = snapshot.nodes as unknown as FlowNodeLike[];
+  const svg = await exportCurrentFlowToSvgString();
+  const size = computeExportSizeFromNodes(nodes) ?? DEFAULT_EXPORT_SIZE;
   return svgStringToPngBlob(svg, size);
 }

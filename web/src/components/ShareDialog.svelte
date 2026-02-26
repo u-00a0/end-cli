@@ -66,10 +66,7 @@
     previewError = "";
 
     try {
-      const pngBlob = await exportCurrentFlowToPngBlob({
-        width: 1600,
-        height: 900,
-      });
+      const pngBlob = await exportCurrentFlowToPngBlob();
 
       previewBlob = pngBlob;
       previewUrl = URL.createObjectURL(pngBlob);
