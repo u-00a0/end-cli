@@ -3,10 +3,12 @@
   import ErrorToast, {
     type ErrorToastState,
   } from "../components/ErrorToast.svelte";
+  import ShareDialog from "../components/ShareDialog.svelte";
   import { onMount } from "svelte";
   import HomeDesktopLayout from "../components/layout/HomeDesktopLayout.svelte";
   import HomeMobileLayout from "../components/layout/HomeMobileLayout.svelte";
   import { buildAicToml, parseAicToml } from "../lib/aic";
+  import { decodeTomlFromShareParam } from "../lib/share-link";
   import {
     isSameOutpostSelection,
     NO_OUTPOST_SELECTED,
@@ -44,7 +46,7 @@
     createSolverController,
     type SolverController,
   } from "../lib/solver-controller";
-  import { type SolveState } from "../lib/solve-state";
+  import { renderedOkState, type SolveState } from "../lib/solve-state";
   import type { AicDraft, CatalogItemDto, LangTag } from "../lib/types";
   import { EMPTY_DRAFT } from "../lib/types";
   import { loadBootstrap, solveScenario, warmupWasmWorker } from "../lib/wasm";
@@ -100,6 +102,10 @@
 
   let solverController: SolverController | null = null;
 
+  let isShareDialogOpen = $state(false);
+  let shareTomlText = $state("");
+  let shareOutputJsonText = $state("");
+
   function t(zh: string, en: string): string {
     return lang === "zh" ? zh : en;
   }
@@ -114,6 +120,23 @@
 
   function closeErrorToast(): void {
     errorToast = { kind: "closed" };
+  }
+
+  function closeShareDialog(): void {
+    isShareDialogOpen = false;
+  }
+
+  function openShareDialog(): void {
+    try {
+      shareTomlText = buildAicToml(draft);
+    } catch (error) {
+      showErrorToast(error instanceof Error ? error.message : String(error));
+      return;
+    }
+
+    const ok = renderedOkState(solveState);
+    shareOutputJsonText = ok ? JSON.stringify(ok.payload, null, 2) : "";
+    isShareDialogOpen = true;
   }
 
   function applyToml(text: string): void {
@@ -312,41 +335,78 @@
   };
 
   onMount(() => {
-    void warmupWasmWorker().catch(() => undefined);
+    let disposed = false;
+    let mediaQuery: MediaQueryList | null = null;
 
-    const restored = restoreLocalState(STORAGE_CONFIG);
-
-    if (restored.draft) {
-      draft = restored.draft;
-      selectedOutpostIndex =
-        restored.draft.outposts.length > 0
-          ? { kind: "selected", index: 0 }
-          : NO_OUTPOST_SELECTED;
-      hasRestoredDraftFromStorage = true;
-    }
-
-    hasHydratedLocalState = true;
-
-    solverController = createSolverController({
-      debounceMs: AUTO_SOLVE_DEBOUNCE_MS,
-      toToml: buildAicToml,
-      solve: (solveLang, toml) => solveScenario(solveLang, toml),
-      onStateChange: (next) => {
-        solveState = next;
-      },
-    });
-
-    const mediaQuery = window.matchMedia(NARROW_LAYOUT_QUERY);
     const updateScreenMode = (): void => {
+      if (!mediaQuery) {
+        return;
+      }
       isNarrowScreen = mediaQuery.matches;
     };
 
-    updateScreenMode();
-    mediaQuery.addEventListener("change", updateScreenMode);
-    void loadInitialState();
+    void (async () => {
+      void warmupWasmWorker().catch(() => undefined);
+
+      const restored = restoreLocalState(STORAGE_CONFIG);
+
+      const shareParam =
+        typeof window === "undefined"
+          ? null
+          : new URLSearchParams(window.location.search).get("s");
+
+      if (shareParam && shareParam.trim().length > 0) {
+        try {
+          const sharedToml = await decodeTomlFromShareParam(shareParam.trim());
+          applyToml(sharedToml);
+          hasRestoredDraftFromStorage = true;
+        } catch (error) {
+          showErrorToast(error instanceof Error ? error.message : String(error));
+
+          if (restored.draft) {
+            draft = restored.draft;
+            selectedOutpostIndex =
+              restored.draft.outposts.length > 0
+                ? { kind: "selected", index: 0 }
+                : NO_OUTPOST_SELECTED;
+            hasRestoredDraftFromStorage = true;
+          } else {
+            hasRestoredDraftFromStorage = false;
+          }
+        }
+      } else if (restored.draft) {
+        draft = restored.draft;
+        selectedOutpostIndex =
+          restored.draft.outposts.length > 0
+            ? { kind: "selected", index: 0 }
+            : NO_OUTPOST_SELECTED;
+        hasRestoredDraftFromStorage = true;
+      }
+
+      if (disposed) {
+        return;
+      }
+
+      hasHydratedLocalState = true;
+
+      solverController = createSolverController({
+        debounceMs: AUTO_SOLVE_DEBOUNCE_MS,
+        toToml: buildAicToml,
+        solve: (solveLang, toml) => solveScenario(solveLang, toml),
+        onStateChange: (next) => {
+          solveState = next;
+        },
+      });
+
+      mediaQuery = window.matchMedia(NARROW_LAYOUT_QUERY);
+      updateScreenMode();
+      mediaQuery.addEventListener("change", updateScreenMode);
+      void loadInitialState();
+    })();
 
     return () => {
-      mediaQuery.removeEventListener("change", updateScreenMode);
+      disposed = true;
+      mediaQuery?.removeEventListener("change", updateScreenMode);
       solverController?.dispose();
       solverController = null;
     };
@@ -388,6 +448,7 @@
     {isBootstrapping}
     {solveState}
     {editorActions}
+    onOpenShare={openShareDialog}
     onImportFile={importTomlFile}
   />
 {:else}
@@ -399,6 +460,7 @@
     {isBootstrapping}
     {solveState}
     {editorActions}
+    onOpenShare={openShareDialog}
     onImportFile={importTomlFile}
     minEditorWidthPx={MIN_EDITOR_WIDTH_PX}
     minRightWidthPx={MIN_RIGHT_WIDTH_PX}
@@ -406,6 +468,15 @@
     minBottomPanelHeightPx={MIN_BOTTOM_PANEL_HEIGHT_PX}
   />
 {/if}
+
+<ShareDialog
+  open={isShareDialogOpen}
+  {lang}
+  tomlText={shareTomlText}
+  outputJsonText={shareOutputJsonText}
+  graphElementId="logistics-flow-map"
+  onClose={closeShareDialog}
+/>
 
 <ErrorToast
   state={errorToast}

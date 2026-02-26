@@ -1,5 +1,4 @@
 <script lang="ts">
-  import CopyButton from "./CopyButton.svelte";
   import DataTable from "./DataTable.svelte";
   import { onDestroy } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
@@ -53,18 +52,6 @@
     }
 
     return { status: "ok", elapsedMs: headerElapsedMs };
-  });
-
-  const solveOutputText = $derived.by(() => {
-    if (errorMessage.trim().length > 0) {
-      return errorMessage.trim();
-    }
-
-    if (result) {
-      return JSON.stringify(result, null, 2);
-    }
-
-    return "";
   });
 
   function t(zh: string, en: string): string {
@@ -143,7 +130,6 @@
       )}
     >
       {#snippet controls()}
-        <CopyButton {lang} text={solveOutputText} />
         <StatusPill {lang} state={solveMetaState} />
       {/snippet}
     </PanelHeader>

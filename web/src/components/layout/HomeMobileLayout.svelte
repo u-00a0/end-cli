@@ -18,6 +18,7 @@
     isBootstrapping: boolean;
     solveState: SolveState;
     editorActions: EditorActions;
+    onOpenShare: () => void;
     onImportFile: (file: File) => void | Promise<void>;
   }
 
@@ -29,6 +30,7 @@
     isBootstrapping,
     solveState,
     editorActions,
+    onOpenShare,
     onImportFile,
   }: Props = $props();
 
@@ -72,6 +74,7 @@
       {selectedOutpostIndex}
       isResetDisabled={isBootstrapping}
       actions={editorActions}
+      {onOpenShare}
     />
   </section>
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import IconActionButton from "./IconActionButton.svelte";
+  import { copyTextToClipboard } from "../lib/clipboard";
   import type { LangTag } from "../lib/types";
 
   interface Props {
@@ -50,51 +51,17 @@
     }, 1400);
   }
 
-  function fallbackCopy(value: string): boolean {
-    if (typeof document === "undefined") {
-      return false;
-    }
-
-    const input = document.createElement("textarea");
-    input.value = value;
-    input.setAttribute("readonly", "");
-    input.style.position = "fixed";
-    input.style.left = "-9999px";
-    document.body.append(input);
-    input.select();
-
-    let copied = false;
-    try {
-      copied = document.execCommand("copy");
-    } catch {
-      copied = false;
-    }
-
-    input.remove();
-    return copied;
-  }
-
   async function copyOutput(): Promise<void> {
     if (isDisabled) {
       return;
     }
 
-    let copied = false;
-
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(text);
-        copied = true;
-      } catch {
-        copied = false;
-      }
+    try {
+      await copyTextToClipboard(text);
+      copyState = "copied";
+    } catch {
+      copyState = "failed";
     }
-
-    if (!copied) {
-      copied = fallbackCopy(text);
-    }
-
-    copyState = copied ? "copied" : "failed";
     resetCopyStateLater();
   }
 

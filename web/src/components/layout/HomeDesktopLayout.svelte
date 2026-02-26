@@ -30,6 +30,7 @@
     isBootstrapping: boolean;
     solveState: SolveState;
     editorActions: EditorActions;
+    onOpenShare: () => void;
     onImportFile: (file: File) => void | Promise<void>;
 
     minEditorWidthPx: number;
@@ -46,6 +47,7 @@
     isBootstrapping,
     solveState,
     editorActions,
+    onOpenShare,
     onImportFile,
     minEditorWidthPx,
     minRightWidthPx,
@@ -140,6 +142,7 @@
       {selectedOutpostIndex}
       isResetDisabled={isBootstrapping}
       actions={editorActions}
+      {onOpenShare}
     />
   </section>
 

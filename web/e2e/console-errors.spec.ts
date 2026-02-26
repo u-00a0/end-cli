@@ -76,6 +76,9 @@ test('捕获浏览器控制台报错', async ({ page }) => {
     // 等待页面完全加载
     await page.waitForLoadState('networkidle');
 
+    // 导入按钮现在在「菜单」下拉里，先展开菜单
+    await page.getByLabel(/打开菜单|Open menu/).click();
+
     // 先确认上传入口存在，避免直接卡死在 setInputFiles
     const fileInput = page.locator('input[type="file"]');
     await expect(fileInput).toHaveCount(1, { timeout: 8_000 });

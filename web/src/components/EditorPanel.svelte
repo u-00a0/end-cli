@@ -1,5 +1,6 @@
 <script lang="ts">
   import FieldHint from "./FieldHint.svelte";
+  import DropdownMenu from "./DropdownMenu.svelte";
   import IconActionButton from "./IconActionButton.svelte";
   import InputField from "./InputField.svelte";
   import Panel from "./Panel.svelte";
@@ -15,6 +16,7 @@
     selectedOutpostIndex,
     isResetDisabled,
     actions,
+    onOpenShare,
   }: EditorPanelProps = $props();
 
   const selectedIndex = $derived<number | null>(
@@ -63,30 +65,60 @@
     >
       {#snippet controls()}
         <IconActionButton
-          kind="danger"
-          icon="delete"
-          label={t("重置为示例输入", "Reset to Example Input")}
-          onClick={actions.resetToDefault}
-          disabled={isResetDisabled}
-          ariaLabel={t("重置示例输入", "Reset Example Input")}
+          icon="share"
+          onClick={onOpenShare}
+          title={t("分享", "Share")}
+          ariaLabel={t("分享", "Share")}
         />
 
-        <IconActionButton
-          icon="download"
-          label={t("导入 aic.toml", "Import aic.toml")}
-          ariaLabel={t("导入 aic.toml", "Import aic.toml")}
-          fileInput={{
-            accept: ".toml,text/plain",
-            onChange: actions.importFromFile,
-          }}
-        />
+        <DropdownMenu
+          menuAriaLabel={t("输入操作菜单", "Input actions menu")}
+          triggerAriaLabel={t("打开菜单", "Open menu")}
+          triggerTitle={t("菜单", "Menu")}
+          triggerIcon="more_vert"
+          disabled={false}
+        >
+          {#snippet menu(close)}
+            <IconActionButton
+              kind="danger"
+              icon="delete"
+              label={t("重置为示例输入", "Reset to Example Input")}
+              onClick={() => {
+                close();
+                actions.resetToDefault();
+              }}
+              disabled={isResetDisabled}
+              ariaLabel={t("重置示例输入", "Reset Example Input")}
+              fullWidth={true}
+            />
 
-        <IconActionButton
-          icon="upload"
-          onClick={actions.exportToml}
-          title={t("导出", "Export")}
-          ariaLabel={t("导出 aic.toml", "Export aic.toml")}
-        />
+            <IconActionButton
+              icon="download"
+              label={t("导入 aic.toml", "Import aic.toml")}
+              ariaLabel={t("导入 aic.toml", "Import aic.toml")}
+              fileInput={{
+                accept: ".toml,text/plain",
+                onChange: (event) => {
+                  close();
+                  return actions.importFromFile(event);
+                },
+              }}
+              fullWidth={true}
+            />
+
+            <IconActionButton
+              icon="upload"
+              label={t("导出 aic.toml", "Export aic.toml")}
+              onClick={() => {
+                close();
+                actions.exportToml();
+              }}
+              title={t("导出", "Export")}
+              ariaLabel={t("导出 aic.toml", "Export aic.toml")}
+              fullWidth={true}
+            />
+          {/snippet}
+        </DropdownMenu>
       {/snippet}
     </PanelHeader>
   {/snippet}
@@ -543,7 +575,6 @@
     </section>
   </section>
 </Panel>
-
 <style>
   .editor-shell {
     display: grid;

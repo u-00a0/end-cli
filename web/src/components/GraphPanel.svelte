@@ -138,7 +138,7 @@
         </p>
       </div>
     {:else}
-      <div class="flow-wrap" bind:this={flowElement}>
+      <div class="flow-wrap" id="logistics-flow-map" bind:this={flowElement}>
         <SvelteFlow nodes={flow.nodes} edges={flow.edges} fitView proOptions={{ hideAttribution: true }}>
           <Background bgColor="var(--surface-graph)" patternColor="var(--surface-graph-grid)" gap={24} />
           {#if isFullscreen}
