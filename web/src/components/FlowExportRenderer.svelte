@@ -6,6 +6,7 @@
     type Node,
   } from "@xyflow/svelte";
   import type { Viewport } from "@xyflow/system";
+  import FlowReadyNotifier from "./FlowReadyNotifier.svelte";
 
   interface Props {
     nodes: Node[];
@@ -13,9 +14,10 @@
     viewport: Viewport;
     width: number;
     height: number;
+    onReady: () => void;
   }
 
-  let { nodes, edges, viewport, width, height }: Props = $props();
+  let { nodes, edges, viewport, width, height, onReady }: Props = $props();
 
   let renderNodes = $state<Node[]>([]);
   let renderEdges = $state<Edge[]>([]);
@@ -51,6 +53,7 @@
     onlyRenderVisibleElements={false}
     disableKeyboardA11y={true}
   >
+    <FlowReadyNotifier onReady={onReady} />
     <Background
       bgColor="var(--surface-graph)"
       patternColor="var(--surface-graph-grid)"

@@ -3,7 +3,6 @@
   import type { LangTag } from "../lib/types";
   import type { RouteKey } from "../lib/routes";
   import { parseHashRoute } from "../lib/routes";
-  import { tooltip } from "../lib/tooltip";
   import IconActionButton from "./IconActionButton.svelte";
 
   const GITHUB_REPO_URL = "https://github.com/sssxks/end-cli";
