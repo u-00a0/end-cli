@@ -23,10 +23,6 @@ function base64UrlToBytes(value: string): Uint8Array {
 }
 
 async function compressDeflate(bytes: Uint8Array): Promise<Uint8Array> {
-  if (typeof CompressionStream === "undefined") {
-    return bytes;
-  }
-
   const stream = new Blob([bytes as unknown as BlobPart])
     .stream()
     .pipeThrough(new CompressionStream("deflate"));
@@ -35,10 +31,6 @@ async function compressDeflate(bytes: Uint8Array): Promise<Uint8Array> {
 }
 
 async function decompressDeflate(bytes: Uint8Array): Promise<Uint8Array> {
-  if (typeof DecompressionStream === "undefined") {
-    return bytes;
-  }
-
   const stream = new Blob([bytes as unknown as BlobPart])
     .stream()
     .pipeThrough(new DecompressionStream("deflate"));

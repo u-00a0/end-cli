@@ -140,10 +140,6 @@ function createTooltipElement(text: string): HTMLElement {
 }
 
 export function tooltip(node: HTMLElement, value: TooltipValue): TooltipActionReturn {
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    return {};
-  }
-
   ensureTooltipStyles();
 
   let currentValue: TooltipValue = value;

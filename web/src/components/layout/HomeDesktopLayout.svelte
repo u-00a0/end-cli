@@ -62,16 +62,8 @@
   let layoutElement = $state<HTMLElement | null>(null);
   let rightPaneElement = $state<HTMLElement | null>(null);
 
-  function getStorage(): Storage | null {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    try {
-      return window.localStorage;
-    } catch {
-      return null;
-    }
+  function getStorage(): Storage {
+    return window.localStorage;
   }
 
   function clamp(value: number, min: number, max: number): number {
@@ -97,16 +89,13 @@
 
   onMount(() => {
     const storage = getStorage();
-    if (storage) {
-      const restoredLeft = parseRatio(storage.getItem(LEFT_PANE_RATIO_STORAGE_KEY));
-      if (restoredLeft !== null) {
-        leftPaneRatio = restoredLeft;
-      }
-
-      const restoredRight = parseRatio(storage.getItem(RIGHT_PANE_RATIO_STORAGE_KEY));
-      if (restoredRight !== null) {
-        rightPaneRatio = restoredRight;
-      }
+    const restoredLeft = parseRatio(storage.getItem(LEFT_PANE_RATIO_STORAGE_KEY));
+    const restoredRight = parseRatio(storage.getItem(RIGHT_PANE_RATIO_STORAGE_KEY));
+    if (restoredLeft !== null) {
+      leftPaneRatio = restoredLeft;
+    }
+    if (restoredRight !== null) {
+      rightPaneRatio = restoredRight;
     }
 
     hasHydratedLocalState = true;

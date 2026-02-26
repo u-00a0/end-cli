@@ -63,10 +63,6 @@
   };
 
   function detectBrowserLang(): LangTag {
-    if (typeof navigator === "undefined") {
-      return "zh";
-    }
-
     const preferred = Array.isArray(navigator.languages)
       ? [...navigator.languages, navigator.language]
       : [navigator.language];

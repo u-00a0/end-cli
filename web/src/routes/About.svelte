@@ -7,10 +7,6 @@
   const WEB_URL = "https://end-8jk.pages.dev/";
 
   function detectBrowserLang(): LangTag {
-    if (typeof navigator === "undefined") {
-      return "zh";
-    }
-
     const preferred = Array.isArray(navigator.languages)
       ? [...navigator.languages, navigator.language]
       : [navigator.language];
