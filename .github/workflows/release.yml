@@ -35,6 +35,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Rewrite GitHub SSH URLs to HTTPS
+        run: |
+          git config --global 'url.https://github.com/.insteadOf' 'git@github.com:'
+          git config --global --add 'url.https://github.com/.insteadOf' 'ssh://git@github.com/'
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
