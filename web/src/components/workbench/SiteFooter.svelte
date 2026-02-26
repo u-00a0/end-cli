@@ -3,7 +3,7 @@
   import type { LangTag } from "../../lib/types";
   import type { RouteKey } from "../../lib/routes";
   import { parseHashRoute } from "../../lib/routes";
-  import FooterCollapseHandle from "./FooterCollapseHandle.svelte";
+  import FooterCollapseHandle from "../button/FooterCollapseHandle.svelte";
   import IconActionButton from "../button/IconActionButton.svelte";
 
   const GITHUB_REPO_URL = "https://github.com/sssxks/end-cli";

@@ -131,7 +131,7 @@
     <PanelHeader
       titleText={t("方案评估", "Plan Summary")}
       subtitleText={t(
-        "每次编辑后自动刷新收益、电力平衡和产线规模。",
+        "每次编辑后自动刷新收益、电力平衡和产线规模",
         "After each edit, this panel auto-updates revenue, power balance, and line size.",
       )}
     >
