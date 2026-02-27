@@ -159,6 +159,24 @@ pub struct ExternalSupplySlack<'cid> {
     pub supply_per_min: f64,
 }
 
+#[derive(Debug, Clone)]
+pub struct PowerSummary {
+    /// External stable generation (W).
+    pub external_production_w: u32,
+    /// External stable consumption (W).
+    pub external_consumption_w: u32,
+    /// Thermal-bank generation (W).
+    pub thermal_generation_w: u32,
+    /// Production-machine consumption (W).
+    pub machine_consumption_w: u32,
+    /// Total generation (W).
+    pub total_gen_w: u32,
+    /// Total usage (W).
+    pub total_use_w: u32,
+    /// `total_gen_w - total_use_w`.
+    pub margin_w: u32,
+}
+
 /// Result of one optimization stage.
 #[derive(Debug, Clone)]
 pub struct StageSolution<'cid, 'sid> {
@@ -179,20 +197,12 @@ pub struct StageSolution<'cid, 'sid> {
     pub external_supply_slack: Box<[ExternalSupplySlack<'cid>]>,
     /// Per-item stockpile quantities (units/min).
     pub item_stockpile: Box<[ItemStockpile<'cid>]>,
-    /// Core generation capacity in watts.
-    pub p_core_w: u32,
-    /// External power consumption in watts.
-    pub p_ext_w: u32,
     /// Sum of all production machines.
     pub total_machines: u32,
     /// Sum of all thermal banks.
     pub total_thermal_banks: u32,
-    /// Total power generation.
-    pub power_gen_w: u32,
-    /// Total power usage.
-    pub power_use_w: u32,
-    /// `power_gen_w - power_use_w`.
-    pub power_margin_w: u32,
+    /// Present when power modeling is enabled.
+    pub power: Option<PowerSummary>,
     /// Stage-level virtual money slack value in per-minute revenue.
     pub money_slack_per_min: f64,
 }

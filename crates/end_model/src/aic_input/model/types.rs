@@ -7,20 +7,48 @@ use vector_map::VecMap;
 
 use crate::{DisplayName, ItemId, Key};
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub enum Stage2Objective {
-    #[default]
-    MinMachines,
-    MaxPowerSlack,
-    MaxMoneySlack,
-    Weighted(Stage2WeightedWeights),
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Stage2Weights {
+    pub min_machines: f64,
+    pub max_power_slack: f64,
+    pub max_money_slack: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Stage2WeightedWeights {
-    pub alpha: f64,
-    pub beta: f64,
-    pub gamma: f64,
+impl Default for Stage2Weights {
+    fn default() -> Self {
+        Self {
+            min_machines: 0.0,
+            max_power_slack: 0.0,
+            max_money_slack: 0.0,
+        }
+    }
+}
+
+impl Stage2Weights {
+    pub fn active_target_count(self) -> usize {
+        [self.min_machines, self.max_power_slack, self.max_money_slack]
+            .into_iter()
+            .filter(|weight| *weight > 0.0)
+            .count()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PowerConfig {
+    Disabled,
+    Enabled {
+        external_production_w: u32,
+        external_consumption_w: u32,
+    },
+}
+
+impl Default for PowerConfig {
+    fn default() -> Self {
+        Self::Enabled {
+            external_production_w: 200,
+            external_consumption_w: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -216,8 +244,8 @@ pub struct AicInputs<'cid, 'sid> {
     pub(super) supply_per_min: ItemNonZeroU32Map<'cid>,
     pub(super) external_consumption_per_min: ItemNonZeroU32Map<'cid>,
     pub(super) outposts: Box<[OutpostInput<'cid>]>,
-    pub(super) external_power_consumption_w: u32,
-    pub(super) stage2_objective: Stage2Objective,
+    pub(super) power_config: PowerConfig,
+    pub(super) stage2_weights: Stage2Weights,
     pub(super) scenario_brand: Id<'sid>,
 }
 

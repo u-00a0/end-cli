@@ -109,101 +109,125 @@ pub(crate) struct PowerRecipeToml {
 #[serde(deny_unknown_fields)]
 pub(crate) struct AicToml {
     #[serde(
+        default = "default_aic_version",
+        deserialize_with = "deserialize_supported_aic_version"
+    )]
+    pub(crate) version: u32,
+    #[serde(
         default = "default_region",
         deserialize_with = "deserialize_region"
     )]
     pub(crate) region: Region,
-    #[serde(deserialize_with = "deserialize_non_negative_u32")]
-    pub(crate) external_power_consumption_w: u32,
+    #[serde(default)]
+    pub(crate) power: PowerToml,
+    #[serde(default)]
+    pub(crate) objective: ObjectiveToml,
     #[serde(default = "default_empty_spanned_item_positive_u32_map")]
     pub(crate) supply_per_min: Spanned<BTreeMap<KeyToml, PositiveU32Toml>>,
     #[serde(default = "default_empty_spanned_item_positive_u32_map")]
     pub(crate) external_consumption_per_min: Spanned<BTreeMap<KeyToml, PositiveU32Toml>>,
     #[serde(default)]
     pub(crate) outposts: Box<[Spanned<OutpostToml>]>,
-    #[serde(default)]
-    pub(crate) stage2: Stage2Toml,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) enum Stage2Toml {
-    #[default]
-    MinMachines,
-    MaxPowerSlack,
-    MaxMoneySlack,
-    Weighted { alpha: f64, beta: f64, gamma: f64 },
+pub(crate) struct ObjectiveToml {
+    pub(crate) min_machines: Option<f64>,
+    pub(crate) max_power_slack: Option<f64>,
+    pub(crate) max_money_slack: Option<f64>,
 }
 
-impl<'de> Deserialize<'de> for Stage2Toml {
+impl<'de> Deserialize<'de> for ObjectiveToml {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         #[derive(Debug, Deserialize)]
         #[serde(deny_unknown_fields)]
-        struct RawStage2Toml {
-            #[serde(default)]
-            objective: Stage2ObjectiveToml,
+        struct RawObjectiveToml {
             #[serde(default, deserialize_with = "deserialize_optional_non_negative_f64")]
-            alpha: Option<f64>,
+            min_machines: Option<f64>,
             #[serde(default, deserialize_with = "deserialize_optional_non_negative_f64")]
-            beta: Option<f64>,
+            max_power_slack: Option<f64>,
             #[serde(default, deserialize_with = "deserialize_optional_non_negative_f64")]
-            gamma: Option<f64>,
+            max_money_slack: Option<f64>,
         }
 
-        let raw = RawStage2Toml::deserialize(deserializer)?;
-        let has_any_weight = raw.alpha.is_some() || raw.beta.is_some() || raw.gamma.is_some();
-        match raw.objective {
-            Stage2ObjectiveToml::MinMachines => {
-                if has_any_weight {
-                    return Err(D::Error::custom(
-                        "stage2.alpha/stage2.beta/stage2.gamma are only allowed when stage2.objective = `weighted`",
-                    ));
-                }
-                Ok(Self::MinMachines)
-            }
-            Stage2ObjectiveToml::MaxPowerSlack => {
-                if has_any_weight {
-                    return Err(D::Error::custom(
-                        "stage2.alpha/stage2.beta/stage2.gamma are only allowed when stage2.objective = `weighted`",
-                    ));
-                }
-                Ok(Self::MaxPowerSlack)
-            }
-            Stage2ObjectiveToml::MaxMoneySlack => {
-                if has_any_weight {
-                    return Err(D::Error::custom(
-                        "stage2.alpha/stage2.beta/stage2.gamma are only allowed when stage2.objective = `weighted`",
-                    ));
-                }
-                Ok(Self::MaxMoneySlack)
-            }
-            Stage2ObjectiveToml::Weighted => Ok(Self::Weighted {
-                alpha: raw.alpha.unwrap_or_else(default_stage2_weight),
-                beta: raw.beta.unwrap_or_else(default_stage2_weight),
-                gamma: raw.gamma.unwrap_or_else(default_stage2_weight),
-            }),
+        let raw = RawObjectiveToml::deserialize(deserializer)?;
+        Ok(Self {
+            min_machines: raw.min_machines,
+            max_power_slack: raw.max_power_slack,
+            max_money_slack: raw.max_money_slack,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PowerToml {
+    Disabled,
+    Enabled {
+        external_production_w: u32,
+        external_consumption_w: u32,
+    },
+}
+
+impl Default for PowerToml {
+    fn default() -> Self {
+        Self::Enabled {
+            external_production_w: 200,
+            external_consumption_w: 0,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) enum Stage2ObjectiveToml {
-    #[default]
-    MinMachines,
-    MaxPowerSlack,
-    MaxMoneySlack,
-    Weighted,
-}
-
-impl<'de> Deserialize<'de> for Stage2ObjectiveToml {
+impl<'de> Deserialize<'de> for PowerToml {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let raw = String::deserialize(deserializer)?;
-        parse_stage2_objective(raw.as_str()).map_err(D::Error::custom)
+        #[derive(Debug, Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct RawPowerToml {
+            #[serde(default = "default_power_enabled")]
+            enabled: bool,
+            #[serde(default, deserialize_with = "deserialize_optional_non_negative_u32")]
+            external_production: Option<u32>,
+            #[serde(default, deserialize_with = "deserialize_optional_non_negative_u32")]
+            external_consumption: Option<u32>,
+            #[serde(
+                default,
+                rename = "enternal_consumption",
+                deserialize_with = "deserialize_optional_non_negative_u32"
+            )]
+            enternal_consumption: Option<u32>,
+        }
+
+        let raw = RawPowerToml::deserialize(deserializer)?;
+        let external_consumption_w = match (raw.external_consumption, raw.enternal_consumption) {
+            (Some(value), Some(alias)) if value != alias => {
+                return Err(D::Error::custom(
+                    "power.external_consumption and power.enternal_consumption conflict",
+                ));
+            }
+            (Some(value), Some(_)) => Some(value),
+            (Some(value), None) => Some(value),
+            (None, Some(alias)) => Some(alias),
+            (None, None) => None,
+        };
+
+        if !raw.enabled {
+            if raw.external_production.is_some() || external_consumption_w.is_some() {
+                return Err(D::Error::custom(
+                    "power.external_production/power.external_consumption are not allowed when power.enabled = false",
+                ));
+            }
+            return Ok(Self::Disabled);
+        }
+
+        Ok(Self::Enabled {
+            external_production_w: raw.external_production.unwrap_or(200),
+            external_consumption_w: external_consumption_w.unwrap_or(0),
+        })
     }
 }
 
@@ -336,12 +360,30 @@ where
     parse_non_negative_u32(value).map_err(D::Error::custom)
 }
 
+fn deserialize_optional_non_negative_u32<'de, D>(
+    deserializer: D,
+) -> Result<Option<u32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<i64>::deserialize(deserializer)?;
+    value.map(parse_non_negative_u32).transpose().map_err(D::Error::custom)
+}
+
 fn deserialize_optional_non_negative_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let value = Option::<f64>::deserialize(deserializer)?;
     value.map(parse_non_negative_f64).transpose().map_err(D::Error::custom)
+}
+
+fn deserialize_supported_aic_version<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = i64::deserialize(deserializer)?;
+    parse_supported_aic_version(value).map_err(D::Error::custom)
 }
 
 fn deserialize_optional_display_name<'de, D>(
@@ -367,6 +409,14 @@ fn parse_region(value: &str) -> Result<Region, String> {
 
 fn default_region() -> Region {
     Region::FourthValley
+}
+
+fn default_aic_version() -> u32 {
+    2
+}
+
+fn default_power_enabled() -> bool {
+    true
 }
 
 fn deserialize_region<'de, D>(deserializer: D) -> Result<Region, D::Error>
@@ -404,20 +454,12 @@ fn parse_non_negative_f64(value: f64) -> Result<f64, String> {
     Ok(value)
 }
 
-fn parse_stage2_objective(value: &str) -> Result<Stage2ObjectiveToml, String> {
-    match value {
-        "min_machines" => Ok(Stage2ObjectiveToml::MinMachines),
-        "max_power_slack" => Ok(Stage2ObjectiveToml::MaxPowerSlack),
-        "max_money_slack" => Ok(Stage2ObjectiveToml::MaxMoneySlack),
-        "weighted" => Ok(Stage2ObjectiveToml::Weighted),
-        other => Err(format!(
-            "invalid stage2.objective `{other}`, expected one of: min_machines, max_power_slack, max_money_slack, weighted"
-        )),
+fn parse_supported_aic_version(value: i64) -> Result<u32, String> {
+    let parsed = parse_non_negative_u32(value)?;
+    match parsed {
+        2 => Ok(2),
+        other => Err(format!("unsupported aic version `{other}`, expected 2")),
     }
-}
-
-fn default_stage2_weight() -> f64 {
-    1.0
 }
 
 fn default_empty_spanned_item_positive_u32_map() -> Spanned<BTreeMap<KeyToml, PositiveU32Toml>> {

@@ -10,10 +10,11 @@ import {
   removePriceRow,
   removeSupplyRow,
   setConsumptionValue,
-  setExternalPower,
-  setStage2Objective,
-  setStage2Weight,
+  setObjectiveWeight,
   setOutpostField,
+  setPowerEnabled,
+  setPowerExternalConsumption,
+  setPowerExternalProduction,
   setPriceValue,
   setSupplyValue
 } from './draft-actions';
@@ -21,12 +22,15 @@ import type { AicDraft } from './types';
 
 const EMPTY_DRAFT: AicDraft = {
   region: 'wuling',
-  externalPowerConsumptionW: 0,
-  stage2: {
-    objective: 'min_machines',
-    alpha: 1,
-    beta: 1,
-    gamma: 1
+  power: {
+    enabled: true,
+    externalProductionW: 200,
+    externalConsumptionW: 0
+  },
+  objective: {
+    minMachines: 0,
+    maxPowerSlack: 0,
+    maxMoneySlack: 0
   },
   supply: [],
   consumption: [],
@@ -35,13 +39,15 @@ const EMPTY_DRAFT: AicDraft = {
 
 describe('draft actions', () => {
   it('normalizes numeric inputs as non-negative integers', () => {
-    let draft = setExternalPower(EMPTY_DRAFT, -12.3);
+    let draft = setPowerExternalConsumption(EMPTY_DRAFT, -12.3);
+    draft = setPowerExternalProduction(draft, 66.2);
     draft = addSupplyRow(draft, 'IronOre');
     draft = setSupplyValue(draft, 0, 4.8);
     draft = addConsumptionRow(draft, 'Water');
     draft = setConsumptionValue(draft, 0, 6.7);
 
-    expect(draft.externalPowerConsumptionW).toBe(0);
+    expect(draft.power.externalConsumptionW).toBe(0);
+    expect(draft.power.externalProductionW).toBe(66);
     expect(draft.supply[0]?.value).toBe(5);
     expect(draft.consumption[0]?.value).toBe(7);
   });
@@ -100,15 +106,15 @@ describe('draft actions', () => {
     expect(normalizeSelectedOutpostIndex(added.draft, { kind: 'selected', index: 9 })).toEqual({ kind: 'selected', index: 0 });
   });
 
-  it('updates stage2 objective and weighted coefficients', () => {
-    let draft = setStage2Objective(EMPTY_DRAFT, 'weighted');
-    draft = setStage2Weight(draft, 'alpha', 1.25);
-    draft = setStage2Weight(draft, 'beta', 2.5);
-    draft = setStage2Weight(draft, 'gamma', -3);
+  it('updates objective weights and power toggle', () => {
+    let draft = setObjectiveWeight(EMPTY_DRAFT, 'minMachines', 1.25);
+    draft = setObjectiveWeight(draft, 'maxPowerSlack', 2.5);
+    draft = setObjectiveWeight(draft, 'maxMoneySlack', -3);
+    draft = setPowerEnabled(draft, false);
 
-    expect(draft.stage2.objective).toBe('weighted');
-    expect(draft.stage2.alpha).toBe(1.25);
-    expect(draft.stage2.beta).toBe(2.5);
-    expect(draft.stage2.gamma).toBe(0);
+    expect(draft.objective.minMachines).toBe(1.25);
+    expect(draft.objective.maxPowerSlack).toBe(2.5);
+    expect(draft.objective.maxMoneySlack).toBe(0);
+    expect(draft.power.enabled).toBe(false);
   });
 });

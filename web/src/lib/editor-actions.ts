@@ -2,16 +2,17 @@ import type { AicDraft, CatalogItemDto } from './types';
 import type { OutpostSelection } from './outpost-selection';
 
 export type OutpostField = 'name' | 'moneyCapPerHour';
-export type Stage2WeightField = 'alpha' | 'beta' | 'gamma';
+export type ObjectiveWeightField = 'minMachines' | 'maxPowerSlack' | 'maxMoneySlack';
 
 export interface EditorActions {
   resetToDefault: () => void;
   importFromFile: (event: Event) => void | Promise<void>;
   exportToml: () => void;
   setRegion: (region: 'fourth_valley' | 'wuling') => void;
-  setExternalPower: (value: number) => void;
-  setStage2Objective: (objective: 'min_machines' | 'max_power_slack' | 'max_money_slack' | 'weighted') => void;
-  setStage2Weight: (field: Stage2WeightField, value: number) => void;
+  setPowerEnabled: (enabled: boolean) => void;
+  setPowerExternalProduction: (value: number) => void;
+  setPowerExternalConsumption: (value: number) => void;
+  setObjectiveWeight: (field: ObjectiveWeightField, value: number) => void;
   supply: {
     add: () => void;
     remove: (index: number) => void;

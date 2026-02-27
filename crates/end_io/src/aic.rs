@@ -1,9 +1,8 @@
 use crate::error::map_aic_build_error;
-use crate::schema::{AicToml, Stage2Toml};
+use crate::schema::{AicToml, PowerToml};
 use crate::{Error, Result};
 use end_model::{
-    AicInputs, Catalog, ItemNonZeroU32Map, ItemU32Map, OutpostInput, Stage2Objective,
-    Stage2WeightedWeights,
+    AicInputs, Catalog, ItemNonZeroU32Map, ItemU32Map, OutpostInput, PowerConfig, Stage2Weights,
 };
 use generativity::{Guard, make_guard};
 use std::collections::BTreeMap;
@@ -68,16 +67,36 @@ fn resolve_aic<'cid, 'sid>(
     catalog: &Catalog<'cid>,
     guard: Guard<'sid>,
 ) -> Result<AicInputs<'cid, 'sid>> {
+    let _version = raw.version;
     let region = raw.region;
-    let external_power_consumption_w = raw.external_power_consumption_w;
-    let stage2_objective = match raw.stage2 {
-        Stage2Toml::MinMachines => Stage2Objective::MinMachines,
-        Stage2Toml::MaxPowerSlack => Stage2Objective::MaxPowerSlack,
-        Stage2Toml::MaxMoneySlack => Stage2Objective::MaxMoneySlack,
-        Stage2Toml::Weighted { alpha, beta, gamma } => {
-            Stage2Objective::Weighted(Stage2WeightedWeights { alpha, beta, gamma })
-        }
+    let power_config = match raw.power {
+        PowerToml::Disabled => PowerConfig::Disabled,
+        PowerToml::Enabled {
+            external_production_w,
+            external_consumption_w,
+        } => PowerConfig::Enabled {
+            external_production_w,
+            external_consumption_w,
+        },
     };
+    let stage2_weights = Stage2Weights {
+        min_machines: raw.objective.min_machines.unwrap_or(0.0),
+        max_power_slack: raw.objective.max_power_slack.unwrap_or(0.0),
+        max_money_slack: raw.objective.max_money_slack.unwrap_or(0.0),
+    };
+
+    if matches!(power_config, PowerConfig::Disabled) && stage2_weights.max_power_slack > 0.0 {
+        return Err(Error::Schema {
+            path: path.clone(),
+            field: "objective.max_power_slack",
+            index: None,
+            span: None,
+            src: Some(Arc::clone(&src)),
+            message: "objective.max_power_slack must be 0 when power.enabled = false"
+                .to_string()
+                .into_boxed_str(),
+        });
+    }
 
     let supply_per_min_span = raw.supply_per_min.span();
     let raw_supply_per_min = raw.supply_per_min.into_inner();
@@ -116,12 +135,12 @@ fn resolve_aic<'cid, 'sid>(
 
     let mut builder = AicInputs::builder(
         guard,
-        external_power_consumption_w,
+        power_config,
         supply_per_min,
         external_consumption_per_min,
     )
     .region(region)
-    .stage2_objective(stage2_objective);
+    .stage2_weights(stage2_weights);
 
     let mut outpost_spans = BTreeMap::new();
     for outpost in raw.outposts {

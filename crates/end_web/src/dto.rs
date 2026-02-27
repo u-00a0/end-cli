@@ -41,13 +41,23 @@ pub struct SummaryDto {
     pub stage2_revenue_per_hour: f64,
     pub total_machines: u32,
     pub total_thermal_banks: u32,
-    pub power_gen_w: u32,
-    pub power_use_w: u32,
-    pub power_margin_w: u32,
+    pub power: Option<PowerSummaryDto>,
     pub outposts: Box<[OutpostValueDto]>,
     pub top_sales: Box<[SaleValueDto]>,
     pub facilities: Box<[FacilityUsageDto]>,
     pub external_supply_slack: Box<[ExternalSupplySlackDto]>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PowerSummaryDto {
+    pub external_production_w: u32,
+    pub external_consumption_w: u32,
+    pub thermal_generation_w: u32,
+    pub machine_consumption_w: u32,
+    pub total_gen_w: u32,
+    pub total_use_w: u32,
+    pub margin_w: u32,
 }
 
 #[derive(Debug, Serialize)]

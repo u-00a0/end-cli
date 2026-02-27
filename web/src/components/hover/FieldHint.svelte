@@ -128,7 +128,6 @@
 
   .hint-bubble {
     position: fixed;
-    min-width: 260px;
     /* compatible with narrower screen */
     max-width: min(380px, calc(100vw - 36px));
     border-radius: var(--radius-sm);

@@ -6,7 +6,11 @@
   import Panel from "../pane/Panel.svelte";
   import PanelHeader from "../pane/PanelHeader.svelte";
   import SelectField from "../input/SelectField.svelte";
-  import type { EditorPanelProps } from "../../lib/editor-actions";
+  import ToggleSwitch from "../input/ToggleSwitch.svelte";
+  import type {
+    EditorPanelProps,
+    ObjectiveWeightField,
+  } from "../../lib/editor-actions";
   import type { OutpostDraft } from "../../lib/types";
 
   type SelectOption = {
@@ -47,12 +51,73 @@
     { value: "fourth_valley", label: t("四号谷地", "Fourth Valley") },
     { value: "wuling", label: t("武陵", "Wuling") },
   ]);
-  const stage2ObjectiveOptions = $derived<SelectOption[]>([
-    { value: "min_machines", label: t("最少机器", "Min Machines") },
-    { value: "max_power_slack", label: t("最大电力余量", "Max Power Slack") },
-    { value: "max_money_slack", label: t("最大虚拟成交额", "Max Money Slack") },
-    { value: "weighted", label: t("加权目标", "Weighted") },
+  const objectiveFieldOrder: ObjectiveWeightField[] = [
+    "minMachines",
+    "maxPowerSlack",
+    "maxMoneySlack",
+  ];
+  const objectiveFieldOptions = $derived<SelectOption[]>([
+    { value: "minMachines", label: t("最少机器", "Min Machines") },
+    { value: "maxPowerSlack", label: t("最大电力余量", "Max Power Slack") },
+    { value: "maxMoneySlack", label: t("最大虚拟成交额", "Max Money Slack") },
   ]);
+  const objectiveRows = $derived.by(() =>
+    objectiveFieldOrder
+      .map((field) => ({
+        field,
+        weight: objectiveWeight(field),
+      }))
+      .filter((row) => row.weight > 0),
+  );
+
+  function objectiveWeight(field: ObjectiveWeightField): number {
+    if (field === "minMachines") {
+      return draft.objective.minMachines;
+    }
+    if (field === "maxPowerSlack") {
+      return draft.objective.maxPowerSlack;
+    }
+    return draft.objective.maxMoneySlack;
+  }
+
+  function objectiveOptionsFor(field: ObjectiveWeightField): SelectOption[] {
+    const selected = new Set(objectiveRows.map((row) => row.field));
+    return objectiveFieldOptions.filter(
+      (option) =>
+        option.value === field ||
+        !selected.has(option.value as ObjectiveWeightField),
+    );
+  }
+
+  function addObjectiveTarget(): void {
+    const nextField = objectiveFieldOrder.find(
+      (field) => objectiveWeight(field) <= 0,
+    );
+    if (!nextField) {
+      return;
+    }
+    actions.setObjectiveWeight(nextField, 1);
+  }
+
+  function removeObjectiveTarget(field: ObjectiveWeightField): void {
+    actions.setObjectiveWeight(field, 0);
+  }
+
+  function changeObjectiveField(
+    currentField: ObjectiveWeightField,
+    nextValue: string,
+  ): void {
+    const nextField = nextValue as ObjectiveWeightField;
+    if (!objectiveFieldOrder.includes(nextField)) {
+      return;
+    }
+    if (nextField === currentField) {
+      return;
+    }
+    const weight = objectiveWeight(currentField);
+    actions.setObjectiveWeight(currentField, 0);
+    actions.setObjectiveWeight(nextField, weight > 0 ? weight : 1);
+  }
 
   function t(zh: string, en: string): string {
     return lang === "zh" ? zh : en;
@@ -124,126 +189,177 @@
   {/snippet}
 
   <section class="editor-shell">
-    <section>
-      <div class="field-row">
-        <div class="label-with-hint">
-          <label for="stage2-objective">{t("优化目标", "Objective")}</label>
-          <FieldHint
-            text={t(
-              "求解器首先会尝试最大化收益，若有平局，则额外优化该目标。",
-              "The solver first maximizes profit, then optimizes the objective set here as a tiebreaker among equally profitable solutions.",
-            )}
-          />
-        </div>
-        <SelectField
-          id="stage2-objective"
-          value={draft.stage2.objective}
-          options={stage2ObjectiveOptions}
-          ariaLabel={t("选择 Stage2 目标", "Select Stage2 objective")}
-          searchable={false}
-          onChange={(nextValue) =>
-            actions.setStage2Objective(
-              nextValue as
-                | "min_machines"
-                | "max_power_slack"
-                | "max_money_slack"
-                | "weighted",
-            )}
+    <div class="field-row">
+      <div class="label-with-hint">
+        <label for="region">{t("地区", "Region")}</label>
+        <FieldHint
+          text={t(
+            "过滤出只有该区域可用的机器。",
+            "Region does not change outpost data; it mainly controls availability for machines with region locks.",
+          )}
         />
       </div>
+      <SelectField
+        id="region"
+        value={draft.region}
+        options={regionOptions}
+        ariaLabel={t("选择地区", "Select region")}
+        searchable={false}
+        onChange={(nextValue) =>
+          actions.setRegion(nextValue as "fourth_valley" | "wuling")}
+      />
+    </div>
 
-      {#if draft.stage2.objective === "weighted"}
-        <div class="row-grid three">
-          <label>
-            <span class="weight-label">α</span>
-            <InputField
-              type="number"
-              min="0"
-              step="0.1"
-              value={draft.stage2.alpha}
-              oninput={(event) =>
-                actions.setStage2Weight(
-                  "alpha",
-                  Number((event.currentTarget as HTMLInputElement).value),
-                )}
+    <section>
+      <PanelHeader>
+        {#snippet title()}
+          <div class="heading-with-hint">
+            <h3>{t("优化目标", "Stage-2 Targets")}</h3>
+            <FieldHint
+              text={t(
+                "程序首先会最大化利润，然后在利润最优的解空间内根据这里设置的目标进行二次优化。",
+                "The program first maximizes profit, then performs secondary optimization based on the targets set here within the profit-optimal solution space.",
+              )}
             />
-          </label>
-          <label>
-            <span class="weight-label">β</span>
-            <InputField
-              type="number"
-              min="0"
-              step="0.1"
-              value={draft.stage2.beta}
-              oninput={(event) =>
-                actions.setStage2Weight(
-                  "beta",
-                  Number((event.currentTarget as HTMLInputElement).value),
-                )}
-            />
-          </label>
-          <label>
-            <span class="weight-label">γ</span>
-            <InputField
-              type="number"
-              min="0"
-              step="0.1"
-              value={draft.stage2.gamma}
-              oninput={(event) =>
-                actions.setStage2Weight(
-                  "gamma",
-                  Number((event.currentTarget as HTMLInputElement).value),
-                )}
-            />
-          </label>
-        </div>
+          </div>
+        {/snippet}
+
+        {#snippet controls()}
+          <IconActionButton
+            icon="add"
+            onClick={addObjectiveTarget}
+            disabled={objectiveRows.length >= objectiveFieldOrder.length}
+            ariaLabel={t("添加目标", "Add stage-2 target")}
+          />
+        {/snippet}
+      </PanelHeader>
+
+      {#if objectiveRows.length === 0}
+        <p class="hint">
+          {t(
+            "暂无优化目标。",
+            "No stage-2 target configured; stage-1 optimum will be used directly.",
+          )}
+        </p>
       {/if}
 
-      <div class="field-row">
-        <div class="label-with-hint">
-          <label for="region">{t("地区", "Region")}</label>
-          <FieldHint
-            text={t(
-              "地区不会改变据点信息；主要影响部分带地区限制的机器是否可用。",
-              "Region does not change outpost data; it mainly controls availability for machines with region locks.",
-            )}
+      {#each objectiveRows as row (row.field)}
+        <div class="row-grid objective-row">
+          <SelectField
+            value={row.field}
+            options={objectiveOptionsFor(row.field)}
+            ariaLabel={t("选择阶段二目标", "Select stage-2 target")}
+            searchable={false}
+            onChange={(nextValue) => changeObjectiveField(row.field, nextValue)}
+          />
+
+          <InputField
+            type="number"
+            min="0"
+            step="0.1"
+            value={row.weight}
+            oninput={(event) =>
+              actions.setObjectiveWeight(
+                row.field,
+                Number((event.currentTarget as HTMLInputElement).value),
+              )}
+          />
+
+          <IconActionButton
+            icon="horizontal_rule"
+            onClick={() => removeObjectiveTarget(row.field)}
+            ariaLabel={t("删除阶段二目标", "Remove stage-2 target")}
           />
         </div>
-        <SelectField
-          id="region"
-          value={draft.region}
-          options={regionOptions}
-          ariaLabel={t("选择地区", "Select region")}
-          searchable={false}
-          onChange={(nextValue) =>
-            actions.setRegion(nextValue as "fourth_valley" | "wuling")}
-        />
-      </div>
+
+        {#if !draft.power.enabled && row.field === "maxPowerSlack"}
+          <p class="objective-warning">
+            {t(
+              "警告：电力计算已关闭，此目标权重会被忽略。",
+              "Warning: power modeling is disabled, this target weight is ignored.",
+            )}
+          </p>
+        {/if}
+      {/each}
+
+      <PanelHeader>
+        {#snippet title()}
+          <div class="heading-with-hint">
+            <h3>{t("电力", "Power")}</h3>
+          </div>
+        {/snippet}
+      </PanelHeader>
 
       <div class="field-row">
         <div class="label-with-hint">
-          <label for="external-power"
-            >{t("外部耗电", "External Power (W)")}</label
-          >
+          <span>{t("电力建模", "Power Modeling")}</span>
           <FieldHint
             text={t(
-              "用于建模矿点、滑索、作战设备等基地外部设备耗电，以及基地内未被程序显式建模的其他生产线耗电；使用这个数字和外部供给、外部消耗一起描述系统外影响。",
-              "Models power used by mining points, ziplines, combat devices, and other in-base lines not explicitly modeled; together with external supply/consumption, this captures off-model effects.",
+              "关闭后不再计算热能池与电力平衡，可将工具作为纯配平计算器使用。",
+              "When disabled, thermal-bank and power-balance constraints are removed so the tool works as a pure balancing calculator.",
             )}
           />
         </div>
-        <InputField
-          id="external-power"
-          type="number"
-          min="0"
-          value={draft.externalPowerConsumptionW}
-          oninput={(event) => {
-            actions.setExternalPower(
-              Number((event.currentTarget as HTMLInputElement).value),
-            );
-          }}
+        <ToggleSwitch
+          id="power-enabled"
+          checked={draft.power.enabled}
+          label={t("启用电力计算", "Enable power calculations")}
+          ariaLabel={t("切换电力计算", "Toggle power calculations")}
+          onToggle={(nextValue) => actions.setPowerEnabled(nextValue)}
         />
       </div>
+
+      {#if draft.power.enabled}
+        <div class="field-row">
+          <div class="label-with-hint">
+            <label for="power-external-production"
+              >{t("外部发电", "External Production (W)")}</label
+            >
+            <FieldHint
+              text={t(
+                "用于建模系统外稳定提供的发电量，默认值为核心赠送的 200W",
+                "Stable external generation provided outside modeled production loops; default value is 200W gifted by the core.",
+              )}
+            />
+          </div>
+          <InputField
+            id="power-external-production"
+            type="number"
+            min="0"
+            value={draft.power.externalProductionW}
+            oninput={(event) => {
+              actions.setPowerExternalProduction(
+                Number((event.currentTarget as HTMLInputElement).value),
+              );
+            }}
+          />
+        </div>
+
+        <div class="field-row">
+          <div class="label-with-hint">
+            <label for="power-external-consumption"
+              >{t("外部耗电", "External Consumption (W)")}</label
+            >
+            <FieldHint
+              text={t(
+                "用于建模矿点、滑索、作战设备等系统外耗电。",
+                "Stable external usage from mining points, ziplines, combat devices, and other off-model systems.",
+              )}
+            />
+          </div>
+          <InputField
+            id="power-external-consumption"
+            type="number"
+            min="0"
+            value={draft.power.externalConsumptionW}
+            oninput={(event) => {
+              actions.setPowerExternalConsumption(
+                Number((event.currentTarget as HTMLInputElement).value),
+              );
+            }}
+          />
+        </div>
+      {/if}
     </section>
 
     <section>
@@ -253,7 +369,7 @@
             <h3>{t("外部供给 / min", "External Supply / min")}</h3>
             <FieldHint
               text={t(
-                "通常用于表示矿点持续开采的矿物供给。；使用这个数字和外部耗电、外部消耗一起描述系统外影响。",
+                "通常用于表示矿点持续开采的矿物供给。",
                 "Typically used for minerals continuously supplied by mining points.",
               )}
             />
@@ -605,6 +721,17 @@
     align-items: center;
   }
 
+  .objective-row {
+    margin-top: 0;
+  }
+
+  .objective-warning {
+    margin: calc(var(--space-1) * -1) 0 0;
+    color: var(--danger);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
   .outpost-pick {
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
@@ -656,12 +783,6 @@
     gap: var(--space-1);
   }
 
-  .row-grid.three label {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-
   .row-grid {
     display: grid;
     gap: var(--space-2);
@@ -674,10 +795,6 @@
 
   .row-grid.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .row-grid.three {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .outpost-layout {

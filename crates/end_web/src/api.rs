@@ -11,7 +11,7 @@ use generativity::make_guard;
 use crate::dto::{
     BootstrapPayload, CatalogDto, CatalogItemDto, ExternalSupplySlackDto, FacilityUsageDto,
     LogisticsEdgeDto, LogisticsGraphDto, LogisticsItemSummaryDto, LogisticsNodeDto,
-    OutpostValueDto, SaleValueDto, SolvePayload, SummaryDto,
+    OutpostValueDto, PowerSummaryDto, SaleValueDto, SolvePayload, SummaryDto,
 };
 use crate::{Error, Lang, Result};
 
@@ -156,9 +156,15 @@ fn build_summary<'cid, 'sid, 'rid>(
         stage2_revenue_per_hour: stage2.revenue_per_min * 60.0,
         total_machines: stage2.total_machines,
         total_thermal_banks: stage2.total_thermal_banks,
-        power_gen_w: stage2.power_gen_w,
-        power_use_w: stage2.power_use_w,
-        power_margin_w: stage2.power_margin_w,
+        power: stage2.power.as_ref().map(|power| PowerSummaryDto {
+            external_production_w: power.external_production_w,
+            external_consumption_w: power.external_consumption_w,
+            thermal_generation_w: power.thermal_generation_w,
+            machine_consumption_w: power.machine_consumption_w,
+            total_gen_w: power.total_gen_w,
+            total_use_w: power.total_use_w,
+            margin_w: power.margin_w,
+        }),
         outposts: outposts.into_boxed_slice(),
         top_sales: top_sales.into_boxed_slice(),
         facilities: facilities.into_boxed_slice(),

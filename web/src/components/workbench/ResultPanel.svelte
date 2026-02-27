@@ -131,8 +131,8 @@
     <PanelHeader
       titleText={t("方案评估", "Plan Summary")}
       subtitleText={t(
-        "每次编辑后自动刷新收益、电力平衡和产线规模",
-        "After each edit, this panel auto-updates revenue, power balance, and line size.",
+        "每次编辑后自动刷新收益与产线规模",
+        "After each edit, this panel auto-updates revenue and line size.",
       )}
     >
       {#snippet controls()}
@@ -158,6 +158,7 @@
     </p>
   {:else}
     {@const stockpile = computeStockpileKpi(result.logisticsGraph)}
+    {@const power = result.summary.power}
 
     <div class="kpi-grid">
       <article>
@@ -176,15 +177,34 @@
         <h3>{t("囤货种类/总数/min", "Stockpiled kinds/total/min")}</h3>
         <p>{stockpile.itemKindCount}/{stockpile.totalPerMin.toFixed(2)}</p>
       </article>
-      <article>
-        <h3>{t("用电/发电", "Power Use/Gen")}</h3>
-        <p>{result.summary.powerUseW}/{result.summary.powerGenW}</p>
-      </article>
-      <article>
-        <h3>{t("电力余量", "Power Margin")}</h3>
-        <p>{result.summary.powerMarginW} W</p>
-      </article>
     </div>
+
+    {#if power}
+      <DataTable
+        title={t("电力结果", "Power Summary")}
+        headers={[
+          t("外部发电", "External Gen"),
+          t("热能池发电", "Thermal Gen"),
+          t("机器耗电", "Machine Use"),
+          t("外部耗电", "External Use"),
+          t("总发电", "Total Gen"),
+          t("总耗电", "Total Use"),
+          t("电力余量", "Power Margin"),
+        ]}
+        rows={[
+          [
+            `${power.externalProductionW} W`,
+            `${power.thermalGenerationW} W`,
+            `${power.machineConsumptionW} W`,
+            `${power.externalConsumptionW} W`,
+            `${power.totalGenW} W`,
+            `${power.totalUseW} W`,
+            `${power.marginW} W`,
+          ],
+        ]}
+        numericColumns={[0, 1, 2, 3, 4, 5, 6]}
+      />
+    {/if}
 
     <DataTable
       title={t("据点收益", "Outpost Revenue")}

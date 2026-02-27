@@ -1,12 +1,16 @@
 export type LangTag = 'zh' | 'en';
 export type ScenarioRegion = 'fourth_valley' | 'wuling';
-export type Stage2ObjectiveMode = 'min_machines' | 'max_power_slack' | 'max_money_slack' | 'weighted';
 
-export interface Stage2ConfigDraft {
-  objective: Stage2ObjectiveMode;
-  alpha: number;
-  beta: number;
-  gamma: number;
+export interface ObjectiveDraft {
+  minMachines: number;
+  maxPowerSlack: number;
+  maxMoneySlack: number;
+}
+
+export interface PowerDraft {
+  enabled: boolean;
+  externalProductionW: number;
+  externalConsumptionW: number;
 }
 
 export interface CatalogItemDto {
@@ -54,6 +58,16 @@ export interface ExternalSupplySlackDto {
   slackPerMin: number;
 }
 
+export interface PowerSummaryDto {
+  externalProductionW: number;
+  externalConsumptionW: number;
+  thermalGenerationW: number;
+  machineConsumptionW: number;
+  totalGenW: number;
+  totalUseW: number;
+  marginW: number;
+}
+
 export interface SummaryDto {
   lang: LangTag;
   stage1RevenuePerMin: number;
@@ -61,9 +75,7 @@ export interface SummaryDto {
   stage2RevenuePerHour: number;
   totalMachines: number;
   totalThermalBanks: number;
-  powerGenW: number;
-  powerUseW: number;
-  powerMarginW: number;
+  power: PowerSummaryDto | null;
   outposts: OutpostValueDto[];
   topSales: SaleValueDto[];
   facilities: FacilityUsageDto[];
@@ -152,8 +164,8 @@ export interface OutpostDraft {
 
 export interface AicDraft {
   region: ScenarioRegion;
-  externalPowerConsumptionW: number;
-  stage2: Stage2ConfigDraft;
+  power: PowerDraft;
+  objective: ObjectiveDraft;
   supply: DraftSupplyRow[];
   consumption: DraftConsumptionRow[];
   outposts: OutpostDraft[];
@@ -161,12 +173,15 @@ export interface AicDraft {
 
 export const EMPTY_DRAFT: AicDraft = {
   region: 'fourth_valley',
-  externalPowerConsumptionW: 0,
-  stage2: {
-    objective: 'min_machines',
-    alpha: 1,
-    beta: 1,
-    gamma: 1
+  power: {
+    enabled: true,
+    externalProductionW: 200,
+    externalConsumptionW: 0
+  },
+  objective: {
+    minMachines: 0,
+    maxPowerSlack: 0,
+    maxMoneySlack: 0
   },
   supply: [],
   consumption: [],

@@ -4,7 +4,7 @@ use generativity::make_guard;
 
 use crate::{
     AicBuildError, Catalog, DisplayName, ItemDef, ItemNonZeroU32Map, ItemU32Map, Key,
-    OutpostInput, ThermalBankDef,
+    OutpostInput, PowerConfig, ThermalBankDef,
 };
 use std::num::NonZeroU32;
 
@@ -92,7 +92,7 @@ fn aic_parse_rejects_duplicate_outpost_keys() {
     let camp = key("Camp");
     let mut builder = crate::AicInputs::builder(
         aic_guard,
-        0,
+        PowerConfig::default(),
         vec![(b, NonZeroU32::new(1).expect("non-zero"))].into(),
         Default::default(),
     );

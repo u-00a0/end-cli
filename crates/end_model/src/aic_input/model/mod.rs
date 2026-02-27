@@ -4,16 +4,16 @@ mod types;
 pub use builder::AicInputsBuilder;
 pub use types::{
     AicBuildError, AicInputs, ItemNonZeroU32Map, ItemU32Map, OutpostId, OutpostInput,
-    Region, Stage2Objective, Stage2WeightedWeights,
+    PowerConfig, Region, Stage2Weights,
 };
 
 impl<'cid, 'sid> AicInputs<'cid, 'sid> {
-    pub fn external_power_consumption_w(&self) -> u32 {
-        self.external_power_consumption_w
+    pub fn power_config(&self) -> PowerConfig {
+        self.power_config
     }
 
-    pub fn stage2_objective(&self) -> Stage2Objective {
-        self.stage2_objective
+    pub fn stage2_weights(&self) -> Stage2Weights {
+        self.stage2_weights
     }
 
     pub fn region(&self) -> Region {

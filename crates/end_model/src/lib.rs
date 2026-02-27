@@ -6,7 +6,7 @@ mod text;
 
 pub use aic_input::{
     AicBuildError, AicInputs, AicInputsBuilder, ItemNonZeroU32Map, ItemU32Map, OutpostId, OutpostInput,
-    Region, Stage2Objective, Stage2WeightedWeights,
+    PowerConfig, Region, Stage2Weights,
 };
 pub use catalog::{
     Catalog, CatalogBuildError, CatalogBuilder, FacilityDef, FacilityId, FacilityRegions, ItemDef,
@@ -17,6 +17,6 @@ pub use item_vec::ItemVec;
 pub use optimization::{
     ExternalSupplySlack, FacilityMachineCount, LogisticsEdge, LogisticsNode, LogisticsNodeId,
     LogisticsNodeSite, LogisticsPlan, OptimizationResult, OutpostSaleQty, OutpostValue, PosF64,
-    RecipeUsage, StageSolution, ThermalBankUsage, ItemStockpile,
+    PowerSummary, RecipeUsage, StageSolution, ThermalBankUsage, ItemStockpile,
 };
 pub use text::{DisplayName, DisplayNameValidationError, Key, KeyValidationError};

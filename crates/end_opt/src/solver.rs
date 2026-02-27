@@ -4,8 +4,8 @@ use crate::logistics::build_logistics_plan;
 use end_model::{
     AicInputs, Catalog, ExternalSupplySlack, FacilityId, FacilityMachineCount, ItemId,
     ItemStockpile, ItemVec, OptimizationResult, OutpostId, OutpostSaleQty, OutpostValue, PosF64,
-    PowerRecipeId, RecipeId, RecipeUsage, Stage2Objective, Stage2WeightedWeights, StageSolution,
-    ThermalBankUsage,
+    PowerConfig, PowerRecipeId, PowerSummary, RecipeId, RecipeUsage, Stage2Weights,
+    StageSolution, ThermalBankUsage,
 };
 use generativity::Guard;
 use good_lp::{
@@ -26,7 +26,7 @@ enum StageObjective {
     MaxMoneySlack { revenue_floor_per_min: f64 },
     Weighted {
         revenue_floor_per_min: f64,
-        weights: Stage2WeightedWeights,
+        weights: Stage2Weights,
         power_slack_scale: f64,
         money_slack_scale: f64,
     },
@@ -36,6 +36,13 @@ enum StageObjective {
 struct Stage2SlackScale {
     power_slack_max_w: f64,
     money_slack_max_per_min: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PowerModel {
+    enabled: bool,
+    external_production_w: u32,
+    external_consumption_w: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -84,33 +91,35 @@ pub fn run_two_stage<'cid, 'sid, 'rid>(
 
     let rel_eps = NEAR_INT_EPS * stage1.revenue_per_min.max(1.0);
     let revenue_floor_per_min = (stage1.revenue_per_min - rel_eps).max(0.0);
-    let stage2 = match aic.stage2_objective() {
-        Stage2Objective::MinMachines => solve_stage(
+    let weights = aic.stage2_weights();
+    let stage2 = match weights.active_target_count() {
+        0 => stage1.clone(),
+        1 if weights.min_machines > 0.0 => solve_stage(
             catalog,
             aic,
             StageObjective::MinMachines {
                 revenue_floor_per_min,
             },
         )?,
-        Stage2Objective::MaxPowerSlack => solve_stage(
+        1 if weights.max_power_slack > 0.0 => solve_stage(
             catalog,
             aic,
             StageObjective::MaxPowerSlack {
                 revenue_floor_per_min,
             },
         )?,
-        Stage2Objective::MaxMoneySlack => solve_stage(
+        1 => solve_stage(
             catalog,
             aic,
             StageObjective::MaxMoneySlack {
                 revenue_floor_per_min,
             },
         )?,
-        Stage2Objective::Weighted(weights) => {
+        _ => {
             let Stage2SlackScale {
                 power_slack_max_w,
                 money_slack_max_per_min,
-            } = solve_stage2_slack_scale(catalog, aic, revenue_floor_per_min)?;
+            } = solve_stage2_slack_scale(catalog, aic, revenue_floor_per_min, weights)?;
             solve_stage(
                 catalog,
                 aic,
@@ -136,25 +145,41 @@ fn solve_stage2_slack_scale<'cid, 'sid>(
     catalog: &Catalog<'cid>,
     aic: &AicInputs<'cid, 'sid>,
     revenue_floor_per_min: f64,
+    weights: Stage2Weights,
 ) -> Result<Stage2SlackScale> {
-    let power = solve_stage(
-        catalog,
-        aic,
-        StageObjective::MaxPowerSlack {
-            revenue_floor_per_min,
-        },
-    )?;
-    let money = solve_stage(
-        catalog,
-        aic,
-        StageObjective::MaxMoneySlack {
-            revenue_floor_per_min,
-        },
-    )?;
+    let power_slack_max_w = if weights.max_power_slack > 0.0 {
+        let power = solve_stage(
+            catalog,
+            aic,
+            StageObjective::MaxPowerSlack {
+                revenue_floor_per_min,
+            },
+        )?;
+        power
+            .power
+            .as_ref()
+            .map(|summary| summary.margin_w as f64)
+            .unwrap_or(0.0)
+    } else {
+        0.0
+    };
+
+    let money_slack_max_per_min = if weights.max_money_slack > 0.0 {
+        let money = solve_stage(
+            catalog,
+            aic,
+            StageObjective::MaxMoneySlack {
+                revenue_floor_per_min,
+            },
+        )?;
+        money.money_slack_per_min
+    } else {
+        0.0
+    };
 
     Ok(Stage2SlackScale {
-        power_slack_max_w: power.power_margin_w as f64,
-        money_slack_max_per_min: money.money_slack_per_min,
+        power_slack_max_w,
+        money_slack_max_per_min,
     })
 }
 
@@ -163,14 +188,52 @@ fn solve_stage<'cid, 'sid>(
     aic: &AicInputs<'cid, 'sid>,
     objective: StageObjective,
 ) -> Result<StageSolution<'cid, 'sid>> {
-    let enable_virtual_sales = matches!(
-        objective,
-        StageObjective::MaxMoneySlack { .. } | StageObjective::Weighted { .. }
-    );
-    let enable_power_slack = matches!(
-        objective,
-        StageObjective::MaxPowerSlack { .. } | StageObjective::Weighted { .. }
-    );
+    let power_model = match aic.power_config() {
+        PowerConfig::Disabled => PowerModel {
+            enabled: false,
+            external_production_w: 0,
+            external_consumption_w: 0,
+        },
+        PowerConfig::Enabled {
+            external_production_w,
+            external_consumption_w,
+        } => PowerModel {
+            enabled: true,
+            external_production_w,
+            external_consumption_w,
+        },
+    };
+
+    if matches!(objective, StageObjective::MaxPowerSlack { .. }) && !power_model.enabled {
+        return Err(Error::InvalidInput {
+            message: "cannot optimize max_power_slack when power.enabled = false"
+                .to_string()
+                .into_boxed_str(),
+        });
+    }
+
+    if let StageObjective::Weighted { weights, .. } = objective
+        && weights.max_power_slack > 0.0
+        && !power_model.enabled
+    {
+        return Err(Error::InvalidInput {
+            message: "objective.max_power_slack must be 0 when power.enabled = false"
+                .to_string()
+                .into_boxed_str(),
+        });
+    }
+
+    let enable_virtual_sales = matches!(objective, StageObjective::MaxMoneySlack { .. })
+        || matches!(
+            objective,
+            StageObjective::Weighted { weights, .. } if weights.max_money_slack > 0.0
+        );
+    let enable_power_slack = power_model.enabled
+        && (matches!(objective, StageObjective::MaxPowerSlack { .. })
+            || matches!(
+                objective,
+                StageObjective::Weighted { weights, .. } if weights.max_power_slack > 0.0
+            ));
 
     let mut vars = variables!();
 
@@ -213,16 +276,20 @@ fn solve_stage<'cid, 'sid>(
         })
         .collect::<Vec<_>>();
 
-    let power_vars = catalog
-        .power_recipes_with_id()
-        .map(|(id, p)| PowerVars {
-            power_recipe_index: id,
-            ingredient: p.ingredient.item,
-            power_w: p.power_w.get(),
-            duration_s: p.time_s.get(),
-            z: vars.add(variable().integer().min(0.0)),
-        })
-        .collect::<Vec<_>>();
+    let power_vars = if power_model.enabled {
+        catalog
+            .power_recipes_with_id()
+            .map(|(id, p)| PowerVars {
+                power_recipe_index: id,
+                ingredient: p.ingredient.item,
+                power_w: p.power_w.get(),
+                duration_s: p.time_s.get(),
+                z: vars.add(variable().integer().min(0.0)),
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
 
     let outpost_vars = aic
         .outposts_with_id()
@@ -266,18 +333,26 @@ fn solve_stage<'cid, 'sid>(
 
     let total_machines: Expression = recipe_vars.iter().map(|rv| rv.y).sum();
     let total_thermal_banks: Expression = power_vars.iter().map(|pv| pv.z).sum();
+    let machine_power_use = recipe_vars
+        .iter()
+        .map(|rv| rv.y * rv.facility_power_w)
+        .sum::<Expression>();
+    let thermal_generation = power_vars
+        .iter()
+        .map(|pv| pv.z * pv.power_w)
+        .sum::<Expression>();
 
-    let power_gen = catalog.core_power_w() as f64
-        + power_vars
-            .iter()
-            .map(|pv| pv.z * pv.power_w)
-            .sum::<Expression>();
+    let power_gen = if power_model.enabled {
+        Expression::from(power_model.external_production_w as f64) + thermal_generation.clone()
+    } else {
+        Expression::from(0.0)
+    };
 
-    let power_use = Expression::from(aic.external_power_consumption_w() as f64)
-        + recipe_vars
-            .iter()
-            .map(|rv| rv.y * rv.facility_power_w)
-            .sum::<Expression>();
+    let power_use = if power_model.enabled {
+        Expression::from(power_model.external_consumption_w as f64) + machine_power_use.clone()
+    } else {
+        Expression::from(0.0)
+    };
 
     // Build per-item balances by dispatching each contribution to its item bucket.
     // Seed from external supplies first.
@@ -361,9 +436,9 @@ fn solve_stage<'cid, 'sid>(
         } => {
             let power_denom = power_slack_scale.max(1e-9);
             let money_denom = money_slack_scale.max(1e-9);
-            let weighted_obj = machine_count.clone() * weights.alpha
-                - power_slack_expr.clone() * (weights.beta / power_denom)
-                - money_slack.clone() * (weights.gamma / money_denom);
+            let weighted_obj = machine_count.clone() * weights.min_machines
+                - power_slack_expr.clone() * (weights.max_power_slack / power_denom)
+                - money_slack.clone() * (weights.max_money_slack / money_denom);
             vars.minimise(weighted_obj)
                 .using(default_solver)
                 .with(constraint!(revenue.clone() >= revenue_floor_per_min))
@@ -381,9 +456,11 @@ fn solve_stage<'cid, 'sid>(
         ))
     });
 
-    model = model.with(constraint!(&power_gen >= power_use.clone()));
-    if let Some(power_slack) = power_slack_var {
-        model = model.with(constraint!(power_slack <= power_gen.clone() - power_use.clone()));
+    if power_model.enabled {
+        model = model.with(constraint!(&power_gen >= power_use.clone()));
+        if let Some(power_slack) = power_slack_var {
+            model = model.with(constraint!(power_slack <= power_gen.clone() - power_use.clone()));
+        }
     }
 
     model = recipe_vars.iter().fold(model, |model, rv| {
@@ -402,10 +479,36 @@ fn solve_stage<'cid, 'sid>(
         || "total_thermal_banks".into(),
         solution.eval(&total_thermal_banks),
     )?;
-
-    let power_gen_w = near_u32(|| "power_gen_w".into(), solution.eval(&power_gen))?;
-    let power_use_w = near_u32(|| "power_use_w".into(), solution.eval(&power_use))?;
-    let power_margin_w = power_gen_w - power_use_w;
+    let power = if power_model.enabled {
+        let thermal_generation_w = near_u32(
+            || "thermal_generation_w".into(),
+            solution.eval(&thermal_generation),
+        )?;
+        let machine_consumption_w = near_u32(
+            || "machine_consumption_w".into(),
+            solution.eval(&machine_power_use),
+        )?;
+        let total_gen_w = near_u32(|| "power.total_gen_w".into(), solution.eval(&power_gen))?;
+        let total_use_w = near_u32(|| "power.total_use_w".into(), solution.eval(&power_use))?;
+        let margin_w = total_gen_w.checked_sub(total_use_w).ok_or(Error::InvalidInput {
+            message: format!(
+                "decoded power total_gen_w {} < total_use_w {}",
+                total_gen_w, total_use_w
+            )
+            .into_boxed_str(),
+        })?;
+        Some(PowerSummary {
+            external_production_w: power_model.external_production_w,
+            external_consumption_w: power_model.external_consumption_w,
+            thermal_generation_w,
+            machine_consumption_w,
+            total_gen_w,
+            total_use_w,
+            margin_w,
+        })
+    } else {
+        None
+    };
     let money_slack_per_min = solution.eval(&money_slack);
 
     let mut outpost_sales_qty = Vec::with_capacity(
@@ -568,14 +671,10 @@ fn solve_stage<'cid, 'sid>(
     item_stockpile.sort_by(|a, b| a.item.as_u32().cmp(&b.item.as_u32()));
 
     Ok(StageSolution {
-        p_core_w: catalog.core_power_w(),
-        p_ext_w: aic.external_power_consumption_w(),
         revenue_per_min,
         total_machines,
         total_thermal_banks,
-        power_gen_w,
-        power_use_w,
-        power_margin_w,
+        power,
         money_slack_per_min,
         outpost_values: outpost_values.into_boxed_slice(),
         outpost_sales_qty: outpost_sales_qty.into_boxed_slice(),

@@ -24,6 +24,7 @@ pub fn build_report<'cid, 'sid, 'rid>(
 ) -> Result<String> {
     let stage1 = &result.stage1;
     let stage2 = &result.stage2;
+    let power = stage2.power.as_ref();
     let a = Ansi::from_env();
 
     let mut out = String::new();
@@ -31,24 +32,38 @@ pub fn build_report<'cid, 'sid, 'rid>(
     out.push_str(&format!("{}\n", a.h(t(lang, "结论", "Conclusion"))));
     out.push_str(&format!(
         "{}\n",
-        a.good(&match lang {
-            Lang::Zh => format!(
-                "结论：在当前外部供给/外部消耗与 P^ext={}W 下，最优收入约 {:.2}/min（{:.0}/h），对应产线规模：生产机器 {} 台 + 热能池 {} 台；电力余量 {}W。",
-                stage2.p_ext_w,
+        a.good(&match (lang, power) {
+            (Lang::Zh, Some(power)) => format!(
+                "结论：在当前外部供给/外部消耗与外部耗电 {}W 下，最优收入约 {:.2}/min（{:.0}/h），对应产线规模：生产机器 {} 台 + 热能池 {} 台；电力余量 {}W。",
+                power.external_consumption_w,
                 stage2.revenue_per_min,
                 stage2.revenue_per_min * 60.0,
                 stage2.total_machines,
                 stage2.total_thermal_banks,
-                stage2.power_margin_w,
+                power.margin_w,
             ),
-            Lang::En => format!(
-                "Conclusion: with the current external supply/consumption and P^ext={}W, optimal revenue is about {:.2}/min ({:.0}/h). Line size: {} production machines + {} thermal banks; power margin {}W.",
-                stage2.p_ext_w,
+            (Lang::En, Some(power)) => format!(
+                "Conclusion: with the current external supply/consumption and external usage {}W, optimal revenue is about {:.2}/min ({:.0}/h). Line size: {} production machines + {} thermal banks; power margin {}W.",
+                power.external_consumption_w,
                 stage2.revenue_per_min,
                 stage2.revenue_per_min * 60.0,
                 stage2.total_machines,
                 stage2.total_thermal_banks,
-                stage2.power_margin_w,
+                power.margin_w,
+            ),
+            (Lang::Zh, None) => format!(
+                "结论：在当前外部供给/外部消耗下（电力计算已禁用），最优收入约 {:.2}/min（{:.0}/h），对应产线规模：生产机器 {} 台 + 热能池 {} 台。",
+                stage2.revenue_per_min,
+                stage2.revenue_per_min * 60.0,
+                stage2.total_machines,
+                stage2.total_thermal_banks,
+            ),
+            (Lang::En, None) => format!(
+                "Conclusion: with the current external supply/consumption (power model disabled), optimal revenue is about {:.2}/min ({:.0}/h). Line size: {} production machines + {} thermal banks.",
+                stage2.revenue_per_min,
+                stage2.revenue_per_min * 60.0,
+                stage2.total_machines,
+                stage2.total_thermal_banks,
             ),
         })
     ));
@@ -125,60 +140,66 @@ pub fn build_report<'cid, 'sid, 'rid>(
         }
     }
 
-    out.push('\n');
-    out.push_str(&format!("{}\n", a.h(t(lang, "电力", "Power"))));
-    let p_tag = if stage2.power_margin_w < 1 {
-        a.warn(t(lang, "紧张", "Tight"))
-    } else {
-        a.good(t(lang, "充足", "OK"))
-    };
-    out.push_str(&format!(
-        "- {}\n",
-        match lang {
-            Lang::Zh => format!(
-                "发电 {}W = P^core {}W + 热能池发电；用电 {}W = P^ext {}W + 生产机器耗电；余量 {}W {}",
-                stage2.power_gen_w,
-                stage2.p_core_w,
-                stage2.power_use_w,
-                stage2.p_ext_w,
-                stage2.power_margin_w,
-                p_tag
-            ),
-            Lang::En => format!(
-                "Generation {}W = P^core {}W + thermal banks; usage {}W = P^ext {}W + production machines; margin {}W {}",
-                stage2.power_gen_w,
-                stage2.p_core_w,
-                stage2.power_use_w,
-                stage2.p_ext_w,
-                stage2.power_margin_w,
-                p_tag
-            ),
-        }
-    ));
-
-    if !stage2.thermal_banks_used.is_empty() {
+    if let Some(power) = power {
+        out.push('\n');
+        out.push_str(&format!("{}\n", a.h(t(lang, "电力", "Power"))));
+        let p_tag = if power.margin_w < 1 {
+            a.warn(t(lang, "紧张", "Tight"))
+        } else {
+            a.good(t(lang, "充足", "OK"))
+        };
         out.push_str(&format!(
-            "{}\n",
-            a.dim(t(lang, "热能池配置:", "Thermal bank setup:"))
+            "- {}\n",
+            match lang {
+                Lang::Zh => format!(
+                    "总发电 {}W = 外部发电 {}W + 热能池发电 {}W；总用电 {}W = 外部耗电 {}W + 生产机器耗电 {}W；余量 {}W {}",
+                    power.total_gen_w,
+                    power.external_production_w,
+                    power.thermal_generation_w,
+                    power.total_use_w,
+                    power.external_consumption_w,
+                    power.machine_consumption_w,
+                    power.margin_w,
+                    p_tag
+                ),
+                Lang::En => format!(
+                    "Total generation {}W = external generation {}W + thermal banks {}W; total usage {}W = external usage {}W + production machines {}W; margin {}W {}",
+                    power.total_gen_w,
+                    power.external_production_w,
+                    power.thermal_generation_w,
+                    power.total_use_w,
+                    power.external_consumption_w,
+                    power.machine_consumption_w,
+                    power.margin_w,
+                    p_tag
+                ),
+            }
         ));
-        for tb in &stage2.thermal_banks_used {
-            let item = item_display_name(lang, catalog, tb.ingredient)?;
-            let consume_per_min = 60.0 / tb.duration_s as f64;
+
+        if !stage2.thermal_banks_used.is_empty() {
             out.push_str(&format!(
-                "- {} x{}: {}\n",
-                item,
-                tb.banks.get(),
-                match lang {
-                    Lang::Zh => format!(
-                        "每台 {}W，耗时 {}s（消耗 {:.3}/min）",
-                        tb.power_w, tb.duration_s, consume_per_min
-                    ),
-                    Lang::En => format!(
-                        "{}W each, {}s (consumes {:.3}/min)",
-                        tb.power_w, tb.duration_s, consume_per_min
-                    ),
-                }
+                "{}\n",
+                a.dim(t(lang, "热能池配置:", "Thermal bank setup:"))
             ));
+            for tb in &stage2.thermal_banks_used {
+                let item = item_display_name(lang, catalog, tb.ingredient)?;
+                let consume_per_min = 60.0 / tb.duration_s as f64;
+                out.push_str(&format!(
+                    "- {} x{}: {}\n",
+                    item,
+                    tb.banks.get(),
+                    match lang {
+                        Lang::Zh => format!(
+                            "每台 {}W，耗时 {}s（消耗 {:.3}/min）",
+                            tb.power_w, tb.duration_s, consume_per_min
+                        ),
+                        Lang::En => format!(
+                            "{}W each, {}s (consumes {:.3}/min)",
+                            tb.power_w, tb.duration_s, consume_per_min
+                        ),
+                    }
+                ));
+            }
         }
     }
 
@@ -276,7 +297,9 @@ pub fn build_report<'cid, 'sid, 'rid>(
         }
     }
 
-    if stage2.power_margin_w < 1 {
+    if let Some(power) = power
+        && power.margin_w < 1
+    {
         any = true;
         out.push_str(&format!(
             "- {}\n",

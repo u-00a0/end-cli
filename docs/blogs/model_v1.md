@@ -153,3 +153,118 @@ $$
 $$
 s^{\$} \;=\; \sum_{o\in O}\sum_{i\in I} p_{o,i}\, \tilde q_{o,i}
 $$
+
+## 6. 扩展模式（已实现）：`version` + `[power]` + `[objective]`
+
+### 6.1 输入形态（AIC）
+
+推荐格式：
+
+```toml
+version = 2
+
+[power]
+enabled = true
+external_production = 200
+external_consumption = 0
+
+[objective]
+# all of them are optional. (pos f64)
+# 0 present - no stage2 optimization at all
+# 1 present - optimize the target
+# >= 2 present - optimize weighted
+min_machines = 0.1
+max_power_slack = 1
+max_money_slack = 1
+```
+
+也支持仅配平模式：
+
+```toml
+version = 2
+
+[power]
+enabled = false
+```
+
+约定：
+
+- `version` 省略时按当前最新版本（`2`）解析。
+- `power.enabled=false` 时，不接受 `external_production` / `external_consumption`。
+- `power.enabled=true` 时：
+- `external_production` 默认 `200`。
+- `external_consumption` 默认 `0`。
+- 解析兼容 `enternal_consumption` 旧拼写别名；规范键名仍为 `external_consumption`。
+
+### 6.2 电力参数与开关
+
+引入电力模式开关：
+$$
+\kappa^{P}\in\{0,1\}
+$$
+
+- $\kappa^{P}=1$：启用电力建模。
+- $\kappa^{P}=0$：禁用电力建模（纯配平）。
+
+并将核心电力重写为可配置输入：
+
+- $P^\text{ext-gen}\ge 0$：外部稳定发电功率
+- $P^\text{ext-use}\ge 0$：系统外稳定耗电功率
+
+启用电力时：
+$$
+P^{gen} \;=\; P^\text{ext-gen} + \sum_{b \in B} P_b Z_b
+$$
+$$
+P^{use} \;=\; P^\text{ext-use} + \sum_{t\in T} w_t M_t
+$$
+并保留约束
+$$
+P^{gen} \ge P^{use}
+$$
+
+禁用电力时（$\kappa^{P}=0$）：
+
+- 移除热能池变量 $Z_b$ 与其燃料消耗项。
+- 移除电力平衡约束与电力富余变量。
+- 仅保留配平相关的供需与流量约束。
+
+### 6.3 Stage 2：三目标正交权重语义
+
+令
+$$
+[\alpha,\beta,\gamma] = [\text{min\_machines},\ \text{max\_power\_slack},\ \text{max\_money\_slack}]
+$$
+
+统一目标形式为：
+$$
+\min\ \alpha N^{mach} - \beta \hat s^{P} - \gamma \hat s^{\$}
+$$
+
+其中：
+$$
+N^{mach}=\sum_{t\in T} M_t + \kappa^{P}\sum_{b\in B}Z_b
+$$
+
+设有效目标数
+$$
+k = \left|\{x\in\{\alpha,\beta,\gamma\}\mid x>0\}\right|
+$$
+
+则 Stage2 行为为：
+
+- $k=0$：不做阶段二优化（`stage2 = stage1`）。
+- $k=1$：执行对应单目标优化。
+- $k\ge2$：执行加权优化（按各目标可达尺度归一化后组合）。
+
+并约定：当 $\kappa^{P}=0$ 时，$\beta=0$，即禁用电力时不能优化 `max_power_slack`。
+
+### 6.4 输出语义（Option 化）
+
+电力相关输出打包为可选结构：
+$$
+\text{power\_summary}\in \{\text{None},\ \text{Some}(\cdot)\}
+$$
+
+- $\kappa^{P}=1$：返回 `Some(power_summary)`。
+- $\kappa^{P}=0$：返回 `None`。

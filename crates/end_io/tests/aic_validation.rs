@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use end_io::{Error, default_aic_toml, load_aic, load_catalog};
-use end_model::{AicInputs, Catalog, Region, Stage2Objective};
+use end_model::{AicInputs, Catalog, PowerConfig, Region, Stage2Weights};
 use generativity::make_guard;
 use std::fs;
 use tempfile::TempDir;
@@ -57,7 +57,7 @@ fn load_aic_rejects_unknown_supply_item() {
     make_guard!(aic_guard);
     let err = load_aic_from_str(
         r#"
-external_power_consumption_w = 0
+version = 2
 
 [supply_per_min]
 "Unknown Item" = 1
@@ -86,7 +86,7 @@ fn load_aic_rejects_unknown_external_consumption_item() {
     make_guard!(aic_guard);
     let err = load_aic_from_str(
         r#"
-external_power_consumption_w = 0
+version = 2
 
 [external_consumption_per_min]
 "Unknown Item" = 1
@@ -116,7 +116,7 @@ fn load_aic_rejects_duplicate_outpost_keys() {
     let (_, price_item) = first_two_item_keys(&catalog);
     let src = format!(
         r#"
-external_power_consumption_w = 0
+version = 2
 
 [[outposts]]
 key = "Dup"
@@ -154,7 +154,7 @@ fn load_aic_rejects_zero_supply_value() {
     let (supply_item, _) = first_two_item_keys(&catalog);
     let src = format!(
         r#"
-external_power_consumption_w = 0
+version = 2
 
 [supply_per_min]
 "{supply_item}" = 0
@@ -173,7 +173,7 @@ fn load_aic_rejects_zero_external_consumption_value() {
     let (consume_item, _) = first_two_item_keys(&catalog);
     let src = format!(
         r#"
-external_power_consumption_w = 0
+version = 2
 
 [external_consumption_per_min]
 "{consume_item}" = 0
@@ -186,17 +186,67 @@ external_power_consumption_w = 0
 }
 
 #[test]
-fn load_aic_rejects_negative_external_power() {
+fn load_aic_rejects_negative_power_external_consumption() {
     make_guard!(catalog_guard);
     let catalog = load_catalog(None, catalog_guard).expect("load builtin catalog");
     make_guard!(aic_guard);
     let src = r#"
-external_power_consumption_w = -1
+version = 2
+
+[power]
+enabled = true
+external_consumption = -1
 "#;
 
     let err = load_aic_from_str(src, &catalog, aic_guard)
-        .expect_err("negative external power should fail");
+        .expect_err("negative external consumption should fail");
     assert_toml_parse_with_span(&err, "aic.toml", "must be >= 0, got -1");
+}
+
+#[test]
+fn load_aic_rejects_power_fields_when_disabled() {
+    make_guard!(catalog_guard);
+    let catalog = load_catalog(None, catalog_guard).expect("load builtin catalog");
+    make_guard!(aic_guard);
+    let src = r#"
+version = 2
+
+[power]
+enabled = false
+external_production = 200
+"#;
+
+    let err =
+        load_aic_from_str(src, &catalog, aic_guard).expect_err("power fields should be rejected");
+    assert_toml_parse_with_span(
+        &err,
+        "aic.toml",
+        "are not allowed when power.enabled = false",
+    );
+}
+
+#[test]
+fn load_aic_accepts_enternal_consumption_alias() {
+    make_guard!(catalog_guard);
+    let catalog = load_catalog(None, catalog_guard).expect("load builtin catalog");
+    make_guard!(aic_guard);
+    let src = r#"
+version = 2
+
+[power]
+enabled = true
+external_production = 250
+enternal_consumption = 10
+"#;
+
+    let aic = load_aic_from_str(src, &catalog, aic_guard).expect("alias should be accepted");
+    assert_eq!(
+        aic.power_config(),
+        PowerConfig::Enabled {
+            external_production_w: 250,
+            external_consumption_w: 10,
+        }
+    );
 }
 
 #[test]
@@ -207,7 +257,7 @@ fn load_aic_rejects_negative_outpost_price() {
     let (_, price_item) = first_two_item_keys(&catalog);
     let src = format!(
         r#"
-external_power_consumption_w = 0
+version = 2
 
 [[outposts]]
 key = "Camp"
@@ -228,7 +278,7 @@ fn load_aic_rejects_outpost_key_with_spaces() {
     let (_, price_item) = first_two_item_keys(&catalog);
     let src = format!(
         r#"
-external_power_consumption_w = 0
+version = 2
 
 [[outposts]]
 key = " Camp "
@@ -247,14 +297,24 @@ prices = {{ "{price_item}" = 1 }}
 }
 
 #[test]
-fn load_aic_accepts_zero_external_power_when_other_fields_valid() {
+fn load_aic_accepts_power_and_objective_sections() {
     make_guard!(catalog_guard);
     let catalog = load_catalog(None, catalog_guard).expect("load builtin catalog");
     make_guard!(aic_guard);
     let (supply_item, price_item) = first_two_item_keys(&catalog);
     let src = format!(
         r#"
-external_power_consumption_w = 0
+version = 2
+
+[power]
+enabled = true
+external_production = 260
+external_consumption = 11
+
+[objective]
+min_machines = 2.0
+max_power_slack = 3.0
+max_money_slack = 4.0
 
 [supply_per_min]
 "{supply_item}" = 1
@@ -270,10 +330,55 @@ prices = {{ "{price_item}" = 1 }}
     );
 
     let aic = load_aic_from_str(&src, &catalog, aic_guard).expect("valid aic should load");
-    assert_eq!(aic.external_power_consumption_w(), 0);
+    assert_eq!(
+        aic.power_config(),
+        PowerConfig::Enabled {
+            external_production_w: 260,
+            external_consumption_w: 11,
+        }
+    );
+    assert_eq!(
+        aic.stage2_weights(),
+        Stage2Weights {
+            min_machines: 2.0,
+            max_power_slack: 3.0,
+            max_money_slack: 4.0,
+        }
+    );
     assert_eq!(aic.region(), Region::FourthValley);
     assert_eq!(aic.external_consumption_per_min().len(), 1);
     assert_eq!(aic.outposts().len(), 1);
+}
+
+#[test]
+fn load_aic_rejects_max_power_slack_when_power_disabled() {
+    make_guard!(catalog_guard);
+    let catalog = load_catalog(None, catalog_guard).expect("load builtin catalog");
+    make_guard!(aic_guard);
+    let src = r#"
+version = 2
+
+[power]
+enabled = false
+
+[objective]
+max_power_slack = 1.0
+"#;
+
+    let err =
+        load_aic_from_str(src, &catalog, aic_guard).expect_err("power slack should be rejected");
+    assert!(
+        matches!(
+            err,
+            Error::Schema {
+                field,
+                ref message,
+                ..
+            } if field == "objective.max_power_slack"
+                && message.contains("must be 0 when power.enabled = false")
+        ),
+        "unexpected error: {err:?}"
+    );
 }
 
 #[test]
@@ -283,8 +388,8 @@ fn load_aic_rejects_invalid_region() {
     make_guard!(aic_guard);
     let err = load_aic_from_str(
         r#"
+version = 2
 region = "unknown"
-external_power_consumption_w = 0
 "#,
         &catalog,
         aic_guard,
@@ -294,51 +399,36 @@ external_power_consumption_w = 0
 }
 
 #[test]
-fn load_aic_rejects_weights_when_stage2_not_weighted() {
+fn load_aic_rejects_unsupported_version() {
     make_guard!(catalog_guard);
     let catalog = load_catalog(None, catalog_guard).expect("load builtin catalog");
     make_guard!(aic_guard);
-    let src = r#"
-external_power_consumption_w = 0
-
-[stage2]
-objective = "min_machines"
-alpha = 1.0
-"#;
-
-    let err = load_aic_from_str(src, &catalog, aic_guard)
-        .expect_err("weights should be rejected for non-weighted objective");
-    assert_toml_parse_with_span(
-        &err,
-        "aic.toml",
-        "only allowed when stage2.objective = `weighted`",
-    );
+    let err = load_aic_from_str(
+        r#"
+version = 1
+"#,
+        &catalog,
+        aic_guard,
+    )
+    .expect_err("unsupported version should fail");
+    assert_toml_parse_with_span(&err, "aic.toml", "unsupported aic version `1`, expected 2");
 }
 
 #[test]
-fn load_aic_accepts_weighted_objective_with_weights() {
+fn load_aic_uses_latest_defaults_when_version_and_sections_are_omitted() {
     make_guard!(catalog_guard);
     let catalog = load_catalog(None, catalog_guard).expect("load builtin catalog");
     make_guard!(aic_guard);
-    let src = r#"
-external_power_consumption_w = 0
+    let aic = load_aic_from_str("", &catalog, aic_guard).expect("empty aic should load");
 
-[stage2]
-objective = "weighted"
-alpha = 2.0
-beta = 3.0
-gamma = 4.0
-"#;
-
-    let aic = load_aic_from_str(src, &catalog, aic_guard).expect("weighted stage2 should load");
     assert_eq!(
-        aic.stage2_objective(),
-        Stage2Objective::Weighted(end_model::Stage2WeightedWeights {
-            alpha: 2.0,
-            beta: 3.0,
-            gamma: 4.0,
-        })
+        aic.power_config(),
+        PowerConfig::Enabled {
+            external_production_w: 200,
+            external_consumption_w: 0,
+        }
     );
+    assert_eq!(aic.stage2_weights(), Stage2Weights::default());
 }
 
 #[test]

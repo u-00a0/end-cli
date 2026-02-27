@@ -26,9 +26,10 @@
     removeSupplyRow,
     setConsumptionKey,
     setConsumptionValue,
-    setExternalPower,
-    setStage2Objective,
-    setStage2Weight,
+    setObjectiveWeight,
+    setPowerEnabled,
+    setPowerExternalConsumption,
+    setPowerExternalProduction,
     setRegion,
     setOutpostField,
     setPriceKey,
@@ -259,14 +260,17 @@
     setRegion: (region) => {
       draft = setRegion(draft, region);
     },
-    setExternalPower: (value) => {
-      draft = setExternalPower(draft, value);
+    setPowerEnabled: (enabled) => {
+      draft = setPowerEnabled(draft, enabled);
     },
-    setStage2Objective: (objective) => {
-      draft = setStage2Objective(draft, objective);
+    setPowerExternalProduction: (value) => {
+      draft = setPowerExternalProduction(draft, value);
     },
-    setStage2Weight: (field, value) => {
-      draft = setStage2Weight(draft, field, value);
+    setPowerExternalConsumption: (value) => {
+      draft = setPowerExternalConsumption(draft, value);
+    },
+    setObjectiveWeight: (field, value) => {
+      draft = setObjectiveWeight(draft, field, value);
     },
     supply: {
       add: () => {

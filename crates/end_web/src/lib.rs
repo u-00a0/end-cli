@@ -8,7 +8,7 @@ pub use api::{bootstrap, solve_from_aic_toml};
 pub use dto::{
     BootstrapPayload, CatalogDto, CatalogItemDto, ExternalSupplySlackDto, FacilityUsageDto,
     LogisticsEdgeDto, LogisticsGraphDto, LogisticsItemSummaryDto, LogisticsNodeDto,
-    OutpostValueDto, SaleValueDto, SolvePayload, SummaryDto,
+    OutpostValueDto, PowerSummaryDto, SaleValueDto, SolvePayload, SummaryDto,
 };
 pub use error::{Error, Result};
 pub use ffi::{end_web_bootstrap, end_web_free_slice, end_web_solve_from_aic_toml};
@@ -29,14 +29,14 @@ mod tests {
         assert!(
             payload
                 .default_aic_toml
-                .contains("external_power_consumption_w"),
-            "default aic should include external power field"
+                .contains("[power]"),
+            "default aic should include power section"
         );
         assert!(
             payload
                 .default_aic_toml
-                .contains("external_consumption_per_min"),
-            "default aic should include external consumption field"
+                .contains("external_consumption"),
+            "default aic should include power external consumption field"
         );
         assert!(
             !payload.catalog.items.is_empty(),
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn solve_rejects_invalid_toml() {
-        let err = solve_from_aic_toml(Lang::Zh, "external_power_consumption_w = 'oops'")
+        let err = solve_from_aic_toml(Lang::Zh, "version = 2\n[power]\nexternal_consumption = 'oops'")
             .expect_err("invalid toml should fail");
         let msg = err.to_string();
         assert!(
@@ -93,7 +93,7 @@ mod tests {
         let item_b = catalog.items()[1].key.as_str();
         let aic_toml = format!(
             r#"
-external_power_consumption_w = 0
+version = 2
 
 [supply_per_min]
 "{item_a}" = 5

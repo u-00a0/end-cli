@@ -34,31 +34,66 @@ function parseStoredDraft(text: string): AicDraft | null {
     const supplyRows = Array.isArray(parsed.supply) ? parsed.supply : [];
     const consumptionRows = Array.isArray(parsed.consumption) ? parsed.consumption : [];
     const outpostRows = Array.isArray(parsed.outposts) ? parsed.outposts : [];
-    const stage2Record = asRecord(parsed.stage2);
-    const objectiveRaw = asString(stage2Record.objective).trim();
-    const objective =
-      objectiveRaw === 'max_power_slack' ||
-      objectiveRaw === 'max_money_slack' ||
-      objectiveRaw === 'weighted'
-        ? objectiveRaw
-        : 'min_machines';
     const asNonNegativeNumber = (value: unknown): number => {
       const parsedNumber = typeof value === 'number' ? value : Number(value);
       if (!Number.isFinite(parsedNumber) || parsedNumber < 0) {
-        return 1;
+        return 0;
       }
       return parsedNumber;
     };
+    const powerRecord = asRecord(parsed.power);
+    const objectiveRecord = asRecord(parsed.objective);
+    const legacyStage2Record = asRecord(parsed.stage2);
+
+    const hasPower =
+      Object.prototype.hasOwnProperty.call(powerRecord, 'enabled') ||
+      Object.prototype.hasOwnProperty.call(powerRecord, 'externalProductionW') ||
+      Object.prototype.hasOwnProperty.call(powerRecord, 'externalConsumptionW');
+    const power = hasPower
+      ? {
+          enabled: Boolean(powerRecord.enabled ?? true),
+          externalProductionW: asInt(powerRecord.externalProductionW),
+          externalConsumptionW: asInt(powerRecord.externalConsumptionW)
+        }
+      : {
+          enabled: true,
+          externalProductionW: 200,
+          externalConsumptionW: asInt(parsed.externalPowerConsumptionW)
+        };
+
+    const hasObjective =
+      Object.prototype.hasOwnProperty.call(objectiveRecord, 'minMachines') ||
+      Object.prototype.hasOwnProperty.call(objectiveRecord, 'maxPowerSlack') ||
+      Object.prototype.hasOwnProperty.call(objectiveRecord, 'maxMoneySlack');
+
+    const objective = hasObjective
+      ? {
+          minMachines: asNonNegativeNumber(objectiveRecord.minMachines),
+          maxPowerSlack: asNonNegativeNumber(objectiveRecord.maxPowerSlack),
+          maxMoneySlack: asNonNegativeNumber(objectiveRecord.maxMoneySlack)
+        }
+      : (() => {
+          const legacyObjective = asString(legacyStage2Record.objective).trim();
+          if (legacyObjective === 'max_power_slack') {
+            return { minMachines: 0, maxPowerSlack: 1, maxMoneySlack: 0 };
+          }
+          if (legacyObjective === 'max_money_slack') {
+            return { minMachines: 0, maxPowerSlack: 0, maxMoneySlack: 1 };
+          }
+          if (legacyObjective === 'weighted') {
+            return {
+              minMachines: asNonNegativeNumber(legacyStage2Record.alpha),
+              maxPowerSlack: asNonNegativeNumber(legacyStage2Record.beta),
+              maxMoneySlack: asNonNegativeNumber(legacyStage2Record.gamma)
+            };
+          }
+          return { minMachines: 1, maxPowerSlack: 0, maxMoneySlack: 0 };
+        })();
 
     return {
       region,
-      externalPowerConsumptionW: asInt(parsed.externalPowerConsumptionW),
-      stage2: {
-        objective,
-        alpha: asNonNegativeNumber(stage2Record.alpha),
-        beta: asNonNegativeNumber(stage2Record.beta),
-        gamma: asNonNegativeNumber(stage2Record.gamma)
-      },
+      power,
+      objective,
       supply: supplyRows.map((row) => {
         const record = asRecord(row);
         return {

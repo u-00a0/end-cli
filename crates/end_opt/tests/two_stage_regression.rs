@@ -2,7 +2,7 @@
 
 use end_model::{
     AicInputs, Catalog, DisplayName, FacilityDef, FacilityRegions, ItemDef, Key, OutpostInput,
-    Region, Stack, ThermalBankDef,
+    PowerConfig, Region, Stack, ThermalBankDef,
 };
 use end_opt::{Error, NEAR_INT_EPS, run_two_stage};
 use generativity::Guard;
@@ -148,7 +148,7 @@ fn run_two_stage_applies_region_facility_restrictions() {
     make_guard!(aic_guard);
     let mut aic_builder = AicInputs::builder(
         aic_guard,
-        0,
+        PowerConfig::default(),
         vec![(ore, nz(10))].into(),
         Default::default(),
     )
@@ -186,7 +186,7 @@ fn sample_catalog_and_aic<'cid, 'sid>(
 
     let mut aic_builder = AicInputs::builder(
         aic_guard,
-        0,
+        PowerConfig::default(),
         vec![(ore, nz(10))].into(),
         Default::default(),
     );
@@ -211,7 +211,7 @@ fn run_two_stage_allows_empty_recipes_with_direct_external_sales() {
     make_guard!(aic_guard);
     let mut aic_builder = AicInputs::builder(
         aic_guard,
-        0,
+        PowerConfig::default(),
         vec![(ore, nz(10))].into(),
         Default::default(),
     );
@@ -313,7 +313,7 @@ fn run_two_stage_rejects_infeasible_external_consumption() {
     make_guard!(aic_guard);
     let aic = AicInputs::builder(
         aic_guard,
-        0,
+        PowerConfig::default(),
         vec![(ore, nz(10))].into(),
         vec![(ore, nz(11))].into(),
     )

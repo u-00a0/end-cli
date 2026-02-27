@@ -28,10 +28,33 @@ function withOutpost(draft: AicDraft, index: number, updater: (outpost: OutpostD
   };
 }
 
-export function setExternalPower(draft: AicDraft, value: number): AicDraft {
+export function setPowerEnabled(draft: AicDraft, enabled: boolean): AicDraft {
   return {
     ...draft,
-    externalPowerConsumptionW: asNonNegativeInt(value)
+    power: {
+      ...draft.power,
+      enabled
+    }
+  };
+}
+
+export function setPowerExternalProduction(draft: AicDraft, value: number): AicDraft {
+  return {
+    ...draft,
+    power: {
+      ...draft.power,
+      externalProductionW: asNonNegativeInt(value)
+    }
+  };
+}
+
+export function setPowerExternalConsumption(draft: AicDraft, value: number): AicDraft {
+  return {
+    ...draft,
+    power: {
+      ...draft.power,
+      externalConsumptionW: asNonNegativeInt(value)
+    }
   };
 }
 
@@ -42,24 +65,15 @@ export function setRegion(draft: AicDraft, region: 'fourth_valley' | 'wuling'): 
   };
 }
 
-export function setStage2Objective(
+export function setObjectiveWeight(
   draft: AicDraft,
-  objective: 'min_machines' | 'max_power_slack' | 'max_money_slack' | 'weighted'
+  field: 'minMachines' | 'maxPowerSlack' | 'maxMoneySlack',
+  value: number
 ): AicDraft {
   return {
     ...draft,
-    stage2: {
-      ...draft.stage2,
-      objective
-    }
-  };
-}
-
-export function setStage2Weight(draft: AicDraft, field: 'alpha' | 'beta' | 'gamma', value: number): AicDraft {
-  return {
-    ...draft,
-    stage2: {
-      ...draft.stage2,
+    objective: {
+      ...draft.objective,
       [field]: asNonNegativeNumber(value)
     }
   };

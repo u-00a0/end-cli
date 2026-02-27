@@ -705,7 +705,7 @@ mod tests {
     };
     use end_model::{
         AicInputs, Catalog, DisplayName, FacilityDef, ItemDef, Key, LogisticsNodeSite,
-        OutpostInput, PosF64, Stack, ThermalBankDef,
+        OutpostInput, PosF64, PowerConfig, Stack, ThermalBankDef,
     };
     use generativity::make_guard;
     use std::collections::{BTreeMap, BTreeSet};
@@ -752,7 +752,7 @@ mod tests {
         make_guard!(sid_guard);
         let mut aic_builder = AicInputs::builder(
             sid_guard,
-            0,
+            PowerConfig::default(),
             Default::default(),
             Default::default(),
         );
@@ -930,7 +930,7 @@ mod tests {
         make_guard!(aic_guard);
         let mut aic_builder = AicInputs::builder(
             aic_guard,
-            0,
+            PowerConfig::default(),
             vec![(ore, nz(20))].into(),
             Default::default(),
         );
@@ -1017,7 +1017,7 @@ mod tests {
         make_guard!(aic_guard);
         let mut aic_builder = AicInputs::builder(
             aic_guard,
-            0,
+            PowerConfig::default(),
             vec![(item, nz(10))].into(),
             vec![(item, nz(4))].into(),
         );
@@ -1092,7 +1092,7 @@ mod tests {
         make_guard!(aic_guard);
         let mut aic_builder = AicInputs::builder(
             aic_guard,
-            0,
+            PowerConfig::default(),
             vec![(ore, nz(10)), (ingot, nz(7))].into(),
             Default::default(),
         );

@@ -6,13 +6,20 @@
 # - item flows: units per minute
 # - money cap: per hour
 
+version = 2
+
 region = "fourth_valley"
 
-# External power consumed by non-production systems.
-external_power_consumption_w = 1800
+[power]
+enabled = true
+# External stable generation not modeled by thermal-bank fuel loops.
+# Defaults to 200W (core power).
+external_production = 200
+# External stable consumption from non-production systems.
+external_consumption = 1800
 
-[stage2]
-objective = "max_money_slack"
+[objective]
+max_money_slack = 1.0
 
 # External item supply per minute.
 [supply_per_min]

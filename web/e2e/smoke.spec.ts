@@ -6,7 +6,7 @@ test('workspace boots and auto solve produces result panels', async ({ page }) =
   await expect(page.getByRole('heading', { name: /Solver Inputs|求解输入/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Plan Summary|方案评估/ })).toBeVisible();
 
-  const externalPowerInput = page.locator('#external-power');
+  const externalPowerInput = page.locator('#power-external-production');
   await expect(externalPowerInput).toBeVisible();
   await externalPowerInput.fill('321');
 
