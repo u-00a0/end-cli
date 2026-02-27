@@ -9,10 +9,10 @@
 region = "fourth_valley"
 
 # External power consumed by non-production systems.
-external_power_consumption_w = 300
+external_power_consumption_w = 1800
 
 [stage2]
-objective = "min_machines"
+objective = "max_money_slack"
 
 # External item supply per minute.
 [supply_per_min]
@@ -29,7 +29,7 @@ objective = "min_machines"
 # Unique identifier.
 key = "Refugee Camp"
 # Max revenue accepted by this outpost per hour.
-money_cap_per_hour = 17316
+money_cap_per_hour = 29148
 # Display name (Optional).
 en = "Refugee Camp"
 zh = "难民暂居处"
@@ -47,7 +47,7 @@ zh = "难民暂居处"
 
 [[outposts]]
 key = "Infra Station"
-money_cap_per_hour = 27072
+money_cap_per_hour = 38976
 en = "Infra Station"
 zh = "基建前站"
 
@@ -64,6 +64,7 @@ zh = "基建前站"
 [[outposts]]
 key = "Reconstruction HQ"
 money_cap_per_hour = 51408
+en = "Reconstruction HQ"
 zh = "重建指挥部"
 
 [outposts.prices]
