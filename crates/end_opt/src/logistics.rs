@@ -17,6 +17,14 @@ struct ItemAccumulator<'cid, 'sid> {
     demands: Vec<(DemandSite<'cid, 'sid>, PosF64)>,
 }
 
+fn recipe_machine_capacity_epsilon(machine_capacity: f64) -> f64 {
+    machine_capacity.abs().max(1.0) * LOGISTICS_EPS
+}
+
+fn exceeds_recipe_machine_capacity(executions_per_min: f64, machine_capacity: f64) -> bool {
+    executions_per_min > machine_capacity + recipe_machine_capacity_epsilon(machine_capacity)
+}
+
 /// Build per-item flow subproblems from stage-2 closure data.
 pub fn build_item_subproblems<'cid, 'sid, 'rid>(
     catalog: &Catalog<'cid>,
@@ -65,7 +73,7 @@ pub fn build_item_subproblems<'cid, 'sid, 'rid>(
 
         let throughput_per_machine_per_min = 60.0 / recipe.time_s as f64;
         let machine_capacity = throughput_per_machine_per_min * run.machines.get() as f64;
-        if run.executions_per_min > machine_capacity + LOGISTICS_EPS {
+        if exceeds_recipe_machine_capacity(run.executions_per_min, machine_capacity) {
             return Err(Error::InvalidInput {
                 message: format!(
                     "recipe {} has executions_per_min {} exceeding machine capacity {}",
@@ -76,10 +84,11 @@ pub fn build_item_subproblems<'cid, 'sid, 'rid>(
                 .into_boxed_str(),
             });
         }
+        let executions_per_min = run.executions_per_min.min(machine_capacity);
 
         let net = recipe_net_deltas(recipe);
         for (item, delta) in &net {
-            let flow = *delta * run.executions_per_min;
+            let flow = *delta * executions_per_min;
             if flow > LOGISTICS_EPS {
                 push_supply(
                     &mut per_item,
@@ -712,6 +721,28 @@ mod tests {
 
     fn nz(value: u32) -> NonZeroU32 {
         NonZeroU32::new(value).expect("non-zero")
+    }
+
+    #[test]
+    fn recipe_machine_capacity_tolerates_solver_scale_noise() {
+        let machine_capacity = 540.0;
+        let executions_per_min = 540.0000000011406;
+
+        assert!(
+            !super::exceeds_recipe_machine_capacity(executions_per_min, machine_capacity),
+            "tiny fp noise should not trigger invalid input"
+        );
+    }
+
+    #[test]
+    fn recipe_machine_capacity_rejects_real_overflow() {
+        let machine_capacity = 540.0;
+        let executions_per_min = 540.000001;
+
+        assert!(
+            super::exceeds_recipe_machine_capacity(executions_per_min, machine_capacity),
+            "meaningful overflow must still fail validation"
+        );
     }
 
     #[test]
