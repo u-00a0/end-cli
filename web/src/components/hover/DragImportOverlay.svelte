@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { translateByLang } from "../../lib/lang";
   import type { LangTag } from "../../lib/types";
 
   type DragImportOverlayProps = {
@@ -13,7 +14,7 @@
   let dragImportDepth = 0;
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 
   function hasFileTransfer(event: DragEvent): boolean {

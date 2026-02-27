@@ -1,32 +1,19 @@
 <script lang="ts">
   import Panel from "../components/pane/Panel.svelte";
   import PanelHeader from "../components/pane/PanelHeader.svelte";
+  import { translateByLang } from "../lib/lang";
   import type { LangTag } from "../lib/types";
 
   const GITHUB_REPO_URL = "https://github.com/sssxks/end-cli";
 
-  function detectBrowserLang(): LangTag {
-    const preferred = Array.isArray(navigator.languages)
-      ? [...navigator.languages, navigator.language]
-      : [navigator.language];
-
-    for (const tag of preferred) {
-      const normalized = tag.trim().toLowerCase();
-      if (normalized.startsWith("zh")) {
-        return "zh";
-      }
-      if (normalized.startsWith("en")) {
-        return "en";
-      }
-    }
-
-    return "zh";
+  interface Props {
+    lang: LangTag;
   }
 
-  let lang = $state<LangTag>(detectBrowserLang());
+  let { lang }: Props = $props();
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 </script>
 

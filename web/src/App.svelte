@@ -3,15 +3,14 @@
   import SiteFooter from "./components/workbench/SiteFooter.svelte";
   import About from "./routes/About.svelte";
   import Home from "./routes/Home.svelte";
+  import { detectBrowserLang } from "./lib/lang";
   import type { RouteKey } from "./lib/routes";
-  import { parseHashRoute } from "./lib/routes";
+  import { getCurrentHashRoute, observeHashRoute } from "./lib/route-state";
+  import type { LangTag } from "./lib/types";
   import "./styles/app-shell.css";
 
-  let route = $state<RouteKey>(
-    typeof window === "undefined"
-      ? "home"
-      : parseHashRoute(window.location.hash),
-  );
+  let route = $state<RouteKey>(getCurrentHashRoute());
+  let lang = $state<LangTag>(detectBrowserLang());
 
   let howRouteModulePromise: Promise<typeof import("./routes/HowItWorks.svelte")> | null = null;
 
@@ -21,31 +20,25 @@
   }
 
   onMount(() => {
-    const onHashChange = () => {
-      route = parseHashRoute(window.location.hash);
-    };
-
-    onHashChange();
-    window.addEventListener("hashchange", onHashChange);
-    return () => {
-      window.removeEventListener("hashchange", onHashChange);
-    };
+    return observeHashRoute((nextRoute) => {
+      route = nextRoute;
+    });
   });
 </script>
 
 <div class="shell">
   {#if route === "home"}
-    <Home />
+    <Home {lang} />
   {:else if route === "about"}
-    <About />
+    <About {lang} />
   {:else}
     {#await loadHowRoute() then howModule}
       {@const HowItWorks = howModule.default}
-      <HowItWorks />
+      <HowItWorks {lang} />
     {/await}
   {/if}
 
-  <SiteFooter />
+  <SiteFooter {lang} />
 </div>
 
 <style>

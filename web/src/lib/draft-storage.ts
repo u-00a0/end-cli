@@ -1,4 +1,5 @@
 import { asInt, asRecord, asString } from './coercions';
+import { localStorageGet, localStorageRemove, localStorageSet } from './storage';
 import type { AicDraft } from './types';
 
 export interface DraftStorageConfig {
@@ -7,18 +8,6 @@ export interface DraftStorageConfig {
 
 export interface RestoredLocalState {
   draft: AicDraft | null;
-}
-
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 function parseStoredDraft(text: string): AicDraft | null {
@@ -134,14 +123,7 @@ function parseStoredDraft(text: string): AicDraft | null {
 }
 
 export function restoreLocalState(config: DraftStorageConfig): RestoredLocalState {
-  const storage = getStorage();
-  if (!storage) {
-    return {
-      draft: null
-    };
-  }
-
-  const storedDraft = storage.getItem(config.draftStorageKey);
+  const storedDraft = localStorageGet(config.draftStorageKey);
   if (storedDraft === null) {
     return {
       draft: null
@@ -150,11 +132,7 @@ export function restoreLocalState(config: DraftStorageConfig): RestoredLocalStat
 
   const draft = parseStoredDraft(storedDraft);
   if (!draft) {
-    try {
-      storage.removeItem(config.draftStorageKey);
-    } catch {
-      // Ignore write failures in restricted browser modes.
-    }
+    localStorageRemove(config.draftStorageKey);
   }
 
   return {
@@ -163,16 +141,7 @@ export function restoreLocalState(config: DraftStorageConfig): RestoredLocalStat
 }
 
 export function persistDraft(storageKey: string, draft: AicDraft): void {
-  const storage = getStorage();
-  if (!storage) {
-    return;
-  }
-
-  try {
-    storage.setItem(storageKey, JSON.stringify(draft));
-  } catch {
-    // Ignore write failures in restricted browser modes.
-  }
+  localStorageSet(storageKey, JSON.stringify(draft));
 }
 
 export function persistLeftPaneRatio(storageKey: string, ratio: number): void {
@@ -184,14 +153,5 @@ export function persistRightPaneRatio(storageKey: string, ratio: number): void {
 }
 
 function persistPaneRatio(storageKey: string, ratio: number): void {
-  const storage = getStorage();
-  if (!storage) {
-    return;
-  }
-
-  try {
-    storage.setItem(storageKey, String(ratio));
-  } catch {
-    // Ignore write failures in restricted browser modes.
-  }
+  localStorageSet(storageKey, String(ratio));
 }

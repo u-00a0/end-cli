@@ -22,6 +22,7 @@
     type GraphHighlightSelection,
   } from "../../lib/graph/index";
   import { currentFlowSnapshot } from "../../lib/export/flow-snapshot";
+  import { translateByLang } from "../../lib/lang";
   import type { LangTag } from "../../lib/types";
   import { renderedOkState, type SolveState } from "../../lib/solve-state";
 
@@ -258,7 +259,7 @@
   });
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 
   function getFullscreenElement(): Element | null {

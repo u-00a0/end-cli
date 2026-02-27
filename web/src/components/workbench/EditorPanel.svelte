@@ -7,6 +7,7 @@
   import PanelHeader from "../pane/PanelHeader.svelte";
   import SelectField from "../input/SelectField.svelte";
   import ToggleSwitch from "../input/ToggleSwitch.svelte";
+  import { translateByLang } from "../../lib/lang";
   import type {
     EditorPanelProps,
     ObjectiveWeightField,
@@ -27,6 +28,10 @@
     actions,
     onOpenShare,
   }: EditorPanelProps = $props();
+
+  function t(zh: string, en: string): string {
+    return translateByLang(lang, zh, en);
+  }
 
   const selectedIndex = $derived<number | null>(
     selectedOutpostIndex.kind === "selected"
@@ -117,10 +122,6 @@
     const weight = objectiveWeight(currentField);
     actions.setObjectiveWeight(currentField, 0);
     actions.setObjectiveWeight(nextField, weight > 0 ? weight : 1);
-  }
-
-  function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
   }
 </script>
 

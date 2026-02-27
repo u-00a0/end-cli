@@ -6,6 +6,7 @@
     copyTextToClipboard,
   } from "../../lib/clipboard";
   import { exportCurrentFlowToPngBlob } from "../../lib/export/export-flow";
+  import { translateByLang } from "../../lib/lang";
   import { encodeTomlToShareParam } from "../../lib/share-link";
   import type { LangTag } from "../../lib/types";
 
@@ -29,7 +30,7 @@
   let lastCopied = $state<"" | "link" | "image" | "bundle">("");
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 
   function clearPreview(): void {

@@ -2,6 +2,7 @@
   import { onDestroy } from "svelte";
   import IconActionButton from "./IconActionButton.svelte";
   import { copyTextToClipboard } from "../../lib/clipboard";
+  import { translateByLang } from "../../lib/lang";
   import type { LangTag } from "../../lib/types";
 
   interface Props {
@@ -14,7 +15,7 @@
   let { lang, text }: Props = $props();
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 
   let copyState = $state<CopyState>("idle");

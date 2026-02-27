@@ -5,6 +5,7 @@
   import Panel from "../pane/Panel.svelte";
   import PanelHeader from "../pane/PanelHeader.svelte";
   import StatusPill from "../button/StatusPill.svelte";
+  import { translateByLang } from "../../lib/lang";
   import type { LangTag, LogisticsGraphDto } from "../../lib/types";
   import {
     errorMessageOf,
@@ -59,7 +60,7 @@
   });
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 
   function computeStockpileKpi(graph: LogisticsGraphDto): {

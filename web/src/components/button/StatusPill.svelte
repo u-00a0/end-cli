@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { translateByLang } from "../../lib/lang";
   import type { LangTag } from "../../lib/types";
   import { tooltip } from "../../lib/tooltip";
 
@@ -17,7 +18,7 @@
   const isDanger = $derived(state.status === "error");
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 
   function formatElapsed(ms: number | null): string {

@@ -1,52 +1,30 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { translateByLang } from "../../lib/lang";
+  import { getCurrentHashRoute, observeHashRoute } from "../../lib/route-state";
+  import { localStorageGet, localStorageSet } from "../../lib/storage";
   import type { LangTag } from "../../lib/types";
-  import type { RouteKey } from "../../lib/routes";
-  import { parseHashRoute } from "../../lib/routes";
   import FooterCollapseHandle from "../button/FooterCollapseHandle.svelte";
   import IconActionButton from "../button/IconActionButton.svelte";
 
   const GITHUB_REPO_URL = "https://github.com/sssxks/end-cli";
   const FOOTER_COLLAPSED_STORAGE_KEY = "end2.siteFooter.collapsed";
 
-  function detectBrowserLang(): LangTag {
-    const preferred = Array.isArray(navigator.languages)
-      ? [...navigator.languages, navigator.language]
-      : [navigator.language];
-
-    for (const tag of preferred) {
-      const normalized = tag.trim().toLowerCase();
-      if (normalized.startsWith("zh")) {
-        return "zh";
-      }
-      if (normalized.startsWith("en")) {
-        return "en";
-      }
-    }
-
-    return "zh";
+  interface Props {
+    lang: LangTag;
   }
 
-  let lang = $state<LangTag>(detectBrowserLang());
-
-  let route = $state<RouteKey>(
-    typeof window === "undefined" ? "home" : parseHashRoute(window.location.hash),
-  );
+  let { lang }: Props = $props();
+  let route = $state(getCurrentHashRoute());
 
   onMount(() => {
-    const onHashChange = () => {
-      route = parseHashRoute(window.location.hash);
-    };
-
-    onHashChange();
-    window.addEventListener("hashchange", onHashChange);
-    return () => {
-      window.removeEventListener("hashchange", onHashChange);
-    };
+    return observeHashRoute((nextRoute) => {
+      route = nextRoute;
+    });
   });
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 
   const tooltipGithub = () => t("反馈和问题点这里", "Feedback and issues");
@@ -57,25 +35,17 @@
   let isCollapsed = $state(false);
 
   onMount(() => {
-    try {
-      const stored = window.localStorage.getItem(FOOTER_COLLAPSED_STORAGE_KEY);
-      if (stored === "1" || stored === "true") {
-        isCollapsed = true;
-      }
-      if (stored === "0" || stored === "false") {
-        isCollapsed = false;
-      }
-    } catch {
-      // ignore (private mode / storage disabled)
+    const stored = localStorageGet(FOOTER_COLLAPSED_STORAGE_KEY);
+    if (stored === "1" || stored === "true") {
+      isCollapsed = true;
+    }
+    if (stored === "0" || stored === "false") {
+      isCollapsed = false;
     }
   });
 
   $effect(() => {
-    try {
-      window.localStorage.setItem(FOOTER_COLLAPSED_STORAGE_KEY, isCollapsed ? "1" : "0");
-    } catch {
-      // ignore (private mode / storage disabled)
-    }
+    localStorageSet(FOOTER_COLLAPSED_STORAGE_KEY, isCollapsed ? "1" : "0");
   });
 
   const handleLabel = () =>

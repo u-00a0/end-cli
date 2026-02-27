@@ -4,6 +4,7 @@
   import GraphPanel from "../workbench/GraphPanel.svelte";
   import ResultPanel from "../workbench/ResultPanel.svelte";
   import type { EditorActions } from "../../lib/editor-actions";
+  import { translateByLang } from "../../lib/lang";
   import type { SolveState } from "../../lib/solve-state";
   import type { AicDraft, CatalogItemDto, LangTag } from "../../lib/types";
   import type { OutpostSelection } from "../../lib/outpost-selection";
@@ -37,7 +38,7 @@
   let activeTab = $state<MobileTab>("editor");
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 </script>
 

@@ -48,6 +48,7 @@
     type SolverController,
   } from "../lib/solver-controller";
   import { renderedOkState, type SolveState } from "../lib/solve-state";
+  import { translateByLang } from "../lib/lang";
   import type { AicDraft, CatalogItemDto, LangTag } from "../lib/types";
   import { EMPTY_DRAFT } from "../lib/types";
   import { loadBootstrap, solveScenario, warmupWasmWorker } from "../lib/wasm";
@@ -63,25 +64,11 @@
     draftStorageKey: "end2.web.draft.v2",
   };
 
-  function detectBrowserLang(): LangTag {
-    const preferred = Array.isArray(navigator.languages)
-      ? [...navigator.languages, navigator.language]
-      : [navigator.language];
-
-    for (const tag of preferred) {
-      const normalized = tag.trim().toLowerCase();
-      if (normalized.startsWith("zh")) {
-        return "zh";
-      }
-      if (normalized.startsWith("en")) {
-        return "en";
-      }
-    }
-
-    return "zh";
+  interface Props {
+    lang: LangTag;
   }
 
-  let lang = $state<LangTag>(detectBrowserLang());
+  let { lang }: Props = $props();
   let catalogItems = $state<CatalogItemDto[]>([]);
   let draft = $state<AicDraft>(structuredClone(EMPTY_DRAFT));
   let defaultToml = $state("");
@@ -104,7 +91,7 @@
   let shareOutputJsonText = $state("");
 
   function t(zh: string, en: string): string {
-    return lang === "zh" ? zh : en;
+    return translateByLang(lang, zh, en);
   }
 
   function showErrorToast(message: string): void {
