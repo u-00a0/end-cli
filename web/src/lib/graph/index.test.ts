@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildFlowGraph, selectGraphHighlight } from './index';
-import type { LogisticsGraphDto } from '../types';
+import type { LogisticsGraph } from '../types';
 
-const graphFixture: LogisticsGraphDto = {
+const graphFixture: LogisticsGraph = {
   items: [
     { itemKey: 'A', itemName: 'Item A', edgeCount: 1, nodeCount: 2, totalFlowPerMin: 3.2 },
     { itemKey: 'B', itemName: 'Item B', edgeCount: 1, nodeCount: 2, totalFlowPerMin: 1.1 }
@@ -34,7 +34,7 @@ const graphFixture: LogisticsGraphDto = {
 };
 
 // 一个外部供给节点连接多个下游节点的测试用例
-const multiSupplyFixture: LogisticsGraphDto = {
+const multiSupplyFixture: LogisticsGraph = {
   items: [
     { itemKey: 'Ore', itemName: 'Iron Ore', edgeCount: 2, nodeCount: 3, totalFlowPerMin: 10 },
     { itemKey: 'Ingot', itemName: 'Iron Ingot', edgeCount: 1, nodeCount: 2, totalFlowPerMin: 5 }
@@ -74,7 +74,7 @@ const multiSupplyFixture: LogisticsGraphDto = {
 };
 
 // 带有 SCC 的测试用例（循环依赖）
-const sccFixture: LogisticsGraphDto = {
+const sccFixture: LogisticsGraph = {
   items: [
     { itemKey: 'A', itemName: 'Item A', edgeCount: 3, nodeCount: 3, totalFlowPerMin: 10 },
     { itemKey: 'B', itemName: 'Item B', edgeCount: 2, nodeCount: 2, totalFlowPerMin: 5 }
@@ -99,7 +99,7 @@ const sccFixture: LogisticsGraphDto = {
 };
 
 // 线性链（无 SCC）
-const linearChainFixture: LogisticsGraphDto = {
+const linearChainFixture: LogisticsGraph = {
   items: [{ itemKey: 'A', itemName: 'Item A', edgeCount: 2, nodeCount: 3, totalFlowPerMin: 5 }],
   nodes: [
     { id: 's1', kind: 'external_supply', label: 'Supply' },
@@ -112,7 +112,7 @@ const linearChainFixture: LogisticsGraphDto = {
   ]
 };
 
-const externalConsumptionFixture: LogisticsGraphDto = {
+const externalConsumptionFixture: LogisticsGraph = {
   items: [{ itemKey: 'Ore', itemName: 'Ore', edgeCount: 1, nodeCount: 2, totalFlowPerMin: 2 }],
   nodes: [
     { id: 's1', kind: 'external_supply', label: 'Supply' },
@@ -123,7 +123,7 @@ const externalConsumptionFixture: LogisticsGraphDto = {
   ]
 };
 
-const upstreamSplitFixture: LogisticsGraphDto = {
+const upstreamSplitFixture: LogisticsGraph = {
   items: [{ itemKey: 'Plate', itemName: 'Plate', edgeCount: 3, nodeCount: 4, totalFlowPerMin: 60 }],
   nodes: [
     { id: 'a', kind: 'external_supply', label: 'A Supply' },

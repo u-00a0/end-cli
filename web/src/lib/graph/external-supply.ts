@@ -1,5 +1,5 @@
 import type { Node } from '@xyflow/svelte';
-import type { LogisticsNodeDto } from '../types';
+import type { LogisticsNode } from '../types';
 import {
   LIGHTWEIGHT_NODE_WIDTH,
   LIGHTWEIGHT_NODE_Y_OFFSET,
@@ -18,16 +18,16 @@ interface ExpandableEdge {
  * 每个轻量级节点连接到一个下游节点。这样可以避免从一个点发散出太多线。
  */
 export function expandExternalSupplyNodes<TEdge extends ExpandableEdge>(
-  nodes: LogisticsNodeDto[],
+  nodes: LogisticsNode[],
   edges: ReadonlyArray<TEdge>
 ): {
-  nodes: LogisticsNodeDto[];
+  nodes: LogisticsNode[];
   edges: TEdge[];
   lightweightNodeIds: Set<string>;
   /** 轻量级节点到下游目标节点的映射 */
   lightweightToTarget: Map<string, string>;
 } {
-  const nodeMap = new Map<string, LogisticsNodeDto>();
+  const nodeMap = new Map<string, LogisticsNode>();
   for (const node of nodes) {
     nodeMap.set(node.id, node);
   }
@@ -41,7 +41,7 @@ export function expandExternalSupplyNodes<TEdge extends ExpandableEdge>(
   }
 
   // 为每个外部供给边创建轻量级节点
-  const newNodes: LogisticsNodeDto[] = [];
+  const newNodes: LogisticsNode[] = [];
   const newEdges: TEdge[] = [];
   const lightweightNodeIds = new Set<string>();
   const lightweightToTarget = new Map<string, string>();

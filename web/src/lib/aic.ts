@@ -1,6 +1,6 @@
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { asInt, asRecord, asString } from './coercions';
-import type { AicDraft, DraftPriceRow, ObjectiveDraft, OutpostDraft, PowerDraft, ScenarioRegion } from './types';
+import type { AicDraft, PriceRow, Objective, Outpost, Power, Region } from './types';
 
 function asNonNegativeNumber(value: unknown, fallback: number): number {
   const parsed = typeof value === 'number' ? value : Number(value);
@@ -10,7 +10,7 @@ function asNonNegativeNumber(value: unknown, fallback: number): number {
   return parsed;
 }
 
-function parseRegion(value: unknown): ScenarioRegion {
+function parseRegion(value: unknown): Region {
   const raw = typeof value === 'string' ? value.trim() : '';
   if (raw === 'fourth_valley' || raw === 'wuling') {
     return raw;
@@ -28,7 +28,7 @@ function parseItemFlowRows(map: Record<string, unknown>): { itemKey: string; val
     .sort((a, b) => a.itemKey.localeCompare(b.itemKey));
 }
 
-function parsePrices(map: Record<string, unknown>): DraftPriceRow[] {
+function parsePrices(map: Record<string, unknown>): PriceRow[] {
   return Object.entries(map)
     .map(([itemKey, value]) => ({
       itemKey,
@@ -38,7 +38,7 @@ function parsePrices(map: Record<string, unknown>): DraftPriceRow[] {
     .sort((a, b) => a.itemKey.localeCompare(b.itemKey));
 }
 
-function parseOutpost(raw: unknown): OutpostDraft {
+function parseOutpost(raw: unknown): Outpost {
   const record = asRecord(raw);
   const zh = asString(record.zh).trim();
   const en = asString(record.en).trim();
@@ -51,7 +51,7 @@ function parseOutpost(raw: unknown): OutpostDraft {
   };
 }
 
-function parseLegacyObjective(raw: unknown): ObjectiveDraft {
+function parseLegacyObjective(raw: unknown): Objective {
   const record = asRecord(raw);
   const objective = asString(record.objective).trim();
   const alpha = asNonNegativeNumber(record.alpha, 1);
@@ -70,7 +70,7 @@ function parseLegacyObjective(raw: unknown): ObjectiveDraft {
   return { minMachines: 1, maxPowerSlack: 0, maxMoneySlack: 0 };
 }
 
-function parseObjective(raw: unknown, legacyStage2Raw: unknown): ObjectiveDraft {
+function parseObjective(raw: unknown, legacyStage2Raw: unknown): Objective {
   const record = asRecord(raw);
   const hasAny =
     Object.prototype.hasOwnProperty.call(record, 'min_machines') ||
@@ -88,7 +88,7 @@ function parseObjective(raw: unknown, legacyStage2Raw: unknown): ObjectiveDraft 
   };
 }
 
-function parsePower(raw: unknown, legacyExternalConsumptionRaw: unknown): PowerDraft {
+function parsePower(raw: unknown, legacyExternalConsumptionRaw: unknown): Power {
   const record = asRecord(raw);
   const hasPowerSection = Object.keys(record).length > 0;
   const enabled = hasPowerSection

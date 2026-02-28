@@ -1,5 +1,5 @@
 import type { Edge, Node, Position } from '@xyflow/svelte';
-import type { LogisticsGraphDto, LogisticsNodeDto } from '../types';
+import type { LogisticsGraph, LogisticsNode } from '../types';
 import { expandExternalSupplyNodes, positionLightweightNodes } from './external-supply';
 import { buildFlowGraphHighlightIndex } from './highlight';
 import { layoutNodesWithDagre } from './layout';
@@ -34,7 +34,7 @@ function compareNodesByLabel(lhs: { label: string; id: string }, rhs: { label: s
   return lhs.label.localeCompare(rhs.label) || lhs.id.localeCompare(rhs.id);
 }
 
-type FlowEdge = LogisticsGraphDto['edges'][number];
+type FlowEdge = LogisticsGraph['edges'][number];
 
 function compareEdgesForLayout(
   lhs: Pick<FlowEdge, 'source' | 'target' | 'itemKey' | 'id'>,
@@ -48,7 +48,7 @@ function compareEdgesForLayout(
   );
 }
 
-function createLightweightNode(node: LogisticsNodeDto): Node {
+function createLightweightNode(node: LogisticsNode): Node {
   const color = pickNodeColor(node.kind);
   return {
     id: node.id,
@@ -68,7 +68,7 @@ function createLightweightNode(node: LogisticsNodeDto): Node {
   };
 }
 
-function createNormalNode(node: LogisticsNodeDto, _isInScc: boolean): Node {
+function createNormalNode(node: LogisticsNode, _isInScc: boolean): Node {
   const color = pickNodeColor(node.kind);
 
   const isOutputNode =
@@ -118,7 +118,7 @@ function buildFilteredSccResult(sccResult: SCCResult, normalNodeIds: ReadonlySet
   };
 }
 
-export function buildFlowGraph(graph: LogisticsGraphDto): BuildFlowGraphResult {
+export function buildFlowGraph(graph: LogisticsGraph): BuildFlowGraphResult {
   const expanded = expandExternalSupplyNodes(graph.nodes, graph.edges);
 
   const nodeIdSet = new Set<string>();

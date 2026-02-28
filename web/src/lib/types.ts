@@ -1,13 +1,13 @@
 export type LangTag = 'zh' | 'en';
-export type ScenarioRegion = 'fourth_valley' | 'wuling';
+export type Region = 'fourth_valley' | 'wuling';
 
-export interface ObjectiveDraft {
+export interface Objective {
   minMachines: number;
   maxPowerSlack: number;
   maxMoneySlack: number;
 }
 
-export interface PowerDraft {
+export interface Power {
   enabled: boolean;
   externalProductionW: number;
   externalConsumptionW: number;
@@ -26,7 +26,7 @@ export interface BootstrapPayload {
   };
 }
 
-export interface OutpostValueDto {
+export interface OutpostValue {
   key: string;
   name: string;
   valuePerMin: number;
@@ -34,7 +34,7 @@ export interface OutpostValueDto {
   ratio: number;
 }
 
-export interface SaleValueDto {
+export interface SaleValue {
   outpostKey: string;
   outpostName: string;
   itemKey: string;
@@ -43,7 +43,7 @@ export interface SaleValueDto {
   valuePerMin: number;
 }
 
-export interface FacilityUsageDto {
+export interface FacilityUsage {
   key: string;
   name: string;
   machines: number;
@@ -51,14 +51,14 @@ export interface FacilityUsageDto {
   totalPowerW: number;
 }
 
-export interface ExternalSupplySlackDto {
+export interface ExternalSupplySlack {
   itemKey: string;
   itemName: string;
   supplyPerMin: number;
   slackPerMin: number;
 }
 
-export interface PowerSummaryDto {
+export interface PowerSummary {
   externalProductionW: number;
   externalConsumptionW: number;
   thermalGenerationW: number;
@@ -68,18 +68,18 @@ export interface PowerSummaryDto {
   marginW: number;
 }
 
-export interface SummaryDto {
+export interface Summary {
   lang: LangTag;
   stage1RevenuePerMin: number;
   stage2RevenuePerMin: number;
   stage2RevenuePerHour: number;
   totalMachines: number;
   totalThermalBanks: number;
-  power: PowerSummaryDto | null;
-  outposts: OutpostValueDto[];
-  topSales: SaleValueDto[];
-  facilities: FacilityUsageDto[];
-  externalSupplySlack: ExternalSupplySlackDto[];
+  power: PowerSummary | null;
+  outposts: OutpostValue[];
+  topSales: SaleValue[];
+  facilities: FacilityUsage[];
+  externalSupplySlack: ExternalSupplySlack[];
 }
 
 export type LogisticsNodeKind =
@@ -90,7 +90,7 @@ export type LogisticsNodeKind =
   | 'thermal_bank_group'
   | 'warehouse_stockpile';
 
-export interface LogisticsItemSummaryDto {
+export interface LogisticsItemSummary {
   itemKey: string;
   itemName: string;
   edgeCount: number;
@@ -98,13 +98,13 @@ export interface LogisticsItemSummaryDto {
   totalFlowPerMin: number;
 }
 
-export interface LogisticsNodeDto {
+export interface LogisticsNode {
   id: string;
   kind: LogisticsNodeKind | string;
   label: string;
 }
 
-export interface LogisticsEdgeDto {
+export interface LogisticsEdge {
   id: string;
   itemKey: string;
   itemName: string;
@@ -113,16 +113,16 @@ export interface LogisticsEdgeDto {
   flowPerMin: number;
 }
 
-export interface LogisticsGraphDto {
-  items: LogisticsItemSummaryDto[];
-  nodes: LogisticsNodeDto[];
-  edges: LogisticsEdgeDto[];
+export interface LogisticsGraph {
+  items: LogisticsItemSummary[];
+  nodes: LogisticsNode[];
+  edges: LogisticsEdge[];
 }
 
 export interface SolvePayload {
   reportText: string;
-  summary: SummaryDto;
-  logisticsGraph: LogisticsGraphDto;
+  summary: Summary;
+  logisticsGraph: LogisticsGraph;
 }
 
 export interface ApiErrorEnvelope {
@@ -140,35 +140,35 @@ export interface ApiOkEnvelope<T> {
 
 export type ApiEnvelope<T> = ApiOkEnvelope<T> | ApiErrorEnvelope;
 
-export interface DraftSupplyRow {
+export interface SupplyRow {
   itemKey: string;
   value: number;
 }
 
-export interface DraftConsumptionRow {
+export interface ConsumptionRow {
   itemKey: string;
   value: number;
 }
 
-export interface DraftPriceRow {
+export interface PriceRow {
   itemKey: string;
   price: number;
 }
 
-export interface OutpostDraft {
+export interface Outpost {
   key: string;
   name: string;
   moneyCapPerHour: number;
-  prices: DraftPriceRow[];
+  prices: PriceRow[];
 }
 
 export interface AicDraft {
-  region: ScenarioRegion;
-  power: PowerDraft;
-  objective: ObjectiveDraft;
-  supply: DraftSupplyRow[];
-  consumption: DraftConsumptionRow[];
-  outposts: OutpostDraft[];
+  region: Region;
+  power: Power;
+  objective: Objective;
+  supply: SupplyRow[];
+  consumption: ConsumptionRow[];
+  outposts: Outpost[];
 }
 
 export const EMPTY_DRAFT: AicDraft = {

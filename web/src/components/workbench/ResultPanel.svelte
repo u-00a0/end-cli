@@ -6,7 +6,7 @@
   import PanelHeader from "../pane/PanelHeader.svelte";
   import StatusPill from "../button/StatusPill.svelte";
   import { translateByLang } from "../../lib/lang";
-  import type { LangTag, LogisticsGraphDto } from "../../lib/types";
+  import type { LangTag, LogisticsGraph } from "../../lib/types";
   import {
     errorMessageOf,
     isSolveBusy,
@@ -63,7 +63,7 @@
     return translateByLang(lang, zh, en);
   }
 
-  function computeStockpileKpi(graph: LogisticsGraphDto): {
+  function computeStockpileKpi(graph: LogisticsGraph): {
     itemKindCount: number;
     totalPerMin: number;
   } {

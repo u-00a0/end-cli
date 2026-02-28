@@ -12,7 +12,7 @@
     EditorPanelProps,
     ObjectiveWeightField,
   } from "../../lib/editor-actions";
-  import type { OutpostDraft } from "../../lib/types";
+  import type { Outpost } from "../../lib/types";
 
   type SelectOption = {
     value: string;
@@ -38,7 +38,7 @@
       ? selectedOutpostIndex.index
       : null,
   );
-  const selectedOutpost = $derived<OutpostDraft | null>(
+  const selectedOutpost = $derived<Outpost | null>(
     selectedIndex === null ? null : (draft.outposts[selectedIndex] ?? null),
   );
   const selectedOutpostOrdinal = $derived(

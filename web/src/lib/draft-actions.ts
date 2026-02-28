@@ -1,4 +1,4 @@
-import type { AicDraft, OutpostDraft } from './types';
+import type { AicDraft, Outpost } from './types';
 import type { OutpostField } from './editor-actions';
 import { NO_OUTPOST_SELECTED, type OutpostSelection } from './outpost-selection';
 
@@ -19,7 +19,7 @@ function nextOutpostKey(draft: AicDraft): string {
   return `outpost_${index}`;
 }
 
-function withOutpost(draft: AicDraft, index: number, updater: (outpost: OutpostDraft) => OutpostDraft): AicDraft {
+function withOutpost(draft: AicDraft, index: number, updater: (outpost: Outpost) => Outpost): AicDraft {
   return {
     ...draft,
     outposts: draft.outposts.map((outpost, outpostIndex) =>
@@ -163,7 +163,7 @@ export function removeConsumptionRow(draft: AicDraft, index: number): AicDraft {
   };
 }
 
-export function createOutpost(key: string): OutpostDraft {
+export function createOutpost(key: string): Outpost {
   return {
     key,
     name: '',
