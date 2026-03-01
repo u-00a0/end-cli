@@ -89,9 +89,8 @@ pub fn run_two_stage<'cid, 'sid, 'rid>(
 ) -> Result<OptimizationResult<'cid, 'sid, 'rid>> {
     let stage1 = solve_stage(catalog, aic, StageObjective::MaxRevenue)?;
 
-    let rel_eps = NEAR_INT_EPS * stage1.revenue_per_min.max(1.0);
-    let revenue_floor_per_min = (stage1.revenue_per_min - rel_eps).max(0.0);
-    let weights = aic.stage2_weights();
+    let revenue_floor_per_min = stage1.revenue_per_min;
+    let weights: Stage2Weights = aic.stage2_weights();
     let stage2 = match weights.active_target_count() {
         0 => stage1.clone(),
         1 if weights.min_machines > 0.0 => solve_stage(
