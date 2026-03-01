@@ -1,9 +1,8 @@
 import { elementToSVG } from "dom-to-svg";
 import { mount, unmount } from "svelte";
-import { get } from "svelte/store";
 import type { Node } from "@xyflow/svelte";
 import FlowExportRenderer from "./FlowExportRenderer.svelte";
-import { currentFlowSnapshot, type FlowSnapshot } from "./flow-snapshot";
+import type { FlowSnapshot } from "./flow-snapshot";
 
 type ExportSize = {
   width: number;
@@ -182,12 +181,8 @@ export async function exportCurrentFlowToSvgString(snapshot: FlowSnapshot): Prom
 }
 
 export async function exportCurrentFlowToPngBlob(
+  snapshot: FlowSnapshot,
 ): Promise<Blob> {
-  const snapshot = get(currentFlowSnapshot);
-  if (!snapshot) {
-    throw new Error("Flow is not ready to export");
-  }
-
   const svg = await exportCurrentFlowToSvgString(snapshot);
   return svgStringToPngBlob(svg);
 }

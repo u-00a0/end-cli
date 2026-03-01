@@ -8,6 +8,7 @@
   import HomeDesktopLayout from "../components/layout/HomeDesktopLayout.svelte";
   import HomeMobileLayout from "../components/layout/HomeMobileLayout.svelte";
   import { buildAicToml, parseAicToml } from "../lib/aic";
+  import type { FlowSnapshot } from "../lib/export/flow-snapshot";
   import { decodeTomlFromShareParam } from "../lib/share-link";
   import {
     isSameOutpostSelection,
@@ -89,6 +90,7 @@
   let isShareDialogOpen = $state(false);
   let shareTomlText = $state("");
   let shareOutputJsonText = $state("");
+  let flowSnapshot = $state<FlowSnapshot | null>(null);
 
   function t(zh: string, en: string): string {
     return translateByLang(lang, zh, en);
@@ -110,7 +112,7 @@
     isShareDialogOpen = false;
   }
 
-  function openShareDialog(): void {
+  function openShareDialog(snapshot: FlowSnapshot | null): void {
     try {
       shareTomlText = buildAicToml(draft);
     } catch (error) {
@@ -120,6 +122,7 @@
 
     const ok = renderedOkState(solveState);
     shareOutputJsonText = ok ? JSON.stringify(ok.payload, null, 2) : "";
+    flowSnapshot = snapshot;
     isShareDialogOpen = true;
   }
 
@@ -461,6 +464,7 @@
   {lang}
   tomlText={shareTomlText}
   outputJsonText={shareOutputJsonText}
+  {flowSnapshot}
   onClose={closeShareDialog}
 />
 

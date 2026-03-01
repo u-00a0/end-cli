@@ -6,6 +6,7 @@
     copyTextToClipboard,
   } from "../../lib/clipboard";
   import { exportCurrentFlowToPngBlob } from "../../lib/export/export-flow";
+  import type { FlowSnapshot } from "../../lib/export/flow-snapshot";
   import { translateByLang } from "../../lib/lang";
   import { encodeTomlToShareParam } from "../../lib/share-link";
   import type { LangTag } from "../../lib/types";
@@ -15,10 +16,11 @@
     lang: LangTag;
     tomlText: string;
     outputJsonText: string;
+    flowSnapshot: FlowSnapshot | null;
     onClose: () => void;
   }
 
-  let { open, lang, tomlText, outputJsonText, onClose }: Props = $props();
+  let { open, lang, tomlText, outputJsonText, flowSnapshot, onClose }: Props = $props();
 
   let previewBlob = $state<Blob | null>(null);
   let previewUrl = $state<string | null>(null);
@@ -42,7 +44,7 @@
     previewError = "";
   }
 
-  async function renderPreview(): Promise<void> {
+  async function renderPreview(snapshot: FlowSnapshot | null): Promise<void> {
     if (!open) {
       return;
     }
@@ -67,7 +69,11 @@
     previewError = "";
 
     try {
-      const pngBlob = await exportCurrentFlowToPngBlob();
+      if (!snapshot) {
+        throw new Error(t("当前暂无可导出的物流图。", "Flow is not ready to export."));
+      }
+
+      const pngBlob = await exportCurrentFlowToPngBlob(snapshot);
 
       previewBlob = pngBlob;
       previewUrl = URL.createObjectURL(pngBlob);
@@ -90,7 +96,7 @@
     // render preview reads/writes some state, we don't want then tracked by this effect
     void (async () => {
       await tick();
-      await renderPreview();
+      await renderPreview(flowSnapshot);
     })();
   });
 
@@ -122,7 +128,7 @@
 
   async function copyImage(): Promise<void> {
     if (!previewBlob) {
-      await renderPreview();
+      await renderPreview(flowSnapshot);
     }
     if (!previewBlob) {
       throw new Error(t("暂无可复制图片。", "No image to copy."));

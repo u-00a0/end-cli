@@ -7,6 +7,7 @@
   import Splitter from "../pane/Splitter.svelte";
   import { onMount } from "svelte";
   import type { EditorActions } from "../../lib/editor-actions";
+  import type { FlowSnapshot } from "../../lib/export/flow-snapshot";
   import { translateByLang } from "../../lib/lang";
   import type { SolveState } from "../../lib/solve-state";
   import type { AicDraft, CatalogItemDto, LangTag } from "../../lib/types";
@@ -32,7 +33,7 @@
     isBootstrapping: boolean;
     solveState: SolveState;
     editorActions: EditorActions;
-    onOpenShare: () => void;
+    onOpenShare: (snapshot: FlowSnapshot | null) => void;
     onImportFile: (file: File) => void | Promise<void>;
 
     minEditorWidthPx: number;
@@ -57,9 +58,14 @@
     minBottomPanelHeightPx,
   }: Props = $props();
 
+  type GraphPanelApi = {
+    getFlowSnapshot: () => FlowSnapshot | null;
+  };
+
   let leftPaneRatio = $state(DEFAULT_LEFT_PANE_RATIO);
   let rightPaneRatio = $state(DEFAULT_RIGHT_PANE_RATIO);
   let hasHydratedLocalState = $state(false);
+  let graphPanelApi = $state<GraphPanelApi | null>(null);
 
   let layoutElement = $state<HTMLElement | null>(null);
   let rightPaneElement = $state<HTMLElement | null>(null);
@@ -83,6 +89,10 @@
 
   function t(zh: string, en: string): string {
     return translateByLang(lang, zh, en);
+  }
+
+  function handleOpenShare(): void {
+    onOpenShare(graphPanelApi?.getFlowSnapshot() ?? null);
   }
 
   onMount(() => {
@@ -128,7 +138,7 @@
       {selectedOutpostIndex}
       isResetDisabled={isBootstrapping}
       actions={editorActions}
-      {onOpenShare}
+      onOpenShare={handleOpenShare}
     />
   </section>
 
@@ -161,7 +171,7 @@
       }}
     />
 
-    <GraphPanel {lang} {solveState} />
+    <GraphPanel bind:this={graphPanelApi} {lang} {solveState} />
   </div>
 
   <DragImportOverlay {lang} onImportFile={onImportFile} />

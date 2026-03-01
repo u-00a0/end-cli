@@ -21,7 +21,7 @@
     type BuildFlowGraphResult,
     type GraphHighlightSelection,
   } from "../../lib/graph/index";
-  import { currentFlowSnapshot } from "../../lib/export/flow-snapshot";
+  import type { FlowSnapshot } from "../../lib/export/flow-snapshot";
   import { translateByLang } from "../../lib/lang";
   import type { LangTag } from "../../lib/types";
   import { renderedOkState, type SolveState } from "../../lib/solve-state";
@@ -81,6 +81,14 @@
   let baseEdgeLabelStyleById = new Map<string, string | undefined>();
   let baseEdgeDataById = new Map<string, Edge["data"]>();
   let edgeFlowMetaById = new Map<string, EdgeFlowMeta>();
+
+  export function getFlowSnapshot(): FlowSnapshot | null {
+    if (!result) {
+      return null;
+    }
+
+    return { nodes, edges };
+  }
 
   function appendStyle(baseStyle: string | undefined, extension: string): string {
     return `${baseStyle ?? ""}${extension}`;
@@ -225,7 +233,6 @@
       nodes = [];
       edges = [];
       viewport = { x: 0, y: 0, zoom: 1 };
-      currentFlowSnapshot.set(null);
       return;
     }
 
@@ -247,15 +254,6 @@
         } satisfies EdgeFlowMeta,
       ]),
     );
-  });
-
-  $effect(() => {
-    if (!result) {
-      return;
-    }
-
-    // Keep an up-to-date snapshot for export/share.
-    currentFlowSnapshot.set({ nodes, edges, viewport });
   });
 
   function t(zh: string, en: string): string {
