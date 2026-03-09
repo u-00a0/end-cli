@@ -6,6 +6,7 @@ members = [
   "crates/end_report",
   "crates/end_cli",
   "crates/end_web",
+  "web/src-tauri",
 ]
 default-members = ["crates/end_cli"]
 resolver = "2"

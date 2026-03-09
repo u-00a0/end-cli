@@ -1,0 +1,19 @@
+[package]
+name = "end-tauri"
+version = "0.2.0"
+edition = "2024"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+end-web = { path = "../../crates/end_web" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { version = "2", features = [] }
+
+[lints.clippy]
+indexing_slicing = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nickelpack/nsis-tauri-utils/heads/main/schema/config.schema.json",
+  "productName": "源石计划",
+  "version": "0.2.0",
+  "identifier": "com.endfield.planner",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "title": "源石计划 - 终末地产线规划",
+    "windows": [
+      {
+        "label": "main",
+        "title": "源石计划 - 终末地产线规划",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
+}
