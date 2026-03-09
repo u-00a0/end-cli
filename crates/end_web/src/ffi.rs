@@ -76,7 +76,7 @@ pub unsafe extern "C" fn end_web_free_slice(slice: *mut c_void) {
 }
 
 #[unsafe(no_mangle)]
-/// Build bootstrap payload JSON string (`catalog` + default `aic.toml`).
+/// Build bootstrap payload JSON string (`catalog` metadata for the web client).
 ///
 /// # Safety
 /// `lang` must be a valid pointer to a Slice.

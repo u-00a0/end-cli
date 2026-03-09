@@ -54,6 +54,7 @@
   import { EMPTY_DRAFT } from "../lib/types";
   import { createHydrationPersistGate as createHydrationGate } from "../lib/hydration-persist-gate.svelte";
   import { loadBootstrap, solveScenario, warmupWasmWorker } from "../lib/wasm";
+  import bundledDefaultAicToml from "../../../crates/end_io/src/aic.toml?raw";
 
   const NARROW_LAYOUT_QUERY = "(max-width: 760px)";
   const MIN_EDITOR_WIDTH_PX = 300;
@@ -73,7 +74,7 @@
   let { lang }: Props = $props();
   let catalogItems = $state<CatalogItemDto[]>([]);
   let draft = $state<AicDraft>(structuredClone(EMPTY_DRAFT));
-  let defaultToml = $state("");
+  const defaultToml = bundledDefaultAicToml;
 
   let isBootstrapping = $state(true);
   let solveState = $state<SolveState>({ status: "idle" });
@@ -197,49 +198,21 @@
     }
   }
 
-  function isDraftContentEmpty(value: AicDraft): boolean {
-    return (
-      value.outposts.length === 0 &&
-      value.supply.length === 0 &&
-      value.consumption.length === 0
-    );
-  }
-
-  async function loadBootstrapData(): Promise<string | null> {
+  async function loadBootstrapData(): Promise<void> {
     isBootstrapping = true;
 
     try {
       const payload = await loadBootstrap(lang);
       catalogItems = payload.catalog.items;
-      defaultToml = payload.defaultAicToml;
-      return payload.defaultAicToml;
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : String(error));
-      return null;
     } finally {
       isBootstrapping = false;
     }
   }
 
-  async function resetToDefault(): Promise<void> {
-    try {
-      let nextDefaultToml = defaultToml;
-      if (nextDefaultToml.length === 0) {
-        const loadedDefaultToml = await loadBootstrapData();
-        if (!loadedDefaultToml) {
-          return;
-        }
-        nextDefaultToml = loadedDefaultToml;
-      }
-
-      if (nextDefaultToml.length === 0) {
-        return;
-      }
-
-      applyToml(nextDefaultToml);
-    } catch (error) {
-      showErrorToast(error instanceof Error ? error.message : String(error));
-    }
+  function resetToDefault(): void {
+    applyToml(defaultToml);
   }
 
   function requestResetToDefault(): void {
@@ -254,7 +227,7 @@
 
   async function confirmResetToDefault(): Promise<void> {
     closeResetDialog();
-    await resetToDefault();
+    resetToDefault();
   }
 
   async function importFromFile(event: Event): Promise<void> {
@@ -382,14 +355,17 @@
       void warmupWasmWorker().catch(() => undefined);
 
       const restored = restoreLocalState(STORAGE_CONFIG);
-      const sharedDraft = await resolveSharedDraft(
-        new URLSearchParams(window.location.search).get("s"),
-      );
+      const shareParam = new URLSearchParams(window.location.search).get("s");
+      const sharedDraft =
+        shareParam && shareParam.trim().length > 0
+          ? await resolveSharedDraft(shareParam)
+          : null;
       const initialDraft = sharedDraft ?? restored.draft;
-      const shouldApplyDefaultDraft = initialDraft === null;
 
       if (initialDraft) {
         applyDraft(initialDraft);
+      } else {
+        applyToml(defaultToml);
       }
 
       if (disposed) {
@@ -401,15 +377,7 @@
       mediaQuery = window.matchMedia(NARROW_LAYOUT_QUERY);
       updateScreenMode();
       mediaQuery.addEventListener("change", updateScreenMode);
-
-      const loadedDefaultToml = await loadBootstrapData();
-      if (disposed || !loadedDefaultToml) {
-        return;
-      }
-
-      if (shouldApplyDefaultDraft && isDraftContentEmpty(draft)) {
-        applyToml(loadedDefaultToml);
-      }
+      void loadBootstrapData();
     })();
 
     return () => {

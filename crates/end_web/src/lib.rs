@@ -24,20 +24,8 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet};
 
     #[test]
-    fn bootstrap_returns_catalog_and_default_aic() {
+    fn bootstrap_returns_catalog_items() {
         let payload = bootstrap(Lang::Zh).expect("bootstrap should succeed");
-        assert!(
-            payload
-                .default_aic_toml
-                .contains("[power]"),
-            "default aic should include power section"
-        );
-        assert!(
-            payload
-                .default_aic_toml
-                .contains("external_consumption"),
-            "default aic should include power external consumption field"
-        );
         assert!(
             !payload.catalog.items.is_empty(),
             "catalog items should not be empty"

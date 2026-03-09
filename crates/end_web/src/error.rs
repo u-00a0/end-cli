@@ -5,9 +5,6 @@ pub enum Error {
     #[error("Catalog load failed")]
     Catalog(#[source] end_io::Error),
 
-    #[error("Default aic generation failed")]
-    DefaultAic(#[source] end_io::Error),
-
     #[error("Aic parse failed")]
     Aic(#[source] end_io::Error),
 

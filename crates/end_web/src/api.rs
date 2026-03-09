@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use end_io::{default_aic_toml, load_aic_from_str, load_catalog};
+use end_io::{load_aic_from_str, load_catalog};
 use end_model::{
     AicInputs, Catalog, FacilityId, ItemId, LogisticsNodeId, LogisticsNodeSite, OptimizationResult,
     PowerRecipeId, RecipeId,
@@ -18,7 +18,6 @@ use crate::{Error, Lang, Result};
 pub fn bootstrap(lang: Lang) -> Result<BootstrapPayload> {
     make_guard!(guard);
     let catalog = load_catalog(None, guard).map_err(Error::Catalog)?;
-    let default_aic_toml = default_aic_toml(&catalog).map_err(Error::DefaultAic)?;
 
     let mut items = catalog
         .items()
@@ -36,7 +35,6 @@ pub fn bootstrap(lang: Lang) -> Result<BootstrapPayload> {
     let _ = lang;
 
     Ok(BootstrapPayload {
-        default_aic_toml: default_aic_toml.into_boxed_str(),
         catalog: CatalogDto {
             items: items.into_boxed_slice(),
         },

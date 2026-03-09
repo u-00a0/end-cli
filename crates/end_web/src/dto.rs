@@ -6,7 +6,6 @@ use crate::Result;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BootstrapPayload {
-    pub default_aic_toml: Box<str>,
     pub catalog: CatalogDto,
 }
 

@@ -20,7 +20,6 @@ export interface CatalogItemDto {
 }
 
 export interface BootstrapPayload {
-  defaultAicToml: string;
   catalog: {
     items: CatalogItemDto[];
   };
