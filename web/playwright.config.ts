@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const e2eBaseUrl = process.env.PW_E2E_BASE_URL ?? 'http://127.0.0.1:4173';
+
 export default defineConfig({
   testDir: 'e2e',
   timeout: 60_000,
@@ -7,7 +9,7 @@ export default defineConfig({
     timeout: 10_000
   },
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: e2eBaseUrl,
     headless: true
   },
   projects: [
@@ -29,11 +31,5 @@ export default defineConfig({
         browserName: 'webkit'
       }
     }
-  ],
-  webServer: {
-    command: 'npm run preview:e2e',
-    port: 4173,
-    timeout: 120_000,
-    reuseExistingServer: true
-  }
+  ]
 });
