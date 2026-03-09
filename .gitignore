@@ -2,11 +2,14 @@
 /target
 target/
 
+# web build, dep and test result dirs
 /web/node_modules
 /web/dist
 /web/test-results
 /web/playwright-report
 
-# generated files
+# web generated files
 /web/public/wasm
 /web/src/lib/generated
+/web/src-tauri/icons
+/web/src-tauri/gen/schemas
