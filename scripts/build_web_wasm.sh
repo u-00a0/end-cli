@@ -37,7 +37,7 @@ RUSTFLAGS_ARGS=(
   "-Clink-arg=-sALLOW_MEMORY_GROWTH=1"
   "-Clink-arg=-sINITIAL_MEMORY=67108864"
   "-Clink-arg=-sSTACK_SIZE=${WASM_STACK_SIZE}"
-  "-Clink-arg=-sINCOMING_MODULE_JS_API=[\"noInitialRun\",\"printErr\",\"locateFile\"]"
+  "-Clink-arg=-sINCOMING_MODULE_JS_API=[\"noInitialRun\",\"printErr\",\"locateFile\",\"wasmBinary\"]"
   "-Clink-arg=-sFILESYSTEM=0"
   "-Clink-arg=-sMODULARIZE=1"
   "-Clink-arg=-sEXPORT_NAME=createEndWebModule"

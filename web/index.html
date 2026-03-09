@@ -5,6 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="《明日方舟：终末地》自动化生产规划工具，自动求解最优产线配置、机器数量、热能池配置及贸易策略，最大化收益。" />
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <script>
+      {
+        const wasmBase = "%BASE_URL%wasm/";
+        const fetchText = async (url) => {
+          const response = await fetch(url, { credentials: "same-origin" });
+          if (!response.ok) {
+            return null;
+          }
+          return response.text();
+        };
+        const fetchBinary = async (url) => {
+          const response = await fetch(url, { credentials: "same-origin" });
+          if (!response.ok) {
+            return null;
+          }
+          return response.arrayBuffer();
+        };
+        globalThis.__endWebWasmPreload = {
+          scriptSourcePromise: fetchText(`${wasmBase}end_web.js`).catch(() => null),
+          wasmBinaryPromise: fetchBinary(`${wasmBase}end_web.wasm`).catch(() => null),
+        };
+      }
+    </script>
     <title>源石计划 - 终末地产线规划</title>
   </head>
   <body>

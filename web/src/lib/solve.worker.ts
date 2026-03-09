@@ -27,8 +27,6 @@ function normalizeBasePath(raw: string): string {
   return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
 }
 
-let wasmBase = '/wasm/';
-
 function createSlice(module: EndWebModule, str: string): number | null {
   const encoder = new TextEncoder();
   const bytes = encoder.encode(str);
@@ -145,6 +143,14 @@ interface WarmupRequest {
 interface WorkerInitRequest {
   kind: 'init';
   wasmBase: string;
+  wasmScriptSource?: string;
+  wasmBinary?: Uint8Array;
+}
+
+interface InitState {
+  wasmBase: string;
+  wasmScriptSource: string | null;
+  wasmBinary: Uint8Array | null;
 }
 
 interface BootstrapOk {
@@ -184,16 +190,40 @@ interface SolveErr {
 
 type WorkerRequest = WorkerInitRequest | BootstrapRequest | WarmupRequest | SolveRequest;
 
-let scriptLoaded = false;
 let modulePromise: Promise<EndWebModule> | null = null;
+let resolveInitState: ((value: InitState) => void) | null = null;
+const initStatePromise = new Promise<InitState>((resolve) => {
+  resolveInitState = resolve;
+});
 
-function loadWasmScriptOnce(): void {
-  if (scriptLoaded) {
+function resolveInitStateOnce(request: WorkerInitRequest): void {
+  if (resolveInitState === null) {
     return;
   }
 
-  importScripts(`${wasmBase}end_web.js`);
-  scriptLoaded = true;
+  const resolve = resolveInitState;
+  resolveInitState = null;
+  resolve({
+    wasmBase: normalizeBasePath(request.wasmBase),
+    wasmScriptSource: request.wasmScriptSource ?? null,
+    wasmBinary: request.wasmBinary ?? null
+  });
+}
+
+function loadWasmScript(initState: InitState): void {
+  if (initState.wasmScriptSource !== null) {
+    const blob = new Blob([initState.wasmScriptSource], { type: 'text/javascript' });
+    const blobUrl = URL.createObjectURL(blob);
+
+    try {
+      importScripts(blobUrl);
+      return;
+    } finally {
+      URL.revokeObjectURL(blobUrl);
+    }
+  }
+
+  importScripts(`${initState.wasmBase}end_web.js`);
 }
 
 async function getModule(): Promise<EndWebModule> {
@@ -202,7 +232,8 @@ async function getModule(): Promise<EndWebModule> {
   }
 
   modulePromise = (async () => {
-    loadWasmScriptOnce();
+    const initState = await initStatePromise;
+    loadWasmScript(initState);
 
     const scope = self as EndWorkerGlobalScope;
     const factory = scope.createEndWebModule;
@@ -212,13 +243,19 @@ async function getModule(): Promise<EndWebModule> {
       );
     }
 
-    return factory({
+    const moduleOptions: Record<string, unknown> = {
       noInitialRun: true,
-      locateFile: (path: string) => `${wasmBase}${path}`,
+      locateFile: (path: string) => `${initState.wasmBase}${path}`,
       printErr: (...args: unknown[]) => {
         console.error('[end-web wasm worker]', ...args);
       }
-    });
+    };
+
+    if (initState.wasmBinary !== null) {
+      moduleOptions.wasmBinary = initState.wasmBinary;
+    }
+
+    return factory(moduleOptions);
   })();
 
   return modulePromise;
@@ -240,7 +277,7 @@ scope.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   void (async () => {
     const request = event.data;
     if (request.kind === 'init') {
-      wasmBase = normalizeBasePath(request.wasmBase);
+      resolveInitStateOnce(request);
       return;
     }
 

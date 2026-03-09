@@ -21,6 +21,8 @@ interface SolveRequest {
 interface WorkerInitRequest {
   kind: 'init';
   wasmBase: string;
+  wasmScriptSource?: string;
+  wasmBinary?: Uint8Array;
 }
 
 interface BootstrapOk {
@@ -60,9 +62,19 @@ interface SolveErr {
 
 type WorkerResponse = BootstrapOk | BootstrapErr | WarmupOk | WarmupErr | SolveOk | SolveErr;
 
+interface PreloadedWasmAssets {
+  scriptSourcePromise?: Promise<string | null>;
+  wasmBinaryPromise?: Promise<ArrayBuffer | null>;
+}
+
+type EndGlobalScope = typeof globalThis & {
+  __endWebWasmPreload?: PreloadedWasmAssets;
+};
+
 let solveWorker: Worker | null = null;
 let workerRequestId = 1;
 let warmupPromise: Promise<void> | null = null;
+let workerInitPromise: Promise<Worker> | null = null;
 
 function deriveAppBasePathname(): string {
   const moduleDir = new URL('.', import.meta.url);
@@ -98,6 +110,29 @@ const pendingSolve = new Map<
 >();
 
 class WorkerTransportError extends Error {}
+
+async function resolveWorkerInitRequest(): Promise<WorkerInitRequest> {
+  const preload = (globalThis as EndGlobalScope).__endWebWasmPreload;
+  const [wasmScriptSource, wasmBinaryBuffer] = await Promise.all([
+    preload?.scriptSourcePromise?.catch(() => null) ?? Promise.resolve(null),
+    preload?.wasmBinaryPromise?.catch(() => null) ?? Promise.resolve(null)
+  ]);
+
+  const initRequest: WorkerInitRequest = {
+    kind: 'init',
+    wasmBase
+  };
+
+  if (typeof wasmScriptSource === 'string' && wasmScriptSource.length > 0) {
+    initRequest.wasmScriptSource = wasmScriptSource;
+  }
+
+  if (wasmBinaryBuffer instanceof ArrayBuffer && wasmBinaryBuffer.byteLength > 0) {
+    initRequest.wasmBinary = new Uint8Array(wasmBinaryBuffer);
+  }
+
+  return initRequest;
+}
 
 function rejectAllPending(error: Error): void {
   for (const pending of pendingBootstrap.values()) {
@@ -184,23 +219,43 @@ function getSolveWorker(): Worker {
   solveWorker.onerror = (event: ErrorEvent) => {
     solveWorker = null;
     warmupPromise = null;
+    workerInitPromise = null;
     rejectAllPending(new WorkerTransportError(event.message || 'solve worker crashed'));
   };
 
-  try {
-    const initRequest: WorkerInitRequest = {
-      kind: 'init',
-      wasmBase
-    };
-    solveWorker.postMessage(initRequest);
-  } catch (error) {
-    solveWorker.terminate();
-    solveWorker = null;
-    warmupPromise = null;
-    throw new WorkerTransportError(error instanceof Error ? error.message : String(error));
+  return solveWorker;
+}
+
+async function ensureSolveWorker(): Promise<Worker> {
+  if (workerInitPromise) {
+    return workerInitPromise;
   }
 
-  return solveWorker;
+  const worker = getSolveWorker();
+  workerInitPromise = (async () => {
+    const initRequest = await resolveWorkerInitRequest();
+
+    try {
+      if (initRequest.wasmBinary) {
+        worker.postMessage(initRequest, [initRequest.wasmBinary.buffer]);
+      } else {
+        worker.postMessage(initRequest);
+      }
+    } catch (error) {
+      worker.terminate();
+      solveWorker = null;
+      warmupPromise = null;
+      workerInitPromise = null;
+      throw new WorkerTransportError(error instanceof Error ? error.message : String(error));
+    }
+
+    return worker;
+  })().catch((error) => {
+    workerInitPromise = null;
+    throw error;
+  });
+
+  return workerInitPromise;
 }
 
 export function warmupWasmWorker(): Promise<void> {
@@ -208,24 +263,27 @@ export function warmupWasmWorker(): Promise<void> {
     return warmupPromise;
   }
 
-  const worker = getSolveWorker();
   const request: WarmupRequest = {
     id: nextRequestId(),
     kind: 'warmup'
   };
 
-  const promise = new Promise<void>((resolve, reject) => {
-    pendingWarmup.set(request.id, { resolve, reject });
+  const promise = (async () => {
+    const worker = await ensureSolveWorker();
+    return new Promise<void>((resolve, reject) => {
+      pendingWarmup.set(request.id, { resolve, reject });
 
-    try {
-      worker.postMessage(request);
-    } catch (error) {
-      solveWorker = null;
-      warmupPromise = null;
-      pendingWarmup.delete(request.id);
-      reject(new WorkerTransportError(error instanceof Error ? error.message : String(error)));
-    }
-  });
+      try {
+        worker.postMessage(request);
+      } catch (error) {
+        solveWorker = null;
+        warmupPromise = null;
+        workerInitPromise = null;
+        pendingWarmup.delete(request.id);
+        reject(new WorkerTransportError(error instanceof Error ? error.message : String(error)));
+      }
+    });
+  })();
 
   warmupPromise = promise.catch((error) => {
     warmupPromise = null;
@@ -235,29 +293,31 @@ export function warmupWasmWorker(): Promise<void> {
 }
 
 export function loadBootstrap(lang: LangTag): Promise<BootstrapPayload> {
-  const worker = getSolveWorker();
   const request: BootstrapRequest = {
     id: nextRequestId(),
     kind: 'bootstrap',
     lang
   };
 
-  return new Promise<BootstrapPayload>((resolve, reject) => {
-    pendingBootstrap.set(request.id, { resolve, reject });
+  return (async () => {
+    const worker = await ensureSolveWorker();
+    return new Promise<BootstrapPayload>((resolve, reject) => {
+      pendingBootstrap.set(request.id, { resolve, reject });
 
-    try {
-      worker.postMessage(request);
-    } catch (error) {
-      solveWorker = null;
-      warmupPromise = null;
-      pendingBootstrap.delete(request.id);
-      reject(new WorkerTransportError(error instanceof Error ? error.message : String(error)));
-    }
-  });
+      try {
+        worker.postMessage(request);
+      } catch (error) {
+        solveWorker = null;
+        warmupPromise = null;
+        workerInitPromise = null;
+        pendingBootstrap.delete(request.id);
+        reject(new WorkerTransportError(error instanceof Error ? error.message : String(error)));
+      }
+    });
+  })();
 }
 
 export function solveScenario(lang: LangTag, aicToml: string): Promise<SolvePayload> {
-  const worker = getSolveWorker();
   const request: SolveRequest = {
     id: nextRequestId(),
     kind: 'solve',
@@ -265,16 +325,20 @@ export function solveScenario(lang: LangTag, aicToml: string): Promise<SolvePayl
     aicToml
   };
 
-  return new Promise<SolvePayload>((resolve, reject) => {
-    pendingSolve.set(request.id, { resolve, reject });
+  return (async () => {
+    const worker = await ensureSolveWorker();
+    return new Promise<SolvePayload>((resolve, reject) => {
+      pendingSolve.set(request.id, { resolve, reject });
 
-    try {
-      worker.postMessage(request);
-    } catch (error) {
-      solveWorker = null;
-      warmupPromise = null;
-      pendingSolve.delete(request.id);
-      reject(new WorkerTransportError(error instanceof Error ? error.message : String(error)));
-    }
-  });
+      try {
+        worker.postMessage(request);
+      } catch (error) {
+        solveWorker = null;
+        warmupPromise = null;
+        workerInitPromise = null;
+        pendingSolve.delete(request.id);
+        reject(new WorkerTransportError(error instanceof Error ? error.message : String(error)));
+      }
+    });
+  })();
 }
