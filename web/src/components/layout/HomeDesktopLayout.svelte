@@ -8,6 +8,7 @@
   import { onMount } from "svelte";
   import type { EditorActions } from "../../lib/editor-actions";
   import type { FlowSnapshot } from "../../lib/export/flow-snapshot";
+  import { createHydrationPersistGate } from "../../lib/hydration-persist-gate.svelte";
   import { translateByLang } from "../../lib/lang";
   import type { SolveState } from "../../lib/solve-state";
   import type { AicDraft, CatalogItemDto, LangTag } from "../../lib/types";
@@ -64,7 +65,10 @@
 
   let leftPaneRatio = $state(DEFAULT_LEFT_PANE_RATIO);
   let rightPaneRatio = $state(DEFAULT_RIGHT_PANE_RATIO);
-  let hasHydratedLocalState = $state(false);
+  const localStatePersistGate = createHydrationPersistGate(() => {
+    persistLeftPaneRatio(LEFT_PANE_RATIO_STORAGE_KEY, leftPaneRatio);
+    persistRightPaneRatio(RIGHT_PANE_RATIO_STORAGE_KEY, rightPaneRatio);
+  });
   let graphPanelApi = $state<GraphPanelApi | null>(null);
 
   let layoutElement = $state<HTMLElement | null>(null);
@@ -105,23 +109,11 @@
       rightPaneRatio = restoredRight;
     }
 
-    hasHydratedLocalState = true;
+    localStatePersistGate.markHydrated();
   });
 
   $effect(() => {
-    if (!hasHydratedLocalState) {
-      return;
-    }
-
-    persistLeftPaneRatio(LEFT_PANE_RATIO_STORAGE_KEY, leftPaneRatio);
-  });
-
-  $effect(() => {
-    if (!hasHydratedLocalState) {
-      return;
-    }
-
-    persistRightPaneRatio(RIGHT_PANE_RATIO_STORAGE_KEY, rightPaneRatio);
+    localStatePersistGate.persistWhenHydrated();
   });
 </script>
 

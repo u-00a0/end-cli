@@ -52,6 +52,7 @@
   import { translateByLang } from "../lib/lang";
   import type { AicDraft, CatalogItemDto, LangTag } from "../lib/types";
   import { EMPTY_DRAFT } from "../lib/types";
+  import { createHydrationPersistGate as createHydrationGate } from "../lib/hydration-persist-gate.svelte";
   import { loadBootstrap, solveScenario, warmupWasmWorker } from "../lib/wasm";
 
   const NARROW_LAYOUT_QUERY = "(max-width: 760px)";
@@ -82,7 +83,9 @@
   let selectedOutpostIndex = $state<OutpostSelection>(NO_OUTPOST_SELECTED);
   let isNarrowScreen = $state(false);
 
-  let hasHydratedLocalState = $state(false);
+  const persistGate = createHydrationGate(() => {
+    persistDraft(STORAGE_CONFIG.draftStorageKey, draft);
+  });
   let hasRestoredDraftFromStorage = $state(false);
 
   const solverController: SolverController = createSolverController({
@@ -385,7 +388,7 @@
         return;
       }
 
-      hasHydratedLocalState = true;
+      persistGate.markHydrated();
 
       mediaQuery = window.matchMedia(NARROW_LAYOUT_QUERY);
       updateScreenMode();
@@ -405,11 +408,7 @@
   });
 
   $effect(() => {
-    if (!hasHydratedLocalState) {
-      return;
-    }
-
-    persistDraft(STORAGE_CONFIG.draftStorageKey, draft);
+    persistGate.persistWhenHydrated();
   });
 
   $effect(() => {
