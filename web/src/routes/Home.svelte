@@ -53,8 +53,14 @@
   import type { AicDraft, CatalogItemDto, LangTag } from "../lib/types";
   import { EMPTY_DRAFT } from "../lib/types";
   import { createHydrationPersistGate as createHydrationGate } from "../lib/hydration-persist-gate.svelte";
-  import { loadBootstrap, solveScenario, warmupWasmWorker } from "../lib/wasm";
+  import { createBackend, type Backend } from "../lib/backend";
   import bundledDefaultAicToml from "../../../crates/end_io/src/aic.toml?raw";
+
+  let backend: Backend | null = null;
+  const backendReady: Promise<Backend> = createBackend().then((nextBackend) => {
+    backend = nextBackend;
+    return nextBackend;
+  });
 
   const NARROW_LAYOUT_QUERY = "(max-width: 760px)";
   const MIN_EDITOR_WIDTH_PX = 300;
@@ -91,7 +97,10 @@
   const solverController: SolverController = createSolverController({
     debounceMs: AUTO_SOLVE_DEBOUNCE_MS,
     toToml: buildAicToml,
-    solve: (solveLang, toml) => solveScenario(solveLang, toml),
+    solve: async (solveLang, toml) => {
+      const nextBackend = backend ?? await backendReady;
+      return nextBackend.solveScenario(solveLang, toml);
+    },
     onStateChange: (next) => {
       solveState = next;
     },
@@ -202,7 +211,8 @@
     isBootstrapping = true;
 
     try {
-      const payload = await loadBootstrap(lang);
+      const nextBackend = backend ?? await backendReady;
+      const payload = await nextBackend.loadBootstrap(lang);
       catalogItems = payload.catalog.items;
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : String(error));
@@ -352,7 +362,7 @@
     };
 
     void (async () => {
-      void warmupWasmWorker().catch(() => undefined);
+      void backendReady.then((nextBackend) => nextBackend.warmup()).catch(() => undefined);
 
       const restored = restoreLocalState(STORAGE_CONFIG);
       const shareParam = new URLSearchParams(window.location.search).get("s");

@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run gen:tauri-icons && npm run build:wasm && npm run build"
+    "beforeBuildCommand": "npm run gen:tauri-icons && npm run build"
   },
   "app": {
     "windows": [

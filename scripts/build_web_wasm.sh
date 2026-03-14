@@ -10,14 +10,6 @@ ENABLE_WASM_EH_POSTPROCESS="${END_WEB_WASM_EH_POSTPROCESS:-0}"
 mkdir -p "$WEB_WASM_DIR"
 
 if ! command -v emcc >/dev/null 2>&1; then
-  EMSDK_ENV_SH="/home/xks/apps/emsdk/emsdk_env.sh"
-  if [[ -f "$EMSDK_ENV_SH" ]]; then
-    # shellcheck source=/dev/null
-    source "$EMSDK_ENV_SH"
-  fi
-fi
-
-if ! command -v emcc >/dev/null 2>&1; then
   echo "emcc not found. Please source your emsdk env first." >&2
   exit 1
 fi

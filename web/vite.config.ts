@@ -282,9 +282,16 @@ function modelV1BuildPlugin(): PluginOption {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const basePath = env.VITE_BASE_PATH || process.env.VITE_BASE_PATH;
+  const isTauri = !!process.env.TAURI_ENV_PLATFORM;
+
+  const plugins: PluginOption[] = [svelte(), modelV1DevPlugin(), modelV1BuildPlugin()];
+
+  if (!isTauri) {
+    plugins.push(rustWasmDevPlugin());
+  }
 
   return {
-    plugins: [svelte(), modelV1DevPlugin(), modelV1BuildPlugin(), rustWasmDevPlugin()],
+    plugins,
     base: normalizeBasePath(basePath),
     define: {
       global: 'globalThis'
@@ -299,6 +306,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: 5173,
-    }
+    },
+    envPrefix: ['VITE_', 'TAURI_ENV_']
   };
 });
