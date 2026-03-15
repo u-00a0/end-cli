@@ -114,6 +114,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: web
-          tauriScript: npm exec tauri
+          tauriScript: npx tauri
           args: ${{ matrix.args }}
-          uploadWorkflowArtifacts: true
