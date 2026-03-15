@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -65,10 +65,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -116,3 +116,12 @@ jobs:
           projectPath: web
           tauriScript: npx tauri
           args: ${{ matrix.args }}
+
+      - name: Upload Tauri artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: tauri-${{ matrix.platform }}
+          path: |
+            web/src-tauri/target/release/bundle/**
+            web/src-tauri/target/*/release/bundle/**
+          if-no-files-found: error
