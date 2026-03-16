@@ -12,6 +12,7 @@ target/
 
 # web generated files
 /web/public/wasm
+/web/public/fonts
 /web/src/lib/generated
 /web/src-tauri/icons
 /web/src-tauri/gen/schemas

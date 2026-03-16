@@ -72,10 +72,6 @@
   let layoutElement = $state<HTMLElement | null>(null);
   let rightPaneElement = $state<HTMLElement | null>(null);
 
-  function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
-  }
-
   function parseRatio(raw: string | null): number | null {
     if (raw === null) {
       return null;

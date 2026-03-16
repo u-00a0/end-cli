@@ -4,11 +4,6 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "gen:model-v1": "node ./scripts/gen-model-v1.mjs",
-    "gen:tauri-icons": "npm exec tauri icon -- public/favicon.svg -o src-tauri/icons",
-    "precheck": "npm run gen:model-v1",
-    "tauri:dev": "npm exec tauri dev",
-    "tauri:build": "npm exec tauri build",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -20,6 +15,7 @@
     "test:e2e": "node ./scripts/run-playwright-e2e.mjs",
     "test:e2e:chromium": "node ./scripts/run-playwright-e2e.mjs -c playwright.chromium.config.ts",
     "test:e2e:firefox": "node ./scripts/run-playwright-e2e.mjs -c playwright.firefox.config.ts",
+    "tauri": "tauri",
     "build:wasm": "bash ../scripts/build_web_wasm.sh"
   },
   "dependencies": {

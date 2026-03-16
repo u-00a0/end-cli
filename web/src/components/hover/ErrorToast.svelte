@@ -1,5 +1,6 @@
 <script lang="ts">
   import IconActionButton from "../button/IconActionButton.svelte";
+  import MaterialSymbol from "../icon/MaterialSymbol.svelte";
 
   export type ErrorToastState =
     | { kind: "closed" }
@@ -21,7 +22,7 @@
 {#if isOpen}
   <div class="toast" role="status" aria-live="polite" aria-label={title}>
     <div class="icon" aria-hidden="true">
-      <span class="material-symbols-outlined">error</span>
+      <MaterialSymbol icon="error" size={20} weight={600} opsz={20} />
     </div>
 
     <div class="content">
@@ -86,15 +87,6 @@
     height: 20px;
     color: var(--danger);
     margin-top: 2px;
-  }
-
-  .icon span {
-    font-size: 20px;
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 600,
-      "GRAD" 0,
-      "opsz" 20;
   }
 
   .content {

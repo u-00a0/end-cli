@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { RegisteredIconName } from "../../lib/icon-registry";
   import { onMount } from "svelte";
   import IconActionButton from "../button/IconActionButton.svelte";
 
@@ -7,7 +8,7 @@
     menuAriaLabel: string;
     triggerAriaLabel: string;
     triggerTitle?: string;
-    triggerIcon?: string;
+    triggerIcon?: RegisteredIconName;
     disabled?: boolean;
     menu: Snippet<[close: () => void]>;
   }

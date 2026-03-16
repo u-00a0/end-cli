@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { RegisteredIconName } from "../../lib/icon-registry";
   import FieldHint from "../hover/FieldHint.svelte";
+  import MaterialSymbol from "../icon/MaterialSymbol.svelte";
 
   interface Props {
     titleText?: string;
-    icon?: string;
+    icon?: RegisteredIconName;
     fieldHintText?: string;
 
     title?: Snippet;
@@ -27,7 +29,12 @@
     {:else if titleText}
       <h2 class="panel-title">
         {#if icon}
-          <span class="material-symbols-outlined panel-icon">{icon}</span>
+          <MaterialSymbol
+            icon={icon}
+            size={24}
+            weight={400}
+            opsz={48}
+          />
         {/if}
         <span class="title-text">{titleText}</span>
         {#if fieldHintText}
@@ -64,16 +71,6 @@
     font-size: 15px;
     color: var(--ink);
     line-height: 1.4;
-  }
-
-  .panel-icon {
-    font-size: 24px;
-    color: var(--ink);
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 400,
-      "GRAD" 0,
-      "opsz" 48;
   }
 
   .title-text {
