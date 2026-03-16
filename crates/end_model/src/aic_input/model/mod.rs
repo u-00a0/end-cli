@@ -3,8 +3,8 @@ mod types;
 
 pub use builder::AicInputsBuilder;
 pub use types::{
-    AicBuildError, AicInputs, ItemNonZeroU32Map, ItemU32Map, OutpostId, OutpostInput,
-    PowerConfig, Region, Stage2Weights,
+    AicBuildError, AicInputs, ItemNonZeroU32Map, ItemU32Map, OutpostId, OutpostInput, PowerConfig,
+    Region, Stage2Weights,
 };
 
 impl<'cid, 'sid> AicInputs<'cid, 'sid> {

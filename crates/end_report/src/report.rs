@@ -588,7 +588,7 @@ fn describe_logistics_site<'cid, 'sid>(
                 Lang::Zh => format!("囤到仓库({item})").into_boxed_str(),
                 Lang::En => format!("Stockpile to warehouse ({item})").into_boxed_str(),
             }
-        },
+        }
     };
     Ok(rendered)
 }

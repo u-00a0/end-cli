@@ -331,8 +331,12 @@ fn describe_logistics_site<'cid, 'sid>(
             Ok((
                 "recipe_group".into(),
                 match lang {
-                    Lang::Zh => format!("{} x{} → {}", facility, machines, products_str).into_boxed_str(),
-                    Lang::En => format!("{} x{} → {}", facility, machines, products_str).into_boxed_str(),
+                    Lang::Zh => {
+                        format!("{} x{} → {}", facility, machines, products_str).into_boxed_str()
+                    }
+                    Lang::En => {
+                        format!("{} x{} → {}", facility, machines, products_str).into_boxed_str()
+                    }
                 },
             ))
         }
@@ -375,11 +379,12 @@ fn describe_logistics_site<'cid, 'sid>(
         LogisticsNodeSite::WarehouseStockpile { item } => Ok((
             "warehouse_stockpile".into(),
             match lang {
-                Lang::Zh => {
-                    format!("仓库 ({})", item_name(lang, catalog, *item)?).into_boxed_str()
-                }
-                Lang::En => format!("Stockpile to warehouse ({})", item_name(lang, catalog, *item)?)
-                    .into_boxed_str(),
+                Lang::Zh => format!("仓库 ({})", item_name(lang, catalog, *item)?).into_boxed_str(),
+                Lang::En => format!(
+                    "Stockpile to warehouse ({})",
+                    item_name(lang, catalog, *item)?
+                )
+                .into_boxed_str(),
             },
         )),
     }

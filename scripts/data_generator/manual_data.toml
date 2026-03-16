@@ -1,5 +1,8 @@
 # Manual data for items, facilities, and recipes not in Lua files
 # This supplements the data from wiki_data/ Lua files
+#
+# IMPORTANT: Items marked with fluid=true will have fluid=true in the generated items.toml
+# Fluid items cannot be stored in warehouse (must be consumed or sold immediately)
 
 # Machine definitions with power consumption and display names
 [[machines]]
@@ -271,6 +274,7 @@ zh = "柑实种子"
 key = "Clean Water"
 en = "Clean Water"
 zh = "清水"
+fluid = true
 
 [[items]]
 key = "Cryston Bottle"
@@ -506,6 +510,7 @@ zh = "工业爆炸物"
 key = "Inert Xircon Effluent"
 en = "Inert Xircon Effluent"
 zh = "惰性壤晶废液"
+fluid = true
 
 [[items]]
 key = "Jincao"
@@ -531,6 +536,7 @@ zh = "锦草种子"
 key = "Jincao Solution"
 en = "Jincao Solution"
 zh = "锦草溶液"
+fluid = true
 
 [[items]]
 key = "Jincao Tea"
@@ -551,6 +557,7 @@ zh = "低容武陵电池"
 key = "Liquid Xiranite"
 en = "Liquid Xiranite"
 zh = "液态息壤"
+fluid = true
 
 [[items]]
 key = "Originium Ore"
@@ -626,6 +633,7 @@ zh = "砂叶种子"
 key = "Sewage"
 en = "Sewage"
 zh = "污水"
+fluid = true
 
 [[items]]
 key = "Stabilized Carbon"
@@ -716,6 +724,7 @@ zh = "壤晶"
 key = "Xircon Effluent"
 en = "Xircon Effluent"
 zh = "壤晶废液"
+fluid = true
 
 [[items]]
 key = "Yazhen"
@@ -736,6 +745,7 @@ zh = "芽针种子"
 key = "Yazhen Solution"
 en = "Yazhen Solution"
 zh = "芽针溶液"
+fluid = true
 
 [[items]]
 key = "Yazhen Syringe (A)"

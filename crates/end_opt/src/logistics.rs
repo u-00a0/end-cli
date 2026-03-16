@@ -850,6 +850,7 @@ mod tests {
                 key: key("Ore"),
                 en: name("Ore"),
                 zh: name("Ore_zh"),
+                is_fluid: false,
             })
             .expect("add ore");
         let ingot = b
@@ -857,6 +858,7 @@ mod tests {
                 key: key("Ingot"),
                 en: name("Ingot"),
                 zh: name("Ingot_zh"),
+                is_fluid: false,
             })
             .expect("add ingot");
         let gear = b
@@ -864,6 +866,7 @@ mod tests {
                 key: key("Gear"),
                 en: name("Gear"),
                 zh: name("Gear_zh"),
+                is_fluid: false,
             })
             .expect("add gear");
 
@@ -1071,6 +1074,7 @@ mod tests {
                 key: key("Ore"),
                 en: name("Ore"),
                 zh: name("Ore_zh"),
+                is_fluid: false,
             })
             .expect("add ore");
         let ingot = b
@@ -1078,6 +1082,7 @@ mod tests {
                 key: key("Ingot"),
                 en: name("Ingot"),
                 zh: name("Ingot_zh"),
+                is_fluid: false,
             })
             .expect("add ingot");
         let b = b
@@ -1158,6 +1163,7 @@ mod tests {
                 key: key("x"),
                 en: name("x"),
                 zh: name("x"),
+                is_fluid: false,
             })
             .expect("add item");
         let b = b

@@ -37,6 +37,7 @@ fn sample_catalog_and_inputs<'cid, 'sid, 'rid>(
             key: key("Ore"),
             en: name("Ore"),
             zh: name("Ore_zh"),
+            is_fluid: false,
         })
         .expect("add ore");
     let ingot = b
@@ -44,6 +45,7 @@ fn sample_catalog_and_inputs<'cid, 'sid, 'rid>(
             key: key("Ingot"),
             en: name("Ingot"),
             zh: name("Ingot_zh"),
+            is_fluid: false,
         })
         .expect("add ingot");
 

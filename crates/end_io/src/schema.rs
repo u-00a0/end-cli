@@ -22,6 +22,8 @@ pub(crate) struct ItemToml {
     pub(crate) en: DisplayName,
     #[serde(deserialize_with = "deserialize_display_name")]
     pub(crate) zh: DisplayName,
+    #[serde(default)]
+    pub(crate) fluid: bool,
 }
 
 /// Parsed shape of `facilities.toml`.
@@ -113,10 +115,7 @@ pub(crate) struct AicToml {
         deserialize_with = "deserialize_supported_aic_version"
     )]
     pub(crate) version: u32,
-    #[serde(
-        default = "default_region",
-        deserialize_with = "deserialize_region"
-    )]
+    #[serde(default = "default_region", deserialize_with = "deserialize_region")]
     pub(crate) region: Region,
     #[serde(default)]
     pub(crate) power: PowerToml,
@@ -360,14 +359,15 @@ where
     parse_non_negative_u32(value).map_err(D::Error::custom)
 }
 
-fn deserialize_optional_non_negative_u32<'de, D>(
-    deserializer: D,
-) -> Result<Option<u32>, D::Error>
+fn deserialize_optional_non_negative_u32<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let value = Option::<i64>::deserialize(deserializer)?;
-    value.map(parse_non_negative_u32).transpose().map_err(D::Error::custom)
+    value
+        .map(parse_non_negative_u32)
+        .transpose()
+        .map_err(D::Error::custom)
 }
 
 fn deserialize_optional_non_negative_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
@@ -375,7 +375,10 @@ where
     D: serde::Deserializer<'de>,
 {
     let value = Option::<f64>::deserialize(deserializer)?;
-    value.map(parse_non_negative_f64).transpose().map_err(D::Error::custom)
+    value
+        .map(parse_non_negative_f64)
+        .transpose()
+        .map_err(D::Error::custom)
 }
 
 fn deserialize_supported_aic_version<'de, D>(deserializer: D) -> Result<u32, D::Error>

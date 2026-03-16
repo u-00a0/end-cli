@@ -37,10 +37,10 @@ def load_machines(manual_data_path: Path) -> List[MachineDisplay]:
     return machines
 
 
-def load_item_display_names(manual_data_path: Path) -> Dict[str, tuple[str, str]]:
+def load_item_display_names(manual_data_path: Path) -> Dict[str, tuple[str, str, bool]]:
     """Load item display names from manual data TOML."""
     data = load_manual_data(manual_data_path)
-    items: Dict[str, tuple[str, str]] = {}
+    items: Dict[str, tuple[str, str, bool]] = {}
     
     items_list: list[Any] = data.get('items', [])
     for item in items_list:
@@ -48,10 +48,12 @@ def load_item_display_names(manual_data_path: Path) -> Dict[str, tuple[str, str]
             key_val: Any = item.get('key')
             en_val: Any = item.get('en')
             zh_val: Any = item.get('zh')
+            fluid_val: Any = item.get('fluid')
             if key_val is not None:
                 items[str(key_val)] = (
                     str(en_val) if en_val is not None else '',
-                    str(zh_val) if zh_val is not None else ''
+                    str(zh_val) if zh_val is not None else '',
+                    bool(fluid_val) if fluid_val is not None else False
                 )
     
     return items
@@ -112,10 +114,10 @@ def get_item_display_names_from_recipes(
     
     for item_key in sorted(recipe_items):
         if item_key in item_names:
-            en, zh = item_names[item_key]
-            items.append(ItemDisplay(key=item_key, en=en, zh=zh))
+            en, zh, fluid = item_names[item_key]
+            items.append(ItemDisplay(key=item_key, en=en, zh=zh, fluid=fluid))
         else:
-            # Default: use key as English name, empty Chinese
-            items.append(ItemDisplay(key=item_key, en=item_key, zh=""))
+            # Default: use key as English name, empty Chinese, not fluid
+            items.append(ItemDisplay(key=item_key, en=item_key, zh="", fluid=False))
     
     return items

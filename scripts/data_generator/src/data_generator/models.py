@@ -39,6 +39,7 @@ class ItemDisplay(BaseModel):
     key: str
     en: str
     zh: str
+    fluid: bool = False  # True for fluids that cannot be stored in warehouse
 
 
 class MachineDisplay(BaseModel):

@@ -34,6 +34,7 @@ fn sample_builder<'id>(
             key: key("A"),
             en: name("A"),
             zh: name("A"),
+            is_fluid: false,
         })
         .expect("add item A");
     let b = builder
@@ -41,6 +42,7 @@ fn sample_builder<'id>(
             key: key("B"),
             en: name("B"),
             zh: name("B"),
+            is_fluid: false,
         })
         .expect("add item B");
     let machine = builder

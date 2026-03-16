@@ -25,6 +25,7 @@ fn with_catalog<R>(
             key: key(item_key),
             en: name("Ore"),
             zh: name("Ore"),
+            is_fluid: false,
         })
         .unwrap();
     let b = b

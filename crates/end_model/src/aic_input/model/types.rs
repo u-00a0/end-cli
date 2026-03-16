@@ -26,10 +26,14 @@ impl Default for Stage2Weights {
 
 impl Stage2Weights {
     pub fn active_target_count(self) -> usize {
-        [self.min_machines, self.max_power_slack, self.max_money_slack]
-            .into_iter()
-            .filter(|weight| *weight > 0.0)
-            .count()
+        [
+            self.min_machines,
+            self.max_power_slack,
+            self.max_money_slack,
+        ]
+        .into_iter()
+        .filter(|weight| *weight > 0.0)
+        .count()
     }
 }
 

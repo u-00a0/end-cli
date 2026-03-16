@@ -3,8 +3,8 @@
 use generativity::make_guard;
 
 use crate::{
-    AicBuildError, Catalog, DisplayName, ItemDef, ItemNonZeroU32Map, ItemU32Map, Key,
-    OutpostInput, PowerConfig, ThermalBankDef,
+    AicBuildError, Catalog, DisplayName, ItemDef, ItemNonZeroU32Map, ItemU32Map, Key, OutpostInput,
+    PowerConfig, ThermalBankDef,
 };
 use std::num::NonZeroU32;
 
@@ -25,6 +25,7 @@ fn sample_catalog<'id>(
             key: key("a"),
             en: name("A"),
             zh: name("A"),
+            is_fluid: false,
         })
         .expect("item a should be insertable");
     let b = builder
@@ -32,6 +33,7 @@ fn sample_catalog<'id>(
             key: key("b"),
             en: name("B"),
             zh: name("B"),
+            is_fluid: false,
         })
         .expect("item b should be insertable");
     let builder = builder
