@@ -41,7 +41,7 @@ pub fn build_item_subproblems<'cid, 'sid, 'rid>(
             &mut per_item,
             item,
             SupplySite::ExternalSupply { item },
-            supply.get() as f64,
+            supply.get(),
             "external_supply",
         )?;
     }
@@ -56,7 +56,7 @@ pub fn build_item_subproblems<'cid, 'sid, 'rid>(
             &mut per_item,
             item,
             DemandSite::ExternalConsumption { item },
-            consumption.get() as f64,
+            consumption.get(),
             "external_consumption",
         )?;
     }
@@ -850,6 +850,7 @@ mod tests {
                 key: key("Ore"),
                 en: name("Ore"),
                 zh: name("Ore_zh"),
+                is_fluid: false,
             })
             .expect("add ore");
         let ingot = b
@@ -857,6 +858,7 @@ mod tests {
                 key: key("Ingot"),
                 en: name("Ingot"),
                 zh: name("Ingot_zh"),
+                is_fluid: false,
             })
             .expect("add ingot");
         let gear = b
@@ -864,6 +866,7 @@ mod tests {
                 key: key("Gear"),
                 en: name("Gear"),
                 zh: name("Gear_zh"),
+                is_fluid: false,
             })
             .expect("add gear");
 
@@ -931,7 +934,7 @@ mod tests {
         let mut aic_builder = AicInputs::builder(
             aic_guard,
             PowerConfig::default(),
-            vec![(ore, nz(20))].into(),
+            vec![(ore, PosF64::new(20.0).expect("positive"))].into(),
             Default::default(),
         );
         aic_builder
@@ -1018,8 +1021,8 @@ mod tests {
         let mut aic_builder = AicInputs::builder(
             aic_guard,
             PowerConfig::default(),
-            vec![(item, nz(10))].into(),
-            vec![(item, nz(4))].into(),
+            vec![(item, PosF64::new(10.0).expect("positive"))].into(),
+            vec![(item, PosF64::new(4.0).expect("positive"))].into(),
         );
         aic_builder
             .add_outpost(OutpostInput {
@@ -1071,6 +1074,7 @@ mod tests {
                 key: key("Ore"),
                 en: name("Ore"),
                 zh: name("Ore_zh"),
+                is_fluid: false,
             })
             .expect("add ore");
         let ingot = b
@@ -1078,6 +1082,7 @@ mod tests {
                 key: key("Ingot"),
                 en: name("Ingot"),
                 zh: name("Ingot_zh"),
+                is_fluid: false,
             })
             .expect("add ingot");
         let b = b
@@ -1093,7 +1098,11 @@ mod tests {
         let mut aic_builder = AicInputs::builder(
             aic_guard,
             PowerConfig::default(),
-            vec![(ore, nz(10)), (ingot, nz(7))].into(),
+            vec![
+                (ore, PosF64::new(10.0).expect("positive")),
+                (ingot, PosF64::new(7.0).expect("positive")),
+            ]
+            .into(),
             Default::default(),
         );
         aic_builder
@@ -1158,6 +1167,7 @@ mod tests {
                 key: key("x"),
                 en: name("x"),
                 zh: name("x"),
+                is_fluid: false,
             })
             .expect("add item");
         let b = b

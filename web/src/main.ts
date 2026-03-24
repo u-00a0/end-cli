@@ -1,6 +1,6 @@
 import './app.css';
 import '@xyflow/svelte/dist/style.css';
-import 'material-symbols/outlined.css';
+import './styles/material-symbols-outlined-subset.css';
 import { mount } from 'svelte';
 import App from './App.svelte';
 

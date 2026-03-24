@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import MaterialSymbol from "../icon/MaterialSymbol.svelte";
 
   let { text }: { text: string } = $props();
 
@@ -67,7 +68,7 @@
     onfocus={openHint}
     onblur={closeHint}
   >
-    <span class="material-symbols-outlined icon" aria-hidden="true">info</span>
+    <MaterialSymbol icon="info" size={16} weight={500} opsz={20} />
   </button>
   <span
     bind:this={bubbleEl}
@@ -115,17 +116,6 @@
     outline-offset: 2px;
   }
 
-  .hint-trigger .icon {
-    font-size: 16px;
-    line-height: 1;
-    display: block;
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 500,
-      "GRAD" 0,
-      "opsz" 20;
-  }
-
   .hint-bubble {
     position: fixed;
     /* compatible with narrower screen */
@@ -136,6 +126,7 @@
     box-shadow: var(--shadow-popover);
     padding: 10px 12px;
     font-size: 14px;
+    font-weight: 400;
     line-height: 1.35;
     opacity: 0;
     pointer-events: none;

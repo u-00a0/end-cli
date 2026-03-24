@@ -3,8 +3,8 @@ mod types;
 
 pub use builder::CatalogBuilder;
 pub use types::{
-    FacilityDef, FacilityId, FacilityRegions, ItemDef, ItemId, PowerRecipe, PowerRecipeId,
-    Recipe, RecipeId, Stack, ThermalBankDef,
+    FacilityDef, FacilityId, FacilityRegions, ItemDef, ItemId, PowerRecipe, PowerRecipeId, Recipe,
+    RecipeId, Stack, ThermalBankDef,
 };
 
 use std::collections::HashMap;
@@ -112,17 +112,22 @@ impl<'id> Catalog<'id> {
         &self.items
     }
 
+    /// Returns all items paired with their stable ids.
+    pub fn items_with_id(&self) -> impl Iterator<Item = (ItemId<'id>, &ItemDef)> + '_ {
+        let brand = self.brand;
+        self.items
+            .iter()
+            .enumerate()
+            .map(move |(index, item)| (ItemId::from_index(index, brand), item))
+    }
+
     /// Returns all facilities in id order.
     pub fn facilities(&self) -> &[FacilityDef] {
         &self.facilities
     }
 
     /// Returns whether a facility can be used in the specified scenario region.
-    pub fn facility_available_in_region(
-        &self,
-        facility: FacilityId<'id>,
-        region: Region,
-    ) -> bool {
+    pub fn facility_available_in_region(&self, facility: FacilityId<'id>, region: Region) -> bool {
         self.facility(facility).regions.supports(region)
     }
 

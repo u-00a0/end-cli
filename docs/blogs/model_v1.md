@@ -5,6 +5,7 @@
 - 哨站：$o \in O$，$|O|=k$
 - 机器类型：$t \in T$
 - 热能池燃料（电池）：$b \in B \subseteq I$
+- 流体物品：$f \in F \subseteq I$（流体不可送入仓库，必须即时消费或进行真实出售）
 
 ## 2. 参数
 
@@ -48,7 +49,7 @@
 
 ### 3.3 第二阶段富余变量（用于特定目标）
 - $s^{P} \ge 0$：电力富余（瓦）（仅当 $\kappa^{P}=1$ 时存在）
-- $\tilde q_{o,i} \ge 0$：超出哨站预算上限的每分钟虚拟销量
+- $\tilde q_{o,i} \ge 0 \quad \forall i \in I \setminus F$：超出哨站预算上限的每分钟虚拟销量（仅非流体存在）
 - $s^{\$} \ge 0$：每分钟虚拟成交额
 
 ## 4. 目标函数（两阶段优化）
@@ -79,7 +80,7 @@ $$
 
 - **最大化虚拟成交额**（`max_money_slack`）
   $$
-  \max \; s^{\$} = \max \; \sum_{o\in O}\sum_{i\in I} p_{o,i}\, \tilde q_{o,i}
+  \max \; s^{\$} = \max \; \sum_{o\in O}\sum_{i\in I \setminus F} p_{o,i}\, \tilde q_{o,i}
   $$
 
 - **加权组合**（`weighted`）
@@ -99,9 +100,14 @@ $$
 
 ### 5.1 物品守恒
 
-- 对非电池物品 $i \in I \setminus B$：
+- 对非电池非流体物品 $i \in I \setminus (B \cup F)$：
   $$
   s_i \;+\; \sum_{r \in R} a_{r,i}\, x_r \;-\; c_i \;-\; \sum_{o \in O} \left(q_{o,i}+\tilde q_{o,i}\right) \;\ge\; 0
+  $$
+
+- 对流体物品 $f \in F$（流体不可储存，也不存在虚拟销量，必须即时平衡）：
+  $$
+  s_f \;+\; \sum_{r \in R} a_{r,f}\, x_r \;-\; c_f \;-\; \sum_{o \in O} q_{o,f} \;=\; 0
   $$
 
 - 对电池物品 $b \in B$：
@@ -153,6 +159,5 @@ $$
 
 ### 5.6 每分钟虚拟成交额定义
 $$
-s^{\$} \;=\; \sum_{o\in O}\sum_{i\in I} p_{o,i}\, \tilde q_{o,i}
+s^{\$} \;=\; \sum_{o\in O}\sum_{i\in I \setminus F} p_{o,i}\, \tilde q_{o,i}
 $$
-

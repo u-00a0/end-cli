@@ -1,6 +1,7 @@
 use end_model::{DisplayName, Key, Region};
 use serde::Deserialize;
 use serde::de::Error as _;
+use serde::de::{Visitor, Unexpected};
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 use toml::Spanned;
@@ -22,6 +23,8 @@ pub(crate) struct ItemToml {
     pub(crate) en: DisplayName,
     #[serde(deserialize_with = "deserialize_display_name")]
     pub(crate) zh: DisplayName,
+    #[serde(default)]
+    pub(crate) fluid: bool,
 }
 
 /// Parsed shape of `facilities.toml`.
@@ -88,7 +91,6 @@ pub(crate) struct RecipeToml {
     pub(crate) facility: Key,
     #[serde(deserialize_with = "deserialize_positive_u32")]
     pub(crate) time_s: NonZeroU32,
-    #[serde(default = "default_empty_spanned_stack_list")]
     pub(crate) ingredients: Spanned<Box<[Spanned<StackToml>]>>,
     pub(crate) products: Spanned<Box<[Spanned<StackToml>]>>,
 }
@@ -113,19 +115,16 @@ pub(crate) struct AicToml {
         deserialize_with = "deserialize_supported_aic_version"
     )]
     pub(crate) version: u32,
-    #[serde(
-        default = "default_region",
-        deserialize_with = "deserialize_region"
-    )]
+    #[serde(default = "default_region", deserialize_with = "deserialize_region")]
     pub(crate) region: Region,
     #[serde(default)]
     pub(crate) power: PowerToml,
     #[serde(default)]
     pub(crate) objective: ObjectiveToml,
-    #[serde(default = "default_empty_spanned_item_positive_u32_map")]
-    pub(crate) supply_per_min: Spanned<BTreeMap<KeyToml, PositiveU32Toml>>,
-    #[serde(default = "default_empty_spanned_item_positive_u32_map")]
-    pub(crate) external_consumption_per_min: Spanned<BTreeMap<KeyToml, PositiveU32Toml>>,
+    #[serde(default = "default_empty_spanned_item_positive_f64_map")]
+    pub(crate) supply_per_min: Spanned<BTreeMap<KeyToml, PositiveF64Toml>>,
+    #[serde(default = "default_empty_spanned_item_positive_f64_map")]
+    pub(crate) external_consumption_per_min: Spanned<BTreeMap<KeyToml, PositiveF64Toml>>,
     #[serde(default)]
     pub(crate) outposts: Box<[Spanned<OutpostToml>]>,
 }
@@ -308,6 +307,72 @@ impl<'de> Deserialize<'de> for PositiveU32Toml {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub(crate) struct PositiveF64Toml(f64);
+
+impl PositiveF64Toml {
+    pub(crate) fn into_inner(self) -> f64 {
+        self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for PositiveF64Toml {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct PositiveF64Visitor;
+
+        impl<'de> Visitor<'de> for PositiveF64Visitor {
+            type Value = PositiveF64Toml;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a positive number")
+            }
+
+            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                parse_positive_f64(value as f64).map(PositiveF64Toml).map_err(E::custom)
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                parse_positive_f64(value as f64).map(PositiveF64Toml).map_err(E::custom)
+            }
+
+            fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                parse_positive_f64(value).map(PositiveF64Toml).map_err(E::custom)
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let parsed = value.parse::<f64>().map_err(|_| {
+                    E::invalid_value(Unexpected::Str(value), &"a positive number")
+                })?;
+                parse_positive_f64(parsed).map(PositiveF64Toml).map_err(E::custom)
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                self.visit_str(&value)
+            }
+        }
+
+        deserializer.deserialize_any(PositiveF64Visitor)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct NonNegativeU32Toml(u32);
 
 impl NonNegativeU32Toml {
@@ -360,14 +425,15 @@ where
     parse_non_negative_u32(value).map_err(D::Error::custom)
 }
 
-fn deserialize_optional_non_negative_u32<'de, D>(
-    deserializer: D,
-) -> Result<Option<u32>, D::Error>
+fn deserialize_optional_non_negative_u32<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let value = Option::<i64>::deserialize(deserializer)?;
-    value.map(parse_non_negative_u32).transpose().map_err(D::Error::custom)
+    value
+        .map(parse_non_negative_u32)
+        .transpose()
+        .map_err(D::Error::custom)
 }
 
 fn deserialize_optional_non_negative_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
@@ -375,7 +441,10 @@ where
     D: serde::Deserializer<'de>,
 {
     let value = Option::<f64>::deserialize(deserializer)?;
-    value.map(parse_non_negative_f64).transpose().map_err(D::Error::custom)
+    value
+        .map(parse_non_negative_f64)
+        .transpose()
+        .map_err(D::Error::custom)
 }
 
 fn deserialize_supported_aic_version<'de, D>(deserializer: D) -> Result<u32, D::Error>
@@ -454,6 +523,16 @@ fn parse_non_negative_f64(value: f64) -> Result<f64, String> {
     Ok(value)
 }
 
+fn parse_positive_f64(value: f64) -> Result<f64, String> {
+    if !value.is_finite() {
+        return Err("must be a finite number".to_string());
+    }
+    if value <= 0.0 {
+        return Err(format!("must be > 0, got {value}"));
+    }
+    Ok(value)
+}
+
 fn parse_supported_aic_version(value: i64) -> Result<u32, String> {
     let parsed = parse_non_negative_u32(value)?;
     match parsed {
@@ -462,10 +541,6 @@ fn parse_supported_aic_version(value: i64) -> Result<u32, String> {
     }
 }
 
-fn default_empty_spanned_item_positive_u32_map() -> Spanned<BTreeMap<KeyToml, PositiveU32Toml>> {
+fn default_empty_spanned_item_positive_f64_map() -> Spanned<BTreeMap<KeyToml, PositiveF64Toml>> {
     Spanned::new(0..0, BTreeMap::new())
-}
-
-fn default_empty_spanned_stack_list() -> Spanned<Box<[Spanned<StackToml>]>> {
-    Spanned::new(0..0, Vec::<Spanned<StackToml>>::new().into_boxed_slice())
 }

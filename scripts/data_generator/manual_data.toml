@@ -1,0 +1,801 @@
+# Manual data for items, facilities, and recipes not in Lua files
+# This supplements the data from wiki_data/ Lua files
+#
+# IMPORTANT: Items marked with fluid=true will have fluid=true in the generated items.toml
+# Fluid items cannot be stored in warehouse (must be consumed or sold immediately)
+
+# Machine definitions with power consumption and display names
+[[machines]]
+key = "Filling Unit"
+power_w = 20
+en = "Filling Unit"
+zh = "灌装机"
+
+[[machines]]
+key = "Fitting Unit"
+power_w = 20
+en = "Fitting Unit"
+zh = "配件机"
+
+[[machines]]
+key = "Forge of the Sky"
+power_w = 50
+en = "Forge of the Sky"
+zh = "天有洪炉"
+regions = ["wuling"]
+
+[[machines]]
+key = "Gearing Unit"
+power_w = 10
+en = "Gearing Unit"
+zh = "装备原件机"
+
+[[machines]]
+key = "Grinding Unit"
+power_w = 50
+en = "Grinding Unit"
+zh = "研磨机"
+
+[[machines]]
+key = "Moulding Unit"
+power_w = 10
+en = "Moulding Unit"
+zh = "塑形机"
+
+[[machines]]
+key = "Packaging Unit"
+power_w = 20
+en = "Packaging Unit"
+zh = "封装机"
+
+[[machines]]
+key = "Planting Unit"
+power_w = 20
+en = "Planting Unit"
+zh = "种植机"
+
+[[machines]]
+key = "Reactor Crucible"
+power_w = 50
+en = "Reactor Crucible"
+zh = "反应池"
+regions = ["wuling"]
+
+[[machines]]
+key = "Refining Unit"
+power_w = 5
+en = "Refining Unit"
+zh = "精炼炉"
+
+[[machines]]
+key = "Seed-Picking Unit"
+power_w = 10
+en = "Seed-Picking Unit"
+zh = "采种机"
+
+[[machines]]
+key = "Separating Unit"
+power_w = 20
+en = "Separating Unit"
+zh = "拆解机"
+regions = ["wuling"]
+
+[[machines]]
+key = "Shredding Unit"
+power_w = 5
+en = "Shredding Unit"
+zh = "粉碎机"
+
+# Fluid Pump is a manual recipe-only facility
+[[machines]]
+key = "Fluid Pump"
+power_w = 10
+en = "Fluid Pump"
+zh = "水泵"
+regions = ["wuling"]
+
+[[machines]]
+key = "Water Treatment Unit"
+power_w = 50
+en = "Water Treatment Unit"
+zh = "废水处理机"
+
+[thermal_bank]
+key = "Thermal Bank"
+en = "Thermal Bank"
+zh = "热能池"
+
+# Item display names (key -> {en, zh})
+[[items]]
+key = "Aketine"
+en = "Aketine"
+zh = "酮化灌木"
+
+[[items]]
+key = "Aketine Powder"
+en = "Aketine Powder"
+zh = "酮化灌木粉末"
+
+[[items]]
+key = "Aketine Seed"
+en = "Aketine Seed"
+zh = "酮化树种"
+
+[[items]]
+key = "Amber Rice"
+en = "Amber Rice"
+zh = "金石稻"
+
+[[items]]
+key = "Amber Rice Seed"
+en = "Amber Rice Seed"
+zh = "金石稻种子"
+
+[[items]]
+key = "Amethyst Bottle"
+en = "Amethyst Bottle"
+zh = "紫晶质瓶"
+
+[[items]]
+key = "Amethyst Bottle (Clean Water)"
+en = "Amethyst Bottle (Clean Water)"
+zh = "紫晶质瓶（清水）"
+
+[[items]]
+key = "Amethyst Bottle (Inert Xircon Effluent)"
+en = "Amethyst Bottle (Inert Xircon Effluent)"
+zh = "紫晶质瓶（惰性壤晶废液）"
+
+[[items]]
+key = "Amethyst Bottle (Jincao Solution)"
+en = "Amethyst Bottle (Jincao Solution)"
+zh = "紫晶质瓶（锦草溶液）"
+
+[[items]]
+key = "Amethyst Bottle (Liquid Xiranite)"
+en = "Amethyst Bottle (Liquid Xiranite)"
+zh = "紫晶质瓶（液态息壤）"
+
+[[items]]
+key = "Amethyst Bottle (Sewage)"
+en = "Amethyst Bottle (Sewage)"
+zh = "紫晶质瓶（污水）"
+
+[[items]]
+key = "Amethyst Bottle (Xircon Effluent)"
+en = "Amethyst Bottle (Xircon Effluent)"
+zh = "紫晶质瓶（壤晶废液）"
+
+[[items]]
+key = "Amethyst Bottle (Yazhen Solution)"
+en = "Amethyst Bottle (Yazhen Solution)"
+zh = "紫晶质瓶（芽针溶液）"
+
+[[items]]
+key = "Amethyst Component"
+en = "Amethyst Component"
+zh = "紫晶装备原件"
+
+[[items]]
+key = "Amethyst Fiber"
+en = "Amethyst Fiber"
+zh = "紫晶纤维"
+
+[[items]]
+key = "Amethyst Ore"
+en = "Amethyst Ore"
+zh = "紫晶矿"
+
+[[items]]
+key = "Amethyst Part"
+en = "Amethyst Part"
+zh = "紫晶零件"
+
+[[items]]
+key = "Amethyst Powder"
+en = "Amethyst Powder"
+zh = "紫晶粉末"
+
+[[items]]
+key = "Buck Capsule (A)"
+en = "Buck Capsule (A)"
+zh = "精选荞愈胶囊"
+
+[[items]]
+key = "Buck Capsule (B)"
+en = "Buck Capsule (B)"
+zh = "优质荞愈胶囊"
+
+[[items]]
+key = "Buck Capsule (C)"
+en = "Buck Capsule (C)"
+zh = "荞愈胶囊"
+
+[[items]]
+key = "Buckflower"
+en = "Buckflower"
+zh = "荞花"
+
+[[items]]
+key = "Buckflower Powder"
+en = "Buckflower Powder"
+zh = "荞花粉"
+
+[[items]]
+key = "Buckflower Seed"
+en = "Buckflower Seed"
+zh = "荞花种子"
+
+[[items]]
+key = "Bumper-Rich"
+en = "Bumper-Rich"
+zh = "富缓冲剂"
+
+[[items]]
+key = "Burdo-Muck"
+en = "Burdo-Muck"
+zh = "伯尔多泥"
+
+[[items]]
+key = "Canned Citrome (A)"
+en = "Canned Citrome (A)"
+zh = "精选柑实罐头"
+
+[[items]]
+key = "Canned Citrome (B)"
+en = "Canned Citrome (B)"
+zh = "优质柑实罐头"
+
+[[items]]
+key = "Canned Citrome (C)"
+en = "Canned Citrome (C)"
+zh = "柑实罐头"
+
+[[items]]
+key = "Carbon"
+en = "Carbon"
+zh = "碳"
+
+[[items]]
+key = "Carbon Powder"
+en = "Carbon Powder"
+zh = "碳粉"
+
+[[items]]
+key = "Citrome"
+en = "Citrome"
+zh = "柑实"
+
+[[items]]
+key = "Citrome Powder"
+en = "Citrome Powder"
+zh = "柑实粉"
+
+[[items]]
+key = "Citrome Seed"
+en = "Citrome Seed"
+zh = "柑实种子"
+
+[[items]]
+key = "Clean Water"
+en = "Clean Water"
+zh = "清水"
+fluid = true
+
+[[items]]
+key = "Cryston Bottle"
+en = "Cryston Bottle"
+zh = "高晶质瓶"
+
+[[items]]
+key = "Cryston Bottle (Clean Water)"
+en = "Cryston Bottle (Clean Water)"
+zh = "高晶质瓶（清水）"
+
+[[items]]
+key = "Cryston Bottle (Inert Xircon Effluent)"
+en = "Cryston Bottle (Inert Xircon Effluent)"
+zh = "高晶质瓶（惰性壤晶废液）"
+
+[[items]]
+key = "Cryston Bottle (Jincao Solution)"
+en = "Cryston Bottle (Jincao Solution)"
+zh = "高晶质瓶（锦草溶液）"
+
+[[items]]
+key = "Cryston Bottle (Liquid Xiranite)"
+en = "Cryston Bottle (Liquid Xiranite)"
+zh = "高晶质瓶（液态息壤）"
+
+[[items]]
+key = "Cryston Bottle (Sewage)"
+en = "Cryston Bottle (Sewage)"
+zh = "高晶质瓶（污水）"
+
+[[items]]
+key = "Cryston Bottle (Xircon Effluent)"
+en = "Cryston Bottle (Xircon Effluent)"
+zh = "高晶质瓶（壤晶废液）"
+
+[[items]]
+key = "Cryston Bottle (Yazhen Solution)"
+en = "Cryston Bottle (Yazhen Solution)"
+zh = "高晶质瓶（芽针溶液）"
+
+[[items]]
+key = "Cryston Component"
+en = "Cryston Component"
+zh = "高晶装备原件"
+
+[[items]]
+key = "Cryston Fiber"
+en = "Cryston Fiber"
+zh = "高晶纤维"
+
+[[items]]
+key = "Cryston Part"
+en = "Cryston Part"
+zh = "高晶零件"
+
+[[items]]
+key = "Cryston Powder"
+en = "Cryston Powder"
+zh = "高晶粉末"
+
+[[items]]
+key = "Cuprium"
+en = "Cuprium"
+zh = "赤铜块"
+
+[[items]]
+key = "Cuprium Bottle"
+en = "Cuprium Bottle"
+zh = "赤铜瓶"
+
+[[items]]
+key = "Cuprium Bottle (Clean Water)"
+en = "Cuprium Bottle (Clean Water)"
+zh = "赤铜瓶（清水）"
+
+[[items]]
+key = "Cuprium Bottle (Inert Xircon Effluent)"
+en = "Cuprium Bottle (Inert Xircon Effluent)"
+zh = "赤铜瓶（惰性壤晶废液）"
+
+[[items]]
+key = "Cuprium Bottle (Jincao Solution)"
+en = "Cuprium Bottle (Jincao Solution)"
+zh = "赤铜瓶（锦草溶液）"
+
+[[items]]
+key = "Cuprium Bottle (Liquid Xiranite)"
+en = "Cuprium Bottle (Liquid Xiranite)"
+zh = "赤铜瓶（液态息壤）"
+
+[[items]]
+key = "Cuprium Bottle (Sewage)"
+en = "Cuprium Bottle (Sewage)"
+zh = "赤铜瓶（污水）"
+
+[[items]]
+key = "Cuprium Bottle (Xircon Effluent)"
+en = "Cuprium Bottle (Xircon Effluent)"
+zh = "赤铜瓶（壤晶废液）"
+
+[[items]]
+key = "Cuprium Bottle (Yazhen Solution)"
+en = "Cuprium Bottle (Yazhen Solution)"
+zh = "赤铜瓶（芽针溶液）"
+
+[[items]]
+key = "Cuprium Component"
+en = "Cuprium Component"
+zh = "赤铜装备原件"
+
+[[items]]
+key = "Cuprium Ore"
+en = "Cuprium Ore"
+zh = "赤铜矿"
+
+[[items]]
+key = "Cuprium Part"
+en = "Cuprium Part"
+zh = "赤铜零件"
+
+[[items]]
+key = "Cuprium Powder"
+en = "Cuprium Powder"
+zh = "赤铜粉末"
+
+[[items]]
+key = "Dense Carbon Powder"
+en = "Dense Carbon Powder"
+zh = "浓缩碳粉"
+
+[[items]]
+key = "Dense Ferrium Powder"
+en = "Dense Ferrium Powder"
+zh = "浓缩铁粉"
+
+[[items]]
+key = "Dense Originium Powder"
+en = "Dense Originium Powder"
+zh = "浓缩源石粉"
+
+[[items]]
+key = "Dense Origocrust Powder"
+en = "Dense Origocrust Powder"
+zh = "浓缩晶体外壳粉"
+
+[[items]]
+key = "Ferrium"
+en = "Ferrium"
+zh = "铁"
+
+[[items]]
+key = "Ferrium Bottle"
+en = "Ferrium Bottle"
+zh = "铁质瓶"
+
+[[items]]
+key = "Ferrium Bottle (Clean Water)"
+en = "Ferrium Bottle (Clean Water)"
+zh = "铁质瓶（清水）"
+
+[[items]]
+key = "Ferrium Bottle (Inert Xircon Effluent)"
+en = "Ferrium Bottle (Inert Xircon Effluent)"
+zh = "铁质瓶（惰性壤晶废液）"
+
+[[items]]
+key = "Ferrium Bottle (Jincao Solution)"
+en = "Ferrium Bottle (Jincao Solution)"
+zh = "铁质瓶（锦草溶液）"
+
+[[items]]
+key = "Ferrium Bottle (Liquid Xiranite)"
+en = "Ferrium Bottle (Liquid Xiranite)"
+zh = "铁质瓶（液态息壤）"
+
+[[items]]
+key = "Ferrium Bottle (Sewage)"
+en = "Ferrium Bottle (Sewage)"
+zh = "铁质瓶（污水）"
+
+[[items]]
+key = "Ferrium Bottle (Xircon Effluent)"
+en = "Ferrium Bottle (Xircon Effluent)"
+zh = "铁质瓶（壤晶废液）"
+
+[[items]]
+key = "Ferrium Bottle (Yazhen Solution)"
+en = "Ferrium Bottle (Yazhen Solution)"
+zh = "铁质瓶（芽针溶液）"
+
+[[items]]
+key = "Ferrium Component"
+en = "Ferrium Component"
+zh = "蓝铁装备原件"
+
+[[items]]
+key = "Ferrium Ore"
+en = "Ferrium Ore"
+zh = "蓝铁矿"
+
+[[items]]
+key = "Ferrium Part"
+en = "Ferrium Part"
+zh = "铁制零件"
+
+[[items]]
+key = "Ferrium Powder"
+en = "Ferrium Powder"
+zh = "铁粉"
+
+[[items]]
+key = "Ground Buckflower Powder"
+en = "Ground Buckflower Powder"
+zh = "细磨荞花粉末"
+
+[[items]]
+key = "Ground Citrome Powder"
+en = "Ground Citrome Powder"
+zh = "细磨柑实粉末"
+
+[[items]]
+key = "HC Valley Battery"
+en = "HC Valley Battery"
+zh = "高容谷地电池"
+
+[[items]]
+key = "Industrial Explosive"
+en = "Industrial Explosive"
+zh = "工业爆炸物"
+
+[[items]]
+key = "Inert Xircon Effluent"
+en = "Inert Xircon Effluent"
+zh = "惰性壤晶废液"
+fluid = true
+
+[[items]]
+key = "Jincao"
+en = "Jincao"
+zh = "锦草"
+
+[[items]]
+key = "Jincao Drink"
+en = "Jincao Drink"
+zh = "锦草软饮"
+
+[[items]]
+key = "Jincao Powder"
+en = "Jincao Powder"
+zh = "锦草粉"
+
+[[items]]
+key = "Jincao Seed"
+en = "Jincao Seed"
+zh = "锦草种子"
+
+[[items]]
+key = "Jincao Solution"
+en = "Jincao Solution"
+zh = "锦草溶液"
+fluid = true
+
+[[items]]
+key = "Jincao Tea"
+en = "Jincao Tea"
+zh = "优质锦草软饮"
+
+[[items]]
+key = "LC Valley Battery"
+en = "LC Valley Battery"
+zh = "低容谷地电池"
+
+[[items]]
+key = "LC Wuling Battery"
+en = "LC Wuling Battery"
+zh = "低容武陵电池"
+
+[[items]]
+key = "Liquid Xiranite"
+en = "Liquid Xiranite"
+zh = "液态息壤"
+fluid = true
+
+[[items]]
+key = "Originium Ore"
+en = "Originium Ore"
+zh = "源矿"
+
+[[items]]
+key = "Originium Powder"
+en = "Originium Powder"
+zh = "源石粉"
+
+[[items]]
+key = "Origocrust"
+en = "Origocrust"
+zh = "晶体外壳"
+
+[[items]]
+key = "Origocrust Powder"
+en = "Origocrust Powder"
+zh = "晶体外壳粉"
+
+[[items]]
+key = "Packed Origocrust"
+en = "Packed Origocrust"
+zh = "封装晶体外壳"
+
+[[items]]
+key = "Redjade Ginseng"
+en = "Redjade Ginseng"
+zh = "琼叶参"
+
+[[items]]
+key = "Redjade Ginseng Seed"
+en = "Redjade Ginseng Seed"
+zh = "琼叶参种子"
+
+[[items]]
+key = "Reed Rye"
+en = "Reed Rye"
+zh = "灰芦麦"
+
+[[items]]
+key = "Reed Rye Seed"
+en = "Reed Rye Seed"
+zh = "灰芦麦种子"
+
+[[items]]
+key = "SC Valley Battery"
+en = "SC Valley Battery"
+zh = "中容谷地电池"
+
+[[items]]
+key = "SC Wuling Battery"
+en = "SC Wuling Battery"
+zh = "中容武陵电池"
+
+[[items]]
+key = "Sandleaf"
+en = "Sandleaf"
+zh = "砂叶"
+
+[[items]]
+key = "Sandleaf Powder"
+en = "Sandleaf Powder"
+zh = "砂叶粉"
+
+[[items]]
+key = "Sandleaf Seed"
+en = "Sandleaf Seed"
+zh = "砂叶种子"
+
+[[items]]
+key = "Sewage"
+en = "Sewage"
+zh = "污水"
+fluid = true
+
+[[items]]
+key = "Stabilized Carbon"
+en = "Stabilized Carbon"
+zh = "稳定碳块"
+
+[[items]]
+key = "Steel"
+en = "Steel"
+zh = "钢"
+
+[[items]]
+key = "Steel Bottle"
+en = "Steel Bottle"
+zh = "钢质瓶"
+
+[[items]]
+key = "Steel Bottle (Clean Water)"
+en = "Steel Bottle (Clean Water)"
+zh = "钢质瓶（清水）"
+
+[[items]]
+key = "Steel Bottle (Inert Xircon Effluent)"
+en = "Steel Bottle (Inert Xircon Effluent)"
+zh = "钢质瓶（惰性壤晶废液）"
+
+[[items]]
+key = "Steel Bottle (Jincao Solution)"
+en = "Steel Bottle (Jincao Solution)"
+zh = "钢质瓶（锦草溶液）"
+
+[[items]]
+key = "Steel Bottle (Liquid Xiranite)"
+en = "Steel Bottle (Liquid Xiranite)"
+zh = "钢质瓶（液态息壤）"
+
+[[items]]
+key = "Steel Bottle (Sewage)"
+en = "Steel Bottle (Sewage)"
+zh = "钢质瓶（污水）"
+
+[[items]]
+key = "Steel Bottle (Xircon Effluent)"
+en = "Steel Bottle (Xircon Effluent)"
+zh = "钢质瓶（壤晶废液）"
+
+[[items]]
+key = "Steel Bottle (Yazhen Solution)"
+en = "Steel Bottle (Yazhen Solution)"
+zh = "钢质瓶（芽针溶液）"
+
+[[items]]
+key = "Steel Part"
+en = "Steel Part"
+zh = "钢制零件"
+
+[[items]]
+key = "Tartpepper"
+en = "Tartpepper"
+zh = "酸椒"
+
+[[items]]
+key = "Tartpepper Seed"
+en = "Tartpepper Seed"
+zh = "酸椒种子"
+
+[[items]]
+key = "Wood"
+en = "Wood"
+zh = "原木"
+
+[[items]]
+key = "Xiranite"
+en = "Xiranite"
+zh = "息壤"
+
+[[items]]
+key = "Xiranite Component"
+en = "Xiranite Component"
+zh = "息壤装备原件"
+
+[[items]]
+key = "Xircon"
+en = "Xircon"
+zh = "壤晶"
+
+[[items]]
+key = "Xircon Effluent"
+en = "Xircon Effluent"
+zh = "壤晶废液"
+fluid = true
+
+[[items]]
+key = "Yazhen"
+en = "Yazhen"
+zh = "芽针"
+
+[[items]]
+key = "Yazhen Powder"
+en = "Yazhen Powder"
+zh = "芽针粉"
+
+[[items]]
+key = "Yazhen Seed"
+en = "Yazhen Seed"
+zh = "芽针种子"
+
+[[items]]
+key = "Yazhen Solution"
+en = "Yazhen Solution"
+zh = "芽针溶液"
+fluid = true
+
+[[items]]
+key = "Yazhen Syringe (A)"
+en = "Yazhen Syringe (A)"
+zh = "优质芽针针剂"
+
+[[items]]
+key = "Yazhen Syringe (C)"
+en = "Yazhen Syringe (C)"
+zh = "芽针针剂"
+
+# Manual recipes not in Lua files
+[[manual_recipes]]
+facility = "Fluid Pump"
+time_s = 1
+
+[[manual_recipes.products]]
+item = "Clean Water"
+count = 1
+
+# Water Treatment Unit recipes
+[[manual_recipes]]
+facility = "Water Treatment Unit"
+time_s = 2
+products = []
+
+[[manual_recipes.ingredients]]
+item = "Sewage"
+count = 1
+
+[[manual_recipes]]
+facility = "Water Treatment Unit"
+time_s = 2
+products = []
+
+[[manual_recipes.ingredients]]
+item = "Inert Xircon Effluent"
+count = 1
+
+[[manual_recipes]]
+facility = "Water Treatment Unit"
+time_s = 2
+products = []
+
+[[manual_recipes.ingredients]]
+item = "Xircon Effluent"
+count = 1

@@ -1,28 +1,37 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nickelpack/nsis-tauri-utils/heads/main/schema/config.schema.json",
-  "productName": "源石计划",
-  "version": "0.2.0",
-  "identifier": "com.endfield.planner",
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "end-desktop",
+  "version": "0.1.0",
+  "identifier": "io.github.sssxks.end2",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npx tauri icon public/favicon.svg -o src-tauri/icons && npm run build"
   },
   "app": {
-    "title": "源石计划 - 终末地产线规划",
     "windows": [
       {
-        "label": "main",
-        "title": "源石计划 - 终末地产线规划",
-        "width": 1400,
-        "height": 900,
-        "minWidth": 800,
-        "minHeight": 600
+        "title": "源石计划",
+        "width": 1360,
+        "height": 768,
+        "resizable": true,
+        "fullscreen": false
       }
     ],
     "security": {
       "csp": null
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
   }
 }

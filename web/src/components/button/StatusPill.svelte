@@ -2,6 +2,7 @@
   import { translateByLang } from "../../lib/lang";
   import type { LangTag } from "../../lib/types";
   import { tooltip } from "../../lib/tooltip";
+  import MaterialSymbol from "../icon/MaterialSymbol.svelte";
 
   export type SolveStatusPillState =
     | { status: "solving"; elapsedMs: number | null }
@@ -57,13 +58,13 @@
       <span class="spinner-inner"></span>
     </span>
   {:else if state.status === "error"}
-    <span
-      class="material-symbols-outlined solve-icon danger"
-      aria-hidden="true">error</span>
+    <span class="solve-icon danger" aria-hidden="true">
+      <MaterialSymbol icon="error" size={16} weight={600} opsz={16} />
+    </span>
   {:else}
-    <span
-      class="material-symbols-outlined solve-icon"
-      aria-hidden="true">check_circle</span>
+    <span class="solve-icon" aria-hidden="true">
+      <MaterialSymbol icon="check_circle" size={16} weight={600} opsz={16} />
+    </span>
   {/if}
 
   <p class="elapsed" class:danger={isDanger}>{formatElapsed(state.elapsedMs)}</p>
@@ -114,18 +115,12 @@
   }
 
   .solve-icon {
-    font-size: 16px;
-    line-height: 1;
     color: var(--accent);
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 16px;
-    text-align: center;
     flex: 0 0 16px;
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 600,
-      "GRAD" 0,
-      "opsz" 16;
   }
 
   .solve-icon.danger {

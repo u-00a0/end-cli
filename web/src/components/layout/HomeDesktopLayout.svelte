@@ -23,8 +23,6 @@
   const RIGHT_PANE_RATIO_STORAGE_KEY = "end2.web.right-pane-ratio.v2";
   const DEFAULT_LEFT_PANE_RATIO = 0.55;
   const DEFAULT_RIGHT_PANE_RATIO = 0.5;
-  const MIN_PANE_RATIO = 0.1;
-  const MAX_PANE_RATIO = 0.9;
 
   interface Props {
     lang: LangTag;
@@ -74,10 +72,6 @@
   let layoutElement = $state<HTMLElement | null>(null);
   let rightPaneElement = $state<HTMLElement | null>(null);
 
-  function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
-  }
-
   function parseRatio(raw: string | null): number | null {
     if (raw === null) {
       return null;
@@ -88,7 +82,7 @@
       return null;
     }
 
-    return clamp(parsed, MIN_PANE_RATIO, MAX_PANE_RATIO);
+    return parsed
   }
 
   function t(zh: string, en: string): string {

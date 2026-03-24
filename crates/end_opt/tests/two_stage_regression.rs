@@ -2,7 +2,7 @@
 
 use end_model::{
     AicInputs, Catalog, DisplayName, FacilityDef, FacilityRegions, ItemDef, Key, OutpostInput,
-    PowerConfig, Region, Stack, ThermalBankDef,
+    PosF64, PowerConfig, Region, Stack, Stage2Weights, ThermalBankDef,
 };
 use end_opt::{Error, NEAR_INT_EPS, run_two_stage};
 use generativity::Guard;
@@ -31,6 +31,7 @@ fn sample_catalog<'id>(
             key: key("Ore"),
             en: name("Ore"),
             zh: name("Ore_zh"),
+            is_fluid: false,
         })
         .expect("add ore");
     let ingot = b
@@ -38,6 +39,7 @@ fn sample_catalog<'id>(
             key: key("Ingot"),
             en: name("Ingot"),
             zh: name("Ingot_zh"),
+            is_fluid: false,
         })
         .expect("add ingot");
 
@@ -89,6 +91,7 @@ fn run_two_stage_applies_region_facility_restrictions() {
             key: key("Ore"),
             en: name("Ore"),
             zh: name("Ore_zh"),
+            is_fluid: false,
         })
         .expect("add ore");
     let ingot = b
@@ -96,6 +99,7 @@ fn run_two_stage_applies_region_facility_restrictions() {
             key: key("Ingot"),
             en: name("Ingot"),
             zh: name("Ingot_zh"),
+            is_fluid: false,
         })
         .expect("add ingot");
 
@@ -149,7 +153,7 @@ fn run_two_stage_applies_region_facility_restrictions() {
     let mut aic_builder = AicInputs::builder(
         aic_guard,
         PowerConfig::default(),
-        vec![(ore, nz(10))].into(),
+        vec![(ore, PosF64::new(10.0).expect("positive"))].into(),
         Default::default(),
     )
     .region(Region::FourthValley);
@@ -187,7 +191,7 @@ fn sample_catalog_and_aic<'cid, 'sid>(
     let mut aic_builder = AicInputs::builder(
         aic_guard,
         PowerConfig::default(),
-        vec![(ore, nz(10))].into(),
+        vec![(ore, PosF64::new(10.0).expect("positive"))].into(),
         Default::default(),
     );
     aic_builder
@@ -212,7 +216,7 @@ fn run_two_stage_allows_empty_recipes_with_direct_external_sales() {
     let mut aic_builder = AicInputs::builder(
         aic_guard,
         PowerConfig::default(),
-        vec![(ore, nz(10))].into(),
+        vec![(ore, PosF64::new(10.0).expect("positive"))].into(),
         Default::default(),
     );
     aic_builder
@@ -267,6 +271,105 @@ fn run_two_stage_allows_empty_recipes_with_direct_external_sales() {
 }
 
 #[test]
+fn max_money_slack_does_not_virtualize_fluid_surplus_into_stockpile() {
+    make_guard!(guard);
+    let mut b = Catalog::builder(guard);
+    let ore = b
+        .add_item(ItemDef {
+            key: key("Ore"),
+            en: name("Ore"),
+            zh: name("Ore_zh"),
+            is_fluid: false,
+        })
+        .expect("add ore");
+    let coolant = b
+        .add_item(ItemDef {
+            key: key("Coolant"),
+            en: name("Coolant"),
+            zh: name("Coolant_zh"),
+            is_fluid: true,
+        })
+        .expect("add coolant");
+    let mixer = b
+        .add_facility(FacilityDef {
+            key: key("Mixer"),
+            power_w: nz(10),
+            en: name("Mixer"),
+            zh: name("Mixer_zh"),
+            regions: FacilityRegions::All,
+        })
+        .expect("add mixer");
+    let mut b = b
+        .add_thermal_bank(ThermalBankDef {
+            key: key("Thermal Bank"),
+            en: name("Thermal Bank"),
+            zh: name("Thermal_Bank_zh"),
+        })
+        .expect("add thermal bank");
+    b.push_recipe(
+        mixer,
+        nz(60),
+        vec![Stack {
+            item: ore,
+            count: nz(1),
+        }]
+        .into(),
+        vec![Stack {
+            item: coolant,
+            count: nz(1),
+        }]
+        .into(),
+    )
+    .expect("push recipe");
+    let catalog = b.build();
+
+    make_guard!(aic_guard);
+    let mut aic_builder = AicInputs::builder(
+        aic_guard,
+        PowerConfig::default(),
+        vec![(ore, PosF64::new(10.0).expect("positive"))].into(),
+        Default::default(),
+    )
+    .stage2_weights(Stage2Weights {
+        min_machines: 0.0,
+        max_power_slack: 0.0,
+        max_money_slack: 1.0,
+    });
+    aic_builder
+        .add_outpost(OutpostInput {
+            key: key("Camp"),
+            en: Some(name("Camp")),
+            zh: Some(name("Camp_zh")),
+            money_cap_per_hour: 300,
+            prices: vec![(coolant, 1)].into(),
+        })
+        .expect("valid aic outpost");
+    let aic = aic_builder.build();
+
+    make_guard!(result_guard);
+    let result = run_two_stage(&catalog, &aic, result_guard).expect("solve sample model");
+
+    assert!(
+        (result.stage1.revenue_per_min - 5.0).abs() <= 1e-9,
+        "stage1 revenue should be capped at 5/min by outpost cap, got {}",
+        result.stage1.revenue_per_min
+    );
+    assert!(
+        result.stage2.money_slack_per_min.abs() <= 1e-9,
+        "fluid items must not contribute virtual money slack, got {}",
+        result.stage2.money_slack_per_min
+    );
+    assert!(
+        result
+            .stage2
+            .item_stockpile
+            .iter()
+            .all(|row| row.item != coolant),
+        "fluid items must not appear in warehouse stockpile"
+    );
+}
+
+#[test]
 fn stage2_respects_revenue_floor_and_basic_invariants() {
     make_guard!(guard);
     make_guard!(aic_guard);
@@ -314,8 +417,8 @@ fn run_two_stage_rejects_infeasible_external_consumption() {
     let aic = AicInputs::builder(
         aic_guard,
         PowerConfig::default(),
-        vec![(ore, nz(10))].into(),
-        vec![(ore, nz(11))].into(),
+        vec![(ore, PosF64::new(10.0).expect("positive"))].into(),
+        vec![(ore, PosF64::new(11.0).expect("positive"))].into(),
     )
     .build();
 
