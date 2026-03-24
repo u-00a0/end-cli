@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { RegisteredIconName } from "../../lib/icon-registry";
   import { tooltip } from "../../lib/tooltip";
+  import MaterialSymbol from "../icon/MaterialSymbol.svelte";
 
   interface FileInputConfig {
     accept: string;
@@ -9,7 +11,7 @@
 
   interface CommonProps {
     ariaLabel: string;
-    icon?: string;
+    icon?: RegisteredIconName;
     iconSnippet?: Snippet;
     label?: string;
     title?: string;
@@ -76,7 +78,7 @@
     {#if iconSnippet}
       {@render iconSnippet()}
     {:else if icon}
-      <span class="material-symbols-outlined icon" aria-hidden="true">{icon}</span>
+      <MaterialSymbol icon={icon} size={20} weight={400} opsz={20} />
     {/if}
     {#if label}
       <span class="text">{label}</span>
@@ -110,7 +112,7 @@
     {#if iconSnippet}
       {@render iconSnippet()}
     {:else if icon}
-      <span class="material-symbols-outlined icon" aria-hidden="true">{icon}</span>
+      <MaterialSymbol icon={icon} size={20} weight={400} opsz={20} />
     {/if}
     {#if label}
       <span class="text">{label}</span>
@@ -128,7 +130,7 @@
     {#if iconSnippet}
       {@render iconSnippet()}
     {:else if icon}
-      <span class="material-symbols-outlined icon" aria-hidden="true">{icon}</span>
+      <MaterialSymbol icon={icon} size={20} weight={400} opsz={20} />
     {/if}
     {#if label}
       <span class="text">{label}</span>
@@ -180,17 +182,6 @@
 
   .icon-action-btn input {
     display: none;
-  }
-
-  .icon {
-    font-size: 20px;
-    line-height: 1;
-    display: block;
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 400,
-      "GRAD" 0,
-      "opsz" 20;
   }
 
   .text {

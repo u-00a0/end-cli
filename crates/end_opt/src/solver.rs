@@ -4,8 +4,8 @@ use crate::logistics::build_logistics_plan;
 use end_model::{
     AicInputs, Catalog, ExternalSupplySlack, FacilityId, FacilityMachineCount, ItemId,
     ItemStockpile, ItemVec, OptimizationResult, OutpostId, OutpostSaleQty, OutpostValue, PosF64,
-    PowerConfig, PowerRecipeId, PowerSummary, RecipeId, RecipeUsage, Stage2Weights,
-    StageSolution, ThermalBankUsage,
+    PowerConfig, PowerRecipeId, PowerSummary, RecipeId, RecipeUsage, Stage2Weights, StageSolution,
+    ThermalBankUsage,
 };
 use generativity::Guard;
 use good_lp::{
@@ -21,9 +21,15 @@ pub const NEAR_INT_EPS: f64 = 1e-6;
 #[derive(Debug, Clone, Copy)]
 enum StageObjective {
     MaxRevenue,
-    MinMachines { revenue_floor_per_min: f64 },
-    MaxPowerSlack { revenue_floor_per_min: f64 },
-    MaxMoneySlack { revenue_floor_per_min: f64 },
+    MinMachines {
+        revenue_floor_per_min: f64,
+    },
+    MaxPowerSlack {
+        revenue_floor_per_min: f64,
+    },
+    MaxMoneySlack {
+        revenue_floor_per_min: f64,
+    },
     Weighted {
         revenue_floor_per_min: f64,
         weights: Stage2Weights,
@@ -298,7 +304,10 @@ fn solve_stage<'cid, 'sid>(
                 .iter()
                 .map(|(item, price)| {
                     let qty_real = vars.add(variable().min(0.0));
-                    let qty_virtual = enable_virtual_sales.then(|| vars.add(variable().min(0.0)));
+                    let qty_virtual = enable_virtual_sales
+                        .then_some(catalog.item(item))
+                        .filter(|item_def| !item_def.is_fluid)
+                        .map(|_| vars.add(variable().min(0.0)));
                     SellLineVars {
                         item,
                         price,
@@ -358,7 +367,7 @@ fn solve_stage<'cid, 'sid>(
     let item_balance = aic.supply_per_min().iter().fold(
         ItemVec::filled(catalog, Expression::from(0.0)),
         |mut item_balance, (item, supply)| {
-            item_balance[item] = Expression::from(supply.get() as f64);
+            item_balance[item] = Expression::from(supply.get());
             item_balance
         },
     );
@@ -366,7 +375,7 @@ fn solve_stage<'cid, 'sid>(
     let item_balance = aic.external_consumption_per_min().iter().fold(
         item_balance,
         |mut item_balance, (item, consume)| {
-            item_balance[item] -= consume.get() as f64;
+            item_balance[item] -= consume.get();
             item_balance
         },
     );
@@ -381,7 +390,10 @@ fn solve_stage<'cid, 'sid>(
         });
 
     let (item_balance, virtual_sales_by_item) = outpost_vars.iter().fold(
-        (item_balance, ItemVec::filled(catalog, Expression::from(0.0))),
+        (
+            item_balance,
+            ItemVec::filled(catalog, Expression::from(0.0)),
+        ),
         |(mut item_balance, mut virtual_sales_by_item), ov| {
             ov.sell_lines.iter().for_each(|line| {
                 item_balance[line.item] -= line.qty_real;
@@ -458,7 +470,9 @@ fn solve_stage<'cid, 'sid>(
     if power_model.enabled {
         model = model.with(constraint!(&power_gen >= power_use.clone()));
         if let Some(power_slack) = power_slack_var {
-            model = model.with(constraint!(power_slack <= power_gen.clone() - power_use.clone()));
+            model = model.with(constraint!(
+                power_slack <= power_gen.clone() - power_use.clone()
+            ));
         }
     }
 
@@ -466,9 +480,19 @@ fn solve_stage<'cid, 'sid>(
         model.with(constraint!(rv.x <= rv.throughput_per_min * rv.y))
     });
 
-    model = item_balance.iter().fold(model, |model, expr| {
-        model.with(constraint!(expr.clone() >= 0.0))
-    });
+    // Apply item balance constraints:
+    // - For fluids: equality (must be exactly 0, no storage allowed)
+    // - For non-fluids: inequality (>= 0, surplus can go to warehouse)
+    model = catalog
+        .items_with_id()
+        .fold(model, |model, (item_id, item_def)| {
+            let expr = &item_balance[item_id];
+            if item_def.is_fluid {
+                model.with(constraint!(expr.clone() == 0.0))
+            } else {
+                model.with(constraint!(expr.clone() >= 0.0))
+            }
+        });
 
     let solution = model.solve().map_err(|source| Error::Solver { source })?;
 
@@ -489,13 +513,15 @@ fn solve_stage<'cid, 'sid>(
         )?;
         let total_gen_w = near_u32(|| "power.total_gen_w".into(), solution.eval(&power_gen))?;
         let total_use_w = near_u32(|| "power.total_use_w".into(), solution.eval(&power_use))?;
-        let margin_w = total_gen_w.checked_sub(total_use_w).ok_or(Error::InvalidInput {
-            message: format!(
-                "decoded power total_gen_w {} < total_use_w {}",
-                total_gen_w, total_use_w
-            )
-            .into_boxed_str(),
-        })?;
+        let margin_w = total_gen_w
+            .checked_sub(total_use_w)
+            .ok_or(Error::InvalidInput {
+                message: format!(
+                    "decoded power total_gen_w {} < total_use_w {}",
+                    total_gen_w, total_use_w
+                )
+                .into_boxed_str(),
+            })?;
         Some(PowerSummary {
             external_production_w: power_model.external_production_w,
             external_consumption_w: power_model.external_consumption_w,
@@ -622,17 +648,17 @@ fn solve_stage<'cid, 'sid>(
             ExternalSupplySlack {
                 item,
                 slack_per_min: solution.eval(expr),
-                supply_per_min: supply.get() as f64,
+                supply_per_min: supply.get(),
             }
         })
         .collect::<Vec<_>>();
     external_supply_slack.sort_by(|a, b| a.slack_per_min.total_cmp(&b.slack_per_min));
 
-    // Per-item stockpile quantity in units/min.
+    // Per-item stockpile quantity in units/min for warehouse-storable items.
     //
     // Motivation: stage2 may introduce virtual sales variables to maximize potential money value.
     // Those virtual quantities are not physically sold in game and should be interpreted as
-    // items ending up in warehouse, so we define:
+    // items ending up in warehouse, so for non-fluids we define:
     //   stockpile(item) = item_balance_slack(item) + virtual_sales_qty(item).
     let mut touched_items = BTreeSet::<ItemId<'cid>>::new();
     for (item, _) in aic.supply_per_min().iter() {
@@ -657,6 +683,9 @@ fn solve_stage<'cid, 'sid>(
 
     let mut item_stockpile = Vec::<ItemStockpile<'cid>>::new();
     for item in touched_items {
+        if catalog.item(item).is_fluid {
+            continue;
+        }
         let slack = solution.eval(&item_balance[item]);
         let virtual_qty = solution.eval(&virtual_sales_by_item[item]);
         let stockpile = slack + virtual_qty;

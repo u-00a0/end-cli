@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tooltip } from "../../lib/tooltip";
+  import MaterialSymbol from "../icon/MaterialSymbol.svelte";
 
   interface Props {
     isCollapsed: boolean;
@@ -17,11 +18,9 @@
   use:tooltip={label}
   onclick={onToggle}
 >
-  <span
-    class="material-symbols-outlined icon handle-icon"
-    class:rotated={isCollapsed}
-    aria-hidden="true"
-  >expand_more</span>
+  <span class="handle-icon" class:rotated={isCollapsed} aria-hidden="true">
+    <MaterialSymbol icon="expand_more" size={20} weight={400} opsz={20} />
+  </span>
   <img src="/favicon.svg" alt="" width="24" height="24" aria-hidden="true" />
 </button>
 
@@ -44,22 +43,13 @@
   }
 
   .handle-icon {
+    display: inline-flex;
+    align-items: center;
     transition: transform 160ms ease;
     transform: rotate(0deg);
   }
 
   .handle-icon.rotated {
     transform: rotate(180deg);
-  }
-
-  .icon {
-    font-size: 20px;
-    line-height: 1;
-    display: block;
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 400,
-      "GRAD" 0,
-      "opsz" 20;
   }
 </style>

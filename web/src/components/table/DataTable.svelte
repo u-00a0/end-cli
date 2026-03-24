@@ -1,11 +1,13 @@
 <script lang="ts">
+  import type { RegisteredIconName } from "../../lib/icon-registry";
   import { tooltip, type TooltipValue } from "../../lib/tooltip";
+  import MaterialSymbol from "../icon/MaterialSymbol.svelte";
 
   export type DataTableCell =
     | string
     | {
         text: string;
-        icon?: string;
+        icon?: RegisteredIconName;
         className?: string;
         tooltip?: TooltipValue;
       };
@@ -53,10 +55,12 @@
                       use:tooltip={value.tooltip}
                     >
                       {#if value.icon}
-                        <span
-                          class="material-symbols-outlined cell-icon"
-                          aria-hidden="true">{value.icon}</span
-                        >
+                        <MaterialSymbol
+                          icon={value.icon}
+                          size={16}
+                          weight={600}
+                          opsz={16}
+                        />
                       {/if}
                       <span>{value.text}</span>
                     </span>
@@ -129,16 +133,6 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-  }
-
-  .cell-icon {
-    font-size: 16px;
-    line-height: 1;
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 600,
-      "GRAD" 0,
-      "opsz" 16;
   }
 
   .cell-good {

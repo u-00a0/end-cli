@@ -57,16 +57,16 @@
   import bundledDefaultAicToml from "../../../crates/end_io/src/aic.toml?raw";
 
   let backend: Backend | null = null;
-  const backendReady: Promise<Backend> = createBackend().then((b) => {
-    backend = b;
-    return b;
+  const backendReady: Promise<Backend> = createBackend().then((nextBackend) => {
+    backend = nextBackend;
+    return nextBackend;
   });
 
   const NARROW_LAYOUT_QUERY = "(max-width: 760px)";
   const MIN_EDITOR_WIDTH_PX = 300;
   const MIN_RIGHT_WIDTH_PX = 420;
-  const MIN_TOP_PANEL_HEIGHT_PX = 74;
-  const MIN_BOTTOM_PANEL_HEIGHT_PX = 74 + 12;
+  const MIN_TOP_PANEL_HEIGHT_PX = 51;
+  const MIN_BOTTOM_PANEL_HEIGHT_PX = 51 + 12;
   const AUTO_SOLVE_DEBOUNCE_MS = 200;
 
   const STORAGE_CONFIG: DraftStorageConfig = {
@@ -98,8 +98,8 @@
     debounceMs: AUTO_SOLVE_DEBOUNCE_MS,
     toToml: buildAicToml,
     solve: async (solveLang, toml) => {
-      const b = backend ?? await backendReady;
-      return b.solveScenario(solveLang, toml);
+      const nextBackend = backend ?? await backendReady;
+      return nextBackend.solveScenario(solveLang, toml);
     },
     onStateChange: (next) => {
       solveState = next;
@@ -211,8 +211,8 @@
     isBootstrapping = true;
 
     try {
-      const b = backend ?? await backendReady;
-      const payload = await b.loadBootstrap(lang);
+      const nextBackend = backend ?? await backendReady;
+      const payload = await nextBackend.loadBootstrap(lang);
       catalogItems = payload.catalog.items;
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : String(error));
@@ -362,7 +362,7 @@
     };
 
     void (async () => {
-      void backendReady.then((b) => b.warmup()).catch(() => undefined);
+      void backendReady.then((nextBackend) => nextBackend.warmup()).catch(() => undefined);
 
       const restored = restoreLocalState(STORAGE_CONFIG);
       const shareParam = new URLSearchParams(window.location.search).get("s");

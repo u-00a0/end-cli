@@ -59,8 +59,11 @@ mod tests {
 
     #[test]
     fn solve_rejects_invalid_toml() {
-        let err = solve_from_aic_toml(Lang::Zh, "version = 2\n[power]\nexternal_consumption = 'oops'")
-            .expect_err("invalid toml should fail");
+        let err = solve_from_aic_toml(
+            Lang::Zh,
+            "version = 2\n[power]\nexternal_consumption = 'oops'",
+        )
+        .expect_err("invalid toml should fail");
         let msg = err.to_string();
         assert!(
             msg.contains("Aic parse failed"),

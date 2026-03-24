@@ -148,6 +148,8 @@ pub struct ItemDef {
     pub key: Key,
     pub en: DisplayName,
     pub zh: DisplayName,
+    /// Whether this item is a fluid that cannot be stored or sold at outposts.
+    pub is_fluid: bool,
 }
 
 /// Machine facility metadata and display texts.

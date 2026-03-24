@@ -1,20 +1,23 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { RegisteredIconName } from "../../lib/icon-registry";
+  import FieldHint from "../hover/FieldHint.svelte";
+  import MaterialSymbol from "../icon/MaterialSymbol.svelte";
 
   interface Props {
     titleText?: string;
-    subtitleText?: string;
+    icon?: RegisteredIconName;
+    fieldHintText?: string;
 
     title?: Snippet;
-    subtitle?: Snippet;
     controls?: Snippet;
   }
 
   let {
     titleText,
-    subtitleText,
+    icon,
+    fieldHintText,
     title,
-    subtitle,
     controls,
   }: Props = $props();
 </script>
@@ -24,13 +27,20 @@
     {#if title}
       {@render title()}
     {:else if titleText}
-      <h2>{titleText}</h2>
-    {/if}
-
-    {#if subtitle}
-      <p class="subtitle">{@render subtitle()}</p>
-    {:else if subtitleText}
-      <p class="subtitle">{subtitleText}</p>
+      <h2 class="panel-title">
+        {#if icon}
+          <MaterialSymbol
+            icon={icon}
+            size={24}
+            weight={400}
+            opsz={48}
+          />
+        {/if}
+        <span class="title-text">{titleText}</span>
+        {#if fieldHintText}
+          <FieldHint text={fieldHintText} />
+        {/if}
+      </h2>
     {/if}
   </div>
 
@@ -50,14 +60,21 @@
   }
 
   .left {
+    display: inline-flex;
     min-width: 0;
   }
 
-  .subtitle {
-    margin-top: var(--space-1);
-    color: var(--muted-text);
-    font-size: 12px;
-    line-height: 1.35;
+  .panel-title {
+    display: inline-flex;
+    gap: var(--space-2);
+    margin: 0;
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+
+  .title-text {
+    font-weight: 500;
   }
 
   .controls {

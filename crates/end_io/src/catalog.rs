@@ -96,6 +96,7 @@ pub fn load_catalog<'id>(data_dir: Option<&Path>, guard: Guard<'id>) -> Result<C
                 key: raw.key,
                 en: raw.en,
                 zh: raw.zh,
+                is_fluid: raw.fluid,
             })
             .map_err(|source| {
                 map_item_build_error(&items_path, &items_src, i, Some(span), source)
