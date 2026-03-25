@@ -3,14 +3,16 @@
 <div align="center">
 
 <img src="https://raw.githubusercontent.com/sssxks/end-cli/refs/heads/main/web/public/favicon.svg" alt="源石图标" width="128" height="128"> <br>
-# 源石计划
 
 <!-- markdownlint-restore -->
 
-[![CI](https://github.com/sssxks/end-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/sssxks/end-cli/actions/workflows/ci.yml)<br>
+# 源石计划
+
+[![CI](https://github.com/sssxks/end-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/sssxks/end-cli/actions/workflows/ci.yml)
+
 终末地产线规划
 
-使用 Rust/WebAssembly 实现的终末地生产线规划工具，支持 CLI 和 Web 版本。基于 HiGHS 求解器实现 MILP 模型求解。
+使用 Rust / WebAssembly 实现的终末地生产线规划工具，支持 CLI 和 Web 版本。基于 HiGHS 求解器实现 MILP 模型求解。
 
 🔗 网页链接: [end-8jk.pages.dev](https://end-8jk.pages.dev/), [sssxks.github.io/end-cli/](https://sssxks.github.io/end-cli/)
 </div>
@@ -109,3 +111,6 @@ end-cli solve --help
 - 配方吞吐受机器数量约束
 - 总发电功率 >= 总用电功率
 
+## 贡献者
+
+[![Contributors](https://contrib.rocks/image?repo=sssxks/end-cli)](https://github.com/sssxks/end-cli/graphs/contributors)
